@@ -6,6 +6,36 @@
 
 ---
 
+## 0. 开发进度
+
+### 基础设施
+
+| ID | 模块 | 状态 |
+|----|------|:----:|
+| INF01 | Cargo workspace 骨架（7 crate） | ✅ |
+| INF02 | `canscope-core` 核心类型（CanFrame / CanFrameStream / StreamMetadata） | ✅ |
+| INF03 | `canscope-parser` ASC 解析器（AscReader 实现 CanFrameStream） | ✅ |
+| INF04 | `canscope-dbc` DBC 解析器 + 信号解码引擎 | ✅ |
+| INF05 | `canscope-playback` 回放引擎 | ⬜ |
+| INF06 | `canscope-export` 格式导出 | ⬜ |
+| INF07 | `canscope-adapter` 硬件接入层 | ⬜ |
+| INF08 | `canscope-app` Tauri + 前端骨架 | ⬜ |
+
+### Phase 1 功能
+
+| ID | 功能 | 状态 |
+|----|------|:----:|
+| F01 | ASC 文件加载 | ✅ |
+| F02 | CSV 文件加载 | ⬜ |
+| F03 | DBC 文件加载 | ✅ |
+| F04 | 报文列表显示 | ⬜ |
+| F05 | 信号解码显示 | ✅ |
+| F06~F16 | 播放控制 / 过滤 / 搜索 / 信号树 / 曲线 / 导出 | ⬜ |
+
+> 更新方式：每次完成一个模块/功能后，将对应行的 `⬜` 改为 `✅`，并在 commit message 中注明 feature ID。
+
+---
+
 ## 1. 概述
 
 ### 1.1 文档目的

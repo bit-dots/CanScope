@@ -22,6 +22,11 @@ dependencies = [
 [[package]]
 name = "canscope-dbc"
 version = "0.1.0"
+dependencies = [
+ "canscope-core",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "canscope-export"
