@@ -2,5 +2,18 @@
 name = "canscope-app"
 version = "0.1.0"
 edition = "2024"
+description = "CanScope Tauri 桌面应用入口"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+canscope-core = { workspace = true }
+canscope-parser = { workspace = true }
+canscope-dbc = { workspace = true }
+canscope-playback = { workspace = true }

@@ -12,7 +12,9 @@ resolver = "2"
 
 [workspace.dependencies]
 canscope-core = { path = "crates/canscope-core" }
+canscope-parser = { path = "crates/canscope-parser" }
 canscope-dbc = { path = "crates/canscope-dbc" }
+canscope-playback = { path = "crates/canscope-playback" }
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = "1"

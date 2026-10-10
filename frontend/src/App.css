@@ -1,0 +1,52 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.welcome {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.welcome h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  letter-spacing: 2px;
+}
+
+.welcome p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.btn-open {
+  padding: 10px 32px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-open:hover {
+  background: var(--accent-hover);
+}
+
+.placeholder {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
