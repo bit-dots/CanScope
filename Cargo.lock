@@ -43,6 +43,11 @@ dependencies = [
 [[package]]
 name = "canscope-playback"
 version = "0.1.0"
+dependencies = [
+ "canscope-core",
+ "canscope-dbc",
+ "thiserror",
+]
 
 [[package]]
 name = "proc-macro2"

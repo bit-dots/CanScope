@@ -16,7 +16,7 @@
 | INF02 | `canscope-core` 核心类型（CanFrame / CanFrameStream / StreamMetadata） | ✅ |
 | INF03 | `canscope-parser` ASC 解析器（AscReader 实现 CanFrameStream） | ✅ |
 | INF04 | `canscope-dbc` DBC 解析器 + 信号解码引擎 | ✅ |
-| INF05 | `canscope-playback` 回放引擎 | ⬜ |
+| INF05 | `canscope-playback` 回放引擎 | ✅ |
 | INF06 | `canscope-export` 格式导出 | ⬜ |
 | INF07 | `canscope-adapter` 硬件接入层 | ⬜ |
 | INF08 | `canscope-app` Tauri + 前端骨架 | ⬜ |

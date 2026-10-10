@@ -2,5 +2,9 @@
 name = "canscope-playback"
 version = "0.1.0"
 edition = "2024"
+description = "CAN 报文回放引擎（播放/暂停/倍速/Seek/步进）"
 
 [dependencies]
+canscope-core.workspace = true
+canscope-dbc.workspace = true
+thiserror.workspace = true
