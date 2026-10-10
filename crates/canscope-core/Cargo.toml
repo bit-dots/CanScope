@@ -1,0 +1,10 @@
+[package]
+name = "canscope-core"
+version = "0.1.0"
+edition = "2024"
+description = "CanScope 核心类型与抽象接口"
+
+[dependencies]
+serde.workspace = true
+serde_bytes.workspace = true
+thiserror.workspace = true
