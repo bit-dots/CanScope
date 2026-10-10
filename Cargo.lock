@@ -252,6 +252,7 @@ dependencies = [
  "canscope-parser",
  "canscope-playback",
  "serde",
+ "serde_bytes",
  "serde_json",
  "tauri",
  "tauri-build",

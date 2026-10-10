@@ -5,13 +5,23 @@ use canscope_core::CanFrameStream;
 use canscope_dbc::Dbc;
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 struct AppState {
     engine: Mutex<Option<PlaybackEngine<AscReader>>>,
     dbc: Mutex<Option<Dbc>>,
     file_path: Mutex<Option<PathBuf>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileMetadata {
+    file_name: String,
+    total_frames: u64,
+    duration: Option<f64>,
+    bus_count: u8,
+    start_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,48 +32,78 @@ struct FrameInfo {
     is_extended: bool,
     is_fd: bool,
     dlc: u8,
+    #[serde(with = "serde_bytes")]
+    data: [u8; 64],
     signal_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct OpenResult {
+    metadata: FileMetadata,
+    frames: Vec<FrameInfo>,
 }
 
 #[tauri::command]
 fn open_file(
     path: String,
     state: State<AppState>,
-) -> Result<Vec<FrameInfo>, String> {
+) -> Result<OpenResult, String> {
     let path_buf = PathBuf::from(&path);
     let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
 
-    let total = reader.metadata().total_frames.unwrap_or(0);
-    let mut frames = Vec::with_capacity(total.min(500) as usize);
+    let meta = reader.metadata();
+    let total = meta.total_frames.unwrap_or(0);
+
+    let file_name = path_buf
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let metadata = FileMetadata {
+        file_name,
+        total_frames: total,
+        duration: meta.duration,
+        bus_count: meta.bus_count,
+        start_time: meta.start_time.clone(),
+    };
 
     let engine = PlaybackEngine::new(reader);
+
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = Some(engine);
 
     let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
     *file_path = Some(path_buf);
 
-    drop(engine_guard);
     drop(file_path);
 
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut frames = Vec::new();
+
     if let Some(ref mut engine) = *engine_guard {
-        engine.play();
-        let batch = engine.next_batch(500).map_err(|e| e.to_string())?;
+        let batch_size = total.min(500) as usize;
+        let batch = engine.next_batch(batch_size).map_err(|e| e.to_string())?;
         for f in &batch {
-            frames.push(FrameInfo {
-                timestamp: f.timestamp,
-                bus_id: f.bus_id,
-                can_id: f.can_id,
-                is_extended: f.is_extended,
-                is_fd: f.is_fd,
-                dlc: f.dlc,
-                signal_count: f.signals.as_ref().map(|s| s.len()).unwrap_or(0),
-            });
+            frames.push(frame_to_info(f));
         }
+        let _ = engine.seek_to(0.0);
     }
 
-    Ok(frames)
+    drop(engine_guard);
+
+    Ok(OpenResult { metadata, frames })
+}
+
+fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
+    FrameInfo {
+        timestamp: f.timestamp,
+        bus_id: f.bus_id,
+        can_id: f.can_id,
+        is_extended: f.is_extended,
+        is_fd: f.is_fd,
+        dlc: f.dlc,
+        data: f.data,
+        signal_count: f.signals.as_ref().map(|s| s.len()).unwrap_or(0),
+    }
 }
 
 #[tauri::command]
@@ -95,15 +135,7 @@ fn get_batch(state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
 
         let batch = engine.next_batch(100).map_err(|e| e.to_string())?;
         for f in &batch {
-            frames.push(FrameInfo {
-                timestamp: f.timestamp,
-                bus_id: f.bus_id,
-                can_id: f.can_id,
-                is_extended: f.is_extended,
-                is_fd: f.is_fd,
-                dlc: f.dlc,
-                signal_count: f.signals.as_ref().map(|s| s.len()).unwrap_or(0),
-            });
+            frames.push(frame_to_info(f));
         }
     }
 
@@ -129,12 +161,27 @@ fn playback_control(
             }
             "stop" => {
                 engine.stop();
+                let _ = engine.seek_to(0.0);
                 Ok("stopped".into())
             }
             _ => Err(format!("Unknown action: {}", action)),
         }
     } else {
         Err("No file loaded".into())
+    }
+}
+
+#[tauri::command]
+fn get_playback_state(state: State<AppState>) -> Result<String, String> {
+    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref engine) = *engine_guard {
+        match engine.state() {
+            PlaybackState::Stopped => Ok("stopped".into()),
+            PlaybackState::Playing => Ok("playing".into()),
+            PlaybackState::Paused => Ok("paused".into()),
+        }
+    } else {
+        Ok("stopped".into())
     }
 }
 
@@ -175,6 +222,7 @@ pub fn run() {
             load_dbc,
             get_batch,
             playback_control,
+            get_playback_state,
             seek_to,
             get_progress,
         ])

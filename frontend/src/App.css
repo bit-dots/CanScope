@@ -6,10 +6,20 @@
 
 .main-content {
   flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-content:has(.welcome) {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+}
+
+.main-content:has(.loading) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .welcome {
@@ -49,4 +59,35 @@
 .placeholder {
   color: var(--text-secondary);
   font-size: 1rem;
+}
+
+.loading {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.error-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: #5a1a1a;
+  color: #fca5a5;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid #7f1d1d;
+}
+
+.frame-table::-webkit-scrollbar {
+  width: 8px;
+}
+
+.frame-table::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.frame-table::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }

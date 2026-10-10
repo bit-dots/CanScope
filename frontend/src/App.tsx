@@ -1,10 +1,42 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onCleanup } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 import Toolbar from './components/Toolbar';
+import FrameTable from './components/FrameTable';
 import StatusBar from './components/StatusBar';
+import type { OpenResult, PlaybackState, FrameInfo, FileMetadata } from './types';
 import './App.css';
 
 function App() {
-  const [sourceLoaded, setSourceLoaded] = createSignal(false);
+  const [metadata, setMetadata] = createSignal<FileMetadata | null>(null);
+  const [frames, setFrames] = createSignal<FrameInfo[]>([]);
+  const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  let playbackTimer: ReturnType<typeof setInterval> | null = null;
+
+  const startPolling = () => {
+    if (playbackTimer) return;
+    playbackTimer = setInterval(async () => {
+      try {
+        const batch: FrameInfo[] = await invoke('get_batch');
+        if (batch.length > 0) {
+          setFrames(prev => [...prev, ...batch]);
+        }
+      } catch (e) {
+        console.error('get_batch failed:', e);
+      }
+    }, 100);
+  };
+
+  const stopPolling = () => {
+    if (playbackTimer) {
+      clearInterval(playbackTimer);
+      playbackTimer = null;
+    }
+  };
+
+  onCleanup(() => stopPolling());
 
   const handleFileOpen = async () => {
     try {
@@ -15,20 +47,62 @@ function App() {
           { name: 'All Files', extensions: ['*'] },
         ],
       });
-      if (selected) {
-        setSourceLoaded(true);
-      }
+      if (!selected) return;
+      if (typeof selected !== 'string') return;
+
+      stopPolling();
+      setLoading(true);
+      setError(null);
+
+      const result: OpenResult = await invoke('open_file', { path: selected });
+      setMetadata(result.metadata);
+      setFrames(result.frames);
+      setPlaybackState('stopped');
+      setLoading(false);
     } catch (e) {
-      console.warn('Tauri dialog not available (browser mode):', e);
+      setLoading(false);
+      const msg = String(e);
+      setError(msg);
+      console.error('Failed to open file:', e);
     }
   };
 
+  const handlePlaybackControl = async (action: string) => {
+    try {
+      const state: string = await invoke('playback_control', { action });
+      setPlaybackState(state as PlaybackState);
+
+      if (state === 'playing') {
+        startPolling();
+      } else {
+        stopPolling();
+        if (state === 'stopped') {
+          setFrames([]);
+        }
+      }
+    } catch (e) {
+      console.error('playback_control failed:', e);
+    }
+  };
+
+  const hasSource = () => metadata() !== null;
+
   return (
     <div class="app-layout">
-      <Toolbar onFileOpen={handleFileOpen} sourceLoaded={sourceLoaded()} />
+      <Toolbar
+        onFileOpen={handleFileOpen}
+        sourceLoaded={hasSource()}
+        playbackState={playbackState()}
+        onPlaybackControl={handlePlaybackControl}
+      />
       <main class="main-content">
-        {sourceLoaded() ? (
-          <div class="placeholder">Frame data will be displayed here</div>
+        {error() && (
+          <div class="error-bar">{error()}</div>
+        )}
+        {loading() ? (
+          <div class="loading">Loading file...</div>
+        ) : hasSource() ? (
+          <FrameTable frames={frames()} />
         ) : (
           <div class="welcome">
             <h1>CanScope</h1>
@@ -39,7 +113,12 @@ function App() {
           </div>
         )}
       </main>
-      <StatusBar sourceLoaded={sourceLoaded()} />
+      <StatusBar
+        sourceLoaded={hasSource()}
+        metadata={metadata()}
+        frameCount={frames().length}
+        playbackState={playbackState()}
+      />
     </div>
   );
 }

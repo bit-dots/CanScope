@@ -12,6 +12,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 canscope-core = { workspace = true }
 canscope-parser = { workspace = true }

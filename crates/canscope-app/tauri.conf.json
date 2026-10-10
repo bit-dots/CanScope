@@ -10,7 +10,6 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
-    "title": "CanScope",
     "windows": [
       {
         "title": "CanScope",
