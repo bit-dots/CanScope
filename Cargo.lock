@@ -30,6 +30,10 @@ version = "0.1.0"
 [[package]]
 name = "canscope-parser"
 version = "0.1.0"
+dependencies = [
+ "canscope-core",
+ "thiserror",
+]
 
 [[package]]
 name = "canscope-playback"
