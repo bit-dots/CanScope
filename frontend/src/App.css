@@ -91,3 +91,35 @@
   background: var(--border);
   border-radius: 4px;
 }
+
+.split-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.signal-panel {
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.panel-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.panel-resizer:hover {
+  background: var(--accent);
+}
+
+.frame-panel {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  min-width: 0;
+}

@@ -3,6 +3,7 @@ import type { PlaybackState } from '../types';
 
 interface ToolbarProps {
   onFileOpen: () => void;
+  onLoadDbc: () => void;
   sourceLoaded: boolean;
   playbackState: PlaybackState;
   onPlaybackControl: (action: string) => void;
@@ -39,6 +40,21 @@ const Toolbar: Component<ToolbarProps> = (props) => {
 
       {props.sourceLoaded && (
         <>
+          <button
+            onClick={props.onLoadDbc}
+            style={{
+              padding: '4px 16px',
+              border: 'none',
+              'border-radius': '4px',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              'font-size': '13px',
+            }}
+          >
+            Load DBC
+          </button>
+
           <div style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
 
           {isPlaying() ? (

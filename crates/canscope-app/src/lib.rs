@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use canscope_core::CanFrameStream;
-use canscope_dbc::{Dbc, DecodedSignal};
+use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,82 @@ impl From<&DecodedSignal> for DecodedSignalInfo {
             unit: s.unit.clone(),
             label: s.label.clone(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcSignalInfo {
+    name: String,
+    start_bit: u8,
+    bit_length: u8,
+    byte_order: String,
+    unit: String,
+    min: Option<f64>,
+    max: Option<f64>,
+    multiplexer: String,
+}
+
+impl From<&DbcSignal> for DbcSignalInfo {
+    fn from(s: &DbcSignal) -> Self {
+        Self {
+            name: s.name.clone(),
+            start_bit: s.start_bit,
+            bit_length: s.bit_length,
+            byte_order: format!("{:?}", s.byte_order),
+            unit: s.unit.clone(),
+            min: s.min,
+            max: s.max,
+            multiplexer: format!("{:?}", s.multiplexer),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcMessageInfo {
+    can_id: u32,
+    name: String,
+    dlc: u8,
+    sender: String,
+    signals: Vec<DbcSignalInfo>,
+    signal_count: usize,
+}
+
+impl From<&DbcMessage> for DbcMessageInfo {
+    fn from(m: &DbcMessage) -> Self {
+        Self {
+            can_id: m.can_id,
+            name: m.name.clone(),
+            dlc: m.dlc,
+            sender: m.sender.clone(),
+            signal_count: m.signals.len(),
+            signals: m.signals.iter().map(DbcSignalInfo::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcTreeInfo {
+    messages: Vec<DbcMessageInfo>,
+    message_count: usize,
+    signal_count: usize,
+}
+
+#[tauri::command]
+fn get_dbc_info(state: State<AppState>) -> Result<Option<DbcTreeInfo>, String> {
+    let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    if let Some(ref dbc) = *dbc_guard {
+        let messages: Vec<DbcMessageInfo> = dbc.messages.iter().map(|m| DbcMessageInfo::from(m)).collect();
+        let signal_count: usize = messages.iter().map(|m| m.signal_count).sum();
+        Ok(Some(DbcTreeInfo {
+            message_count: messages.len(),
+            signal_count,
+            messages,
+        }))
+    } else {
+        Ok(None)
     }
 }
 
@@ -239,6 +315,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_file,
             load_dbc,
+            get_dbc_info,
             get_batch,
             playback_control,
             get_playback_state,

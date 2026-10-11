@@ -46,6 +46,32 @@ export interface FilterConfig {
   timeEnd: string;
 }
 
+export interface DbcSignalInfo {
+  name: string;
+  startBit: number;
+  bitLength: number;
+  byteOrder: string;
+  unit: string;
+  min: number | null;
+  max: number | null;
+  multiplexer: string;
+}
+
+export interface DbcMessageInfo {
+  canId: number;
+  name: string;
+  dlc: number;
+  sender: string;
+  signals: DbcSignalInfo[];
+  signalCount: number;
+}
+
+export interface DbcTreeInfo {
+  messages: DbcMessageInfo[];
+  messageCount: number;
+  signalCount: number;
+}
+
 export function parseCanId(input: string): number | null {
   const s = input.trim();
   if (!s) return null;

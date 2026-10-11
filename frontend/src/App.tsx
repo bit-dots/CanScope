@@ -2,9 +2,10 @@ import { createSignal, createMemo, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Toolbar from './components/Toolbar';
 import FilterBar from './components/FilterBar';
+import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
 import StatusBar from './components/StatusBar';
-import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig } from './types';
+import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig, DbcTreeInfo } from './types';
 import { matchesFilter } from './types';
 import './App.css';
 
@@ -15,6 +16,9 @@ function App() {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [filter, setFilter] = createSignal<FilterConfig>({ canId: '', timeStart: '', timeEnd: '' });
+  const [dbcTree, setDbcTree] = createSignal<DbcTreeInfo | null>(null);
+  const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
+  const [panelWidth, setPanelWidth] = createSignal(260);
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -62,6 +66,8 @@ function App() {
       stopPolling();
       setLoading(true);
       setError(null);
+      setDbcTree(null);
+      setSelectedCanId(null);
 
       const result: OpenResult = await invoke('open_file', { path: selected });
       setMetadata(result.metadata);
@@ -73,6 +79,37 @@ function App() {
       const msg = String(e);
       setError(msg);
       console.error('Failed to open file:', e);
+    }
+  };
+
+  const handleLoadDbc = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        filters: [
+          { name: 'DBC Files', extensions: ['dbc'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (!selected || typeof selected !== 'string') return;
+
+      const result: string = await invoke('load_dbc', { path: selected });
+      console.log(result);
+
+      const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
+      setDbcTree(tree);
+    } catch (e) {
+      console.error('Failed to load DBC:', e);
+      setError(String(e));
+    }
+  };
+
+  const handleSelectMessage = (canId: number | null) => {
+    setSelectedCanId(canId);
+    if (canId !== null) {
+      setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' });
+    } else {
+      setFilter({ canId: '', timeStart: '', timeEnd: '' });
     }
   };
 
@@ -96,10 +133,29 @@ function App() {
 
   const hasSource = () => metadata() !== null;
 
+  let isDragging = false;
+  const startResize = (_e: MouseEvent) => {
+    isDragging = true;
+    const onMove = (e: MouseEvent) => {
+      if (isDragging) {
+        const w = Math.max(180, Math.min(500, e.clientX));
+        setPanelWidth(w);
+      }
+    };
+    const onUp = () => {
+      isDragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   return (
     <div class="app-layout">
       <Toolbar
         onFileOpen={handleFileOpen}
+        onLoadDbc={handleLoadDbc}
         sourceLoaded={hasSource()}
         playbackState={playbackState()}
         onPlaybackControl={handlePlaybackControl}
@@ -116,7 +172,22 @@ function App() {
         {loading() ? (
           <div class="loading">Loading file...</div>
         ) : hasSource() ? (
-          <FrameTable frames={filteredFrames()} />
+          <div class="split-layout">
+            <div class="signal-panel" style={{ width: panelWidth() + 'px' }}>
+              <SignalTree
+                tree={dbcTree()}
+                onSelectMessage={handleSelectMessage}
+                selectedCanId={selectedCanId()}
+              />
+            </div>
+            <div
+              class="panel-resizer"
+              onMouseDown={startResize}
+            />
+            <div class="frame-panel">
+              <FrameTable frames={filteredFrames()} />
+            </div>
+          </div>
         ) : (
           <div class="welcome">
             <h1>CanScope</h1>
