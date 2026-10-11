@@ -302,6 +302,30 @@ fn get_progress(state: State<AppState>) -> Result<Option<f64>, String> {
     }
 }
 
+#[tauri::command]
+fn set_speed(
+    speed: f64,
+    state: State<AppState>,
+) -> Result<f64, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut engine) = *engine_guard {
+        engine.set_speed(speed);
+        Ok(engine.speed())
+    } else {
+        Err("No file loaded".into())
+    }
+}
+
+#[tauri::command]
+fn get_speed(state: State<AppState>) -> Result<f64, String> {
+    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref engine) = *engine_guard {
+        Ok(engine.speed())
+    } else {
+        Ok(1.0)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -321,6 +345,8 @@ pub fn run() {
             get_playback_state,
             seek_to,
             get_progress,
+            set_speed,
+            get_speed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CanScope");

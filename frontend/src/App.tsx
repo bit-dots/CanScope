@@ -20,6 +20,7 @@ function App() {
   const [dbcTree, setDbcTree] = createSignal<DbcTreeInfo | null>(null);
   const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
+  const [speed, setSpeed] = createSignal(1);
   const [panelWidth, setPanelWidth] = createSignal(260);
   const [chartHeight, setChartHeight] = createSignal(200);
 
@@ -33,6 +34,7 @@ function App() {
 
   const startPolling = () => {
     if (playbackTimer) return;
+    const interval = Math.max(10, Math.round(100 / speed()));
     playbackTimer = setInterval(async () => {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
@@ -42,7 +44,7 @@ function App() {
       } catch (e) {
         console.error('get_batch failed:', e);
       }
-    }, 100);
+    }, interval);
   };
 
   const stopPolling = () => {
@@ -126,6 +128,19 @@ function App() {
     setChartSignals(prev => prev.filter(x => !(x.canId === s.canId && x.signalName === s.signalName)));
   };
 
+  const handleSpeedChange = async (newSpeed: number) => {
+    setSpeed(newSpeed);
+    try {
+      await invoke('set_speed', { speed: newSpeed });
+    } catch (e) {
+      console.error('set_speed failed:', e);
+    }
+    if (playbackState() === 'playing') {
+      stopPolling();
+      startPolling();
+    }
+  };
+
   const handlePlaybackControl = async (action: string) => {
     try {
       const state: string = await invoke('playback_control', { action });
@@ -188,6 +203,8 @@ function App() {
         sourceLoaded={hasSource()}
         playbackState={playbackState()}
         onPlaybackControl={handlePlaybackControl}
+        speed={speed()}
+        onSpeedChange={handleSpeedChange}
       />
       <FilterBar
         filter={filter()}
