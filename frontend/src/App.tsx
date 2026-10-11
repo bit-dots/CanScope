@@ -5,6 +5,7 @@ import FilterBar from './components/FilterBar';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
 import SignalChart from './components/SignalChart';
+import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig, DbcTreeInfo, ChartSignal } from './types';
 import { matchesFilter } from './types';
@@ -28,6 +29,11 @@ function App() {
     const f = filter();
     if (!f.canId && !f.timeStart && !f.timeEnd) return frames();
     return frames().filter(frame => matchesFilter(frame, f));
+  });
+
+  const currentTime = createMemo(() => {
+    const list = frames();
+    return list.length > 0 ? list[list.length - 1].timestamp : 0;
   });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
@@ -107,6 +113,20 @@ function App() {
     } catch (e) {
       console.error('Failed to load DBC:', e);
       setError(String(e));
+    }
+  };
+
+  const handleSeek = async (timestamp: number) => {
+    try {
+      const wasPlaying = playbackState() === 'playing';
+      if (wasPlaying) stopPolling();
+      await invoke('seek_to', { timestamp });
+      setFrames([]);
+      const batch: FrameInfo[] = await invoke('get_batch');
+      setFrames(batch);
+      if (wasPlaying) startPolling();
+    } catch (e) {
+      console.error('Seek failed:', e);
     }
   };
 
@@ -210,6 +230,12 @@ function App() {
         filter={filter()}
         onFilterChange={setFilter}
         visible={hasSource()}
+      />
+      <Timeline
+        duration={metadata()?.duration ?? null}
+        currentTime={currentTime()}
+        onSeek={handleSeek}
+        disabled={!hasSource()}
       />
       <main class="main-content">
         {error() && (
