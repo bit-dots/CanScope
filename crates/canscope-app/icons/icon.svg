@@ -17,8 +17,8 @@
   </defs>
 
   <!-- Rounded-square presentation for the bundled flat icon; no decorative inner border. -->
-  <rect width="1024" height="1024" rx="224" fill="url(#background)"/>
-  <rect width="1024" height="1024" rx="224" fill="url(#grid)"/>
+  <rect width="1024" height="1024" fill="url(#background)"/>
+  <rect width="1024" height="1024" fill="url(#grid)"/>
 
   <!-- A dim delayed sample gives the trace a sense of observation history, not a second signal. -->
   <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" transform="translate(16 18)" fill="none" stroke="#7DA5C9" stroke-opacity=".16" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
