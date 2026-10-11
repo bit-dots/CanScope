@@ -5,6 +5,7 @@ interface StatusBarProps {
   sourceLoaded: boolean;
   metadata: FileMetadata | null;
   frameCount: number;
+  totalFrameCount: number;
   playbackState: PlaybackState;
 }
 
@@ -16,7 +17,6 @@ const stateLabel: Record<PlaybackState, string> = {
 
 const StatusBar: Component<StatusBarProps> = (props) => {
   const fileName = () => props.metadata?.fileName ?? '';
-  const totalFrames = () => props.metadata?.totalFrames ?? 0;
 
   return (
     <div style={{
@@ -32,7 +32,7 @@ const StatusBar: Component<StatusBarProps> = (props) => {
     }}>
       <span>
         {props.sourceLoaded
-          ? `${fileName()}  |  ${props.frameCount} / ${totalFrames()} frames  |  ${stateLabel[props.playbackState]}`
+          ? `${fileName()}  |  ${props.frameCount} / ${props.totalFrameCount} frames${props.frameCount !== props.totalFrameCount ? ' (filtered)' : ''}  |  ${stateLabel[props.playbackState]}`
           : 'No file loaded'}
       </span>
       <span>CanScope v0.1</span>

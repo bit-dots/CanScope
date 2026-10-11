@@ -1,9 +1,11 @@
-import { createSignal, onCleanup } from 'solid-js';
+import { createSignal, createMemo, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Toolbar from './components/Toolbar';
+import FilterBar from './components/FilterBar';
 import FrameTable from './components/FrameTable';
 import StatusBar from './components/StatusBar';
-import type { OpenResult, PlaybackState, FrameInfo, FileMetadata } from './types';
+import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig } from './types';
+import { matchesFilter } from './types';
 import './App.css';
 
 function App() {
@@ -12,6 +14,13 @@ function App() {
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [filter, setFilter] = createSignal<FilterConfig>({ canId: '', timeStart: '', timeEnd: '' });
+
+  const filteredFrames = createMemo<FrameInfo[]>(() => {
+    const f = filter();
+    if (!f.canId && !f.timeStart && !f.timeEnd) return frames();
+    return frames().filter(frame => matchesFilter(frame, f));
+  });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -95,6 +104,11 @@ function App() {
         playbackState={playbackState()}
         onPlaybackControl={handlePlaybackControl}
       />
+      <FilterBar
+        filter={filter()}
+        onFilterChange={setFilter}
+        visible={hasSource()}
+      />
       <main class="main-content">
         {error() && (
           <div class="error-bar">{error()}</div>
@@ -102,7 +116,7 @@ function App() {
         {loading() ? (
           <div class="loading">Loading file...</div>
         ) : hasSource() ? (
-          <FrameTable frames={frames()} />
+          <FrameTable frames={filteredFrames()} />
         ) : (
           <div class="welcome">
             <h1>CanScope</h1>
@@ -116,7 +130,8 @@ function App() {
       <StatusBar
         sourceLoaded={hasSource()}
         metadata={metadata()}
-        frameCount={frames().length}
+        frameCount={filteredFrames().length}
+        totalFrameCount={frames().length}
         playbackState={playbackState()}
       />
     </div>

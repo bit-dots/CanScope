@@ -40,6 +40,44 @@ export function formatDataHex(data: number[], dlc: number): string {
   return bytes.map(b => formatHex(b, 2)).join(' ');
 }
 
+export interface FilterConfig {
+  canId: string;
+  timeStart: string;
+  timeEnd: string;
+}
+
+export function parseCanId(input: string): number | null {
+  const s = input.trim();
+  if (!s) return null;
+  const num = s.startsWith('0x') || s.startsWith('0X')
+    ? parseInt(s, 16)
+    : parseInt(s, 10);
+  return Number.isNaN(num) ? null : num;
+}
+
+export function parseTime(input: string): number | null {
+  const s = input.trim();
+  if (!s) return null;
+  const num = parseFloat(s);
+  return Number.isNaN(num) ? null : num;
+}
+
+export function matchesFilter(frame: FrameInfo, filter: FilterConfig): boolean {
+  if (filter.canId) {
+    const target = parseCanId(filter.canId);
+    if (target !== null && frame.can_id !== target) return false;
+  }
+  if (filter.timeStart) {
+    const t = parseTime(filter.timeStart);
+    if (t !== null && frame.timestamp < t) return false;
+  }
+  if (filter.timeEnd) {
+    const t = parseTime(filter.timeEnd);
+    if (t !== null && frame.timestamp > t) return false;
+  }
+  return true;
+}
+
 export function formatSignal(signal: DecodedSignalInfo): string {
   const display = signal.label ?? signal.physical_value.toFixed(2);
   const unit = signal.unit ? ` ${signal.unit}` : '';
