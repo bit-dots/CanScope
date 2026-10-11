@@ -4,8 +4,9 @@ import Toolbar from './components/Toolbar';
 import FilterBar from './components/FilterBar';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
+import SignalChart from './components/SignalChart';
 import StatusBar from './components/StatusBar';
-import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig, DbcTreeInfo } from './types';
+import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig, DbcTreeInfo, ChartSignal } from './types';
 import { matchesFilter } from './types';
 import './App.css';
 
@@ -18,7 +19,9 @@ function App() {
   const [filter, setFilter] = createSignal<FilterConfig>({ canId: '', timeStart: '', timeEnd: '' });
   const [dbcTree, setDbcTree] = createSignal<DbcTreeInfo | null>(null);
   const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
+  const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [panelWidth, setPanelWidth] = createSignal(260);
+  const [chartHeight, setChartHeight] = createSignal(200);
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -68,6 +71,7 @@ function App() {
       setError(null);
       setDbcTree(null);
       setSelectedCanId(null);
+      setChartSignals([]);
 
       const result: OpenResult = await invoke('open_file', { path: selected });
       setMetadata(result.metadata);
@@ -113,6 +117,15 @@ function App() {
     }
   };
 
+  const handleAddSignal = (s: ChartSignal) => {
+    setChartSignals(prev => [...prev, s]);
+    if (chartHeight() < 100) setChartHeight(200);
+  };
+
+  const handleRemoveSignal = (s: ChartSignal) => {
+    setChartSignals(prev => prev.filter(x => !(x.canId === s.canId && x.signalName === s.signalName)));
+  };
+
   const handlePlaybackControl = async (action: string) => {
     try {
       const state: string = await invoke('playback_control', { action });
@@ -133,17 +146,33 @@ function App() {
 
   const hasSource = () => metadata() !== null;
 
-  let isDragging = false;
-  const startResize = (_e: MouseEvent) => {
-    isDragging = true;
+  let isDraggingH = false;
+  let isDraggingV = false;
+
+  const startResizeH = (_e: MouseEvent) => {
+    isDraggingH = true;
     const onMove = (e: MouseEvent) => {
-      if (isDragging) {
-        const w = Math.max(180, Math.min(500, e.clientX));
-        setPanelWidth(w);
+      if (isDraggingH) setPanelWidth(Math.max(180, Math.min(500, e.clientX)));
+    };
+    const onUp = () => {
+      isDraggingH = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const startResizeV = (_e: MouseEvent) => {
+    isDraggingV = true;
+    const onMove = (e: MouseEvent) => {
+      if (isDraggingV) {
+        const rect = document.querySelector('.frame-panel')?.getBoundingClientRect();
+        if (rect) setChartHeight(Math.max(80, rect.bottom - e.clientY));
       }
     };
     const onUp = () => {
-      isDragging = false;
+      isDraggingV = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
@@ -172,20 +201,30 @@ function App() {
         {loading() ? (
           <div class="loading">Loading file...</div>
         ) : hasSource() ? (
-          <div class="split-layout">
+          <div class="split-layout-h">
             <div class="signal-panel" style={{ width: panelWidth() + 'px' }}>
               <SignalTree
                 tree={dbcTree()}
                 onSelectMessage={handleSelectMessage}
                 selectedCanId={selectedCanId()}
+                onSelectSignal={handleAddSignal}
+                onRemoveSignal={handleRemoveSignal}
+                chartSignals={chartSignals()}
               />
             </div>
-            <div
-              class="panel-resizer"
-              onMouseDown={startResize}
-            />
+            <div class="panel-resizer-h" onMouseDown={startResizeH} />
             <div class="frame-panel">
-              <FrameTable frames={filteredFrames()} />
+              <div class="table-area" style={{ flex: 1, 'min-height': '0' }}>
+                <FrameTable frames={filteredFrames()} />
+              </div>
+              <div class="panel-resizer-v" onMouseDown={startResizeV} />
+              <div class="chart-area" style={{ height: chartHeight() + 'px', 'flex-shrink': '0' }}>
+                <SignalChart
+                  frames={frames()}
+                  signals={chartSignals()}
+                  onRemoveSignal={handleRemoveSignal}
+                />
+              </div>
             </div>
           </div>
         ) : (

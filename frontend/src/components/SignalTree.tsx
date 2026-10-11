@@ -1,11 +1,16 @@
 import { Component, createSignal } from 'solid-js';
-import type { DbcTreeInfo, DbcMessageInfo } from '../types';
+import type { DbcTreeInfo, DbcMessageInfo, ChartSignal } from '../types';
 import { formatHex } from '../types';
+
+const COLORS = ['#38BFA7', '#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF922B'];
 
 interface SignalTreeProps {
   tree: DbcTreeInfo | null;
   onSelectMessage: (canId: number | null) => void;
   selectedCanId: number | null;
+  onSelectSignal: (s: ChartSignal) => void;
+  onRemoveSignal: (s: ChartSignal) => void;
+  chartSignals: ChartSignal[];
 }
 
 const SignalTree: Component<SignalTreeProps> = (props) => {
@@ -41,6 +46,18 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
       </div>
     );
   }
+
+  const isChartSignal = (canId: number, signalName: string) =>
+    props.chartSignals.some(s => s.canId === canId && s.signalName === signalName);
+
+  const toggleSignalChart = (canId: number, signalName: string, unit: string) => {
+    const existing = props.chartSignals.find(s => s.canId === canId && s.signalName === signalName);
+    if (existing) {
+      props.onRemoveSignal(existing);
+    } else {
+      props.onSelectSignal({ canId, signalName, unit });
+    }
+  };
 
   const searchLower = () => search().toLowerCase();
   const filtered = () => {
@@ -172,9 +189,18 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {msg.signals.map(sig => (
-                        <tr style={{ 'border-top': '1px solid var(--border)' }}>
-                          <td style={sigTd}>
+                      {msg.signals.map(sig => {
+                          const inChart = isChartSignal(msg.canId, sig.name);
+                          return (
+                        <tr
+                          onClick={() => toggleSignalChart(msg.canId, sig.name, sig.unit)}
+                          style={{
+                            'border-top': '1px solid var(--border)',
+                            cursor: 'pointer',
+                            background: inChart ? COLORS[props.chartSignals.findIndex(s => s.canId === msg.canId && s.signalName === sig.name) % COLORS.length] + '14' : 'transparent',
+                          }}
+                        >
+                          <td style={{ ...sigTd, 'font-weight': inChart ? '600' : '400' }}>
                             {sig.multiplexer !== 'None' && (
                               <span style={{ color: 'var(--accent)', 'font-size': '9px', 'margin-right': '2px' }}>
                                 [{sig.multiplexer === 'Multiplexor' ? 'M' : 'm'}]
@@ -192,7 +218,8 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
                             {sig.unit || '—'}
                           </td>
                         </tr>
-                      ))}
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

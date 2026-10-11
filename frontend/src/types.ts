@@ -72,6 +72,12 @@ export interface DbcTreeInfo {
   signalCount: number;
 }
 
+export interface ChartSignal {
+  canId: number;
+  signalName: string;
+  unit: string;
+}
+
 export function parseCanId(input: string): number | null {
   const s = input.trim();
   if (!s) return null;
