@@ -1,6 +1,6 @@
 import { Component, createEffect, createSignal } from 'solid-js';
 import type { FrameInfo } from '../types';
-import { formatHex, formatDataHex } from '../types';
+import { formatHex, formatDataHex, formatSignal } from '../types';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -52,12 +52,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           background: 'var(--bg-secondary)',
         }}>
           <tr>
-            <th style={thStyle('#', '50px')}>#</th>
-            <th style={thStyle('Time', '110px')}>Time (s)</th>
-            <th style={thStyle('CAN ID', '90px')}>CAN ID</th>
-            <th style={thStyle('Type', '60px')}>Type</th>
-            <th style={thStyle('DLC', '50px')}>DLC</th>
-            <th style={thStyle('Data', '1fr')}>Data</th>
+            <th style={thStyle('#', '40px')}>#</th>
+            <th style={thStyle('Time', '100px')}>Time (s)</th>
+            <th style={thStyle('CAN ID', '80px')}>CAN ID</th>
+            <th style={thStyle('Type', '55px')}>Type</th>
+            <th style={thStyle('DLC', '45px')}>DLC</th>
+            <th style={thStyle('Data', '200px')}>Data</th>
+            <th style={thStyle('Signals')}>Signals</th>
           </tr>
         </thead>
         <tbody>
@@ -83,6 +84,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 <td style={{ ...tdStyle, 'font-family': 'monospace', 'font-size': '11px' }}>
                   {formatDataHex(frame.data, frame.dlc)}
                 </td>
+                <td style={{ ...tdStyle, 'font-size': '11px', color: 'var(--text-primary)' }}>
+                  {frame.signals && frame.signals.length > 0
+                    ? frame.signals.map(s => formatSignal(s)).join(', ')
+                    : <span style="color: var(--text-secondary)">—</span>
+                  }
+                </td>
               </tr>
             );
           })}
@@ -105,7 +112,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   );
 };
 
-function thStyle(_text: string, width: string): Record<string, string> {
+function thStyle(_text: string, width?: string): Record<string, string> {
   return {
     'text-align': 'left',
     padding: '4px 8px',
@@ -114,7 +121,7 @@ function thStyle(_text: string, width: string): Record<string, string> {
     'font-weight': '600',
     color: 'var(--text-secondary)',
     'white-space': 'nowrap',
-    width,
+    ...(width ? { width } : {}),
   };
 }
 

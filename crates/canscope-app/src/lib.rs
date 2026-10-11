@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use canscope_core::CanFrameStream;
-use canscope_dbc::Dbc;
+use canscope_dbc::{Dbc, DecodedSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,25 @@ struct FileMetadata {
     start_time: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DecodedSignalInfo {
+    name: String,
+    physical_value: f64,
+    unit: String,
+    label: Option<String>,
+}
+
+impl From<&DecodedSignal> for DecodedSignalInfo {
+    fn from(s: &DecodedSignal) -> Self {
+        Self {
+            name: s.name.clone(),
+            physical_value: s.physical_value,
+            unit: s.unit.clone(),
+            label: s.label.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct FrameInfo {
     timestamp: f64,
@@ -34,7 +53,7 @@ struct FrameInfo {
     dlc: u8,
     #[serde(with = "serde_bytes")]
     data: [u8; 64],
-    signal_count: usize,
+    signals: Option<Vec<DecodedSignalInfo>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -102,7 +121,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         is_fd: f.is_fd,
         dlc: f.dlc,
         data: f.data,
-        signal_count: f.signals.as_ref().map(|s| s.len()).unwrap_or(0),
+        signals: f.signals.as_ref().map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),
     }
 }
 
