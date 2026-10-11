@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="crates/canscope-app/icons/icon.png" alt="CanScope" width="128" />
+  <img src="crates/canscope-app/icons/macos/icon_1024x1024.png" alt="CanScope" width="128" />
 </p>
 
 <h1 align="center">CanScope</h1>
