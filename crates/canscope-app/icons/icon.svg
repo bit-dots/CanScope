@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">CanScope application icon</title>
+  <desc id="desc">A single, precise signal trace on a deep navy application icon background.</desc>
+  <defs>
+    <linearGradient id="background" x1="120" y1="80" x2="900" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1A2A42"/>
+      <stop offset="1" stop-color="#0D1625"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="148" y1="588" x2="876" y2="436" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BFA7"/>
+      <stop offset=".5" stop-color="#65D5C1"/>
+      <stop offset="1" stop-color="#2EA98F"/>
+    </linearGradient>
+    <pattern id="grid" width="128" height="128" patternUnits="userSpaceOnUse">
+      <path d="M128 0H0V128" fill="none" stroke="#7895B4" stroke-opacity=".055" stroke-width="2"/>
+    </pattern>
+  </defs>
+
+  <!-- Full-bleed square background: the operating system supplies the final icon mask. -->
+  <rect width="1024" height="1024" fill="url(#background)"/>
+  <rect width="1024" height="1024" fill="url(#grid)"/>
+
+  <!-- A dim delayed sample gives the trace a sense of observation history, not a second signal. -->
+  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" transform="translate(16 18)" fill="none" stroke="#7DA5C9" stroke-opacity=".16" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Primary signal trace. -->
+  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" fill="none" stroke="#203D4F" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" fill="none" stroke="url(#signal)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
