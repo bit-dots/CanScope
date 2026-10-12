@@ -29,8 +29,9 @@ const FilterBar: Component<FilterBarProps> = (props) => {
 
   return (
     <div class="flex items-center gap-2.5 px-3 py-1 bg-bg-secondary border-b border-border" style={{ 'min-height': '30px' }}>
-      <span class="text-xs text-text-secondary">CAN ID:</span>
+      <label for="filter-canid" class="text-xs text-text-secondary">CAN ID:</label>
       <input
+        id="filter-canid"
         class={inputClass}
         style={{ width: '120px' }}
         placeholder="e.g. 0x123"
@@ -38,8 +39,9 @@ const FilterBar: Component<FilterBarProps> = (props) => {
         onInput={e => setCanId(e.currentTarget.value)}
       />
 
-      <span class="text-xs text-text-secondary">Time:</span>
+      <label for="filter-time-start" class="text-xs text-text-secondary">Time:</label>
       <input
+        id="filter-time-start"
         class={inputClass}
         style={{ width: '70px' }}
         placeholder="start (s)"
@@ -48,9 +50,8 @@ const FilterBar: Component<FilterBarProps> = (props) => {
       />
       <span class="text-xs text-text-secondary -mx-1.5">&mdash;</span>
       <input
+        id="filter-time-end"
         class={inputClass}
-        style={{ width: '70px' }}
-        placeholder="end (s)"
         value={props.filter.timeEnd}
         onInput={e => setTimeEnd(e.currentTarget.value)}
       />

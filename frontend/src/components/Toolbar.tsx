@@ -17,9 +17,9 @@ interface ToolbarProps {
 
 const SPEEDS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 32];
 
-const btnMuted = 'px-2.5 py-1 border-0 rounded bg-bg-tertiary text-text-secondary cursor-pointer text-xs transition-colors duration-150';
-const btnDefault = 'px-2.5 py-1 border-0 rounded bg-bg-tertiary text-text-primary cursor-pointer text-[13px] transition-colors duration-150';
-const btnAccent = 'px-2.5 py-1 border-0 rounded bg-accent text-white cursor-pointer text-[13px] transition-colors duration-150';
+const btnMuted = 'px-2.5 py-1 border-0 rounded bg-bg-tertiary text-text-secondary cursor-pointer text-xs transition-colors duration-150 hover:bg-bg-secondary hover:text-text-primary';
+const btnDefault = 'px-2.5 py-1 border-0 rounded bg-bg-tertiary text-text-primary cursor-pointer text-[13px] transition-colors duration-150 hover:bg-bg-secondary';
+const btnAccent = 'px-2.5 py-1 border-0 rounded bg-accent text-white cursor-pointer text-[13px] transition-colors duration-150 hover:bg-accent-hover';
 
 const Toolbar: Component<ToolbarProps> = (props) => {
   const isPlaying = () => props.playbackState === 'playing';
