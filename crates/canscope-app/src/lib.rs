@@ -80,6 +80,7 @@ struct AppState {
     file_path: Mutex<Option<PathBuf>>,
     project: Mutex<Option<ProjectConfig>>,
     project_path: Mutex<Option<PathBuf>>,
+    dirty: Mutex<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -568,6 +569,10 @@ fn create_project(
     let mut project_path = state.project_path.lock().map_err(|e| e.to_string())?;
     *project_path = None;
 
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = false;
+    }
+
     Ok(ProjectInfo {
         name: project.name,
         can_log_path: project.can_log_path,
@@ -607,6 +612,10 @@ fn save_project(
 
     add_to_recent(&app, &project.name, &save_path.to_string_lossy());
 
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = false;
+    }
+
     Ok(save_path.to_string_lossy().to_string())
 }
 
@@ -636,6 +645,10 @@ fn save_project_as(
     *project_path_guard = Some(save_path.clone());
 
     add_to_recent(&app, &project.name, &path);
+
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = false;
+    }
 
     Ok(path)
 }
@@ -700,6 +713,10 @@ fn open_project(
 
     add_to_recent(&app, &project_clone.name, &path);
 
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = false;
+    }
+
     Ok(ProjectInfo {
         name: project_clone.name,
         can_log_path: project_clone.can_log_path,
@@ -744,6 +761,9 @@ fn update_project_state(
         }
         project.modified_at = now_iso();
     }
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = true;
+    }
     Ok(())
 }
 
@@ -757,12 +777,21 @@ fn set_project_can_log(
         project.can_log_path = Some(can_log_path);
         project.modified_at = now_iso();
     }
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = true;
+    }
     Ok(())
 }
 
 #[tauri::command]
 fn ensure_dir(path: String) -> Result<(), String> {
     fs::create_dir_all(&path).map_err(|e| format!("Failed to create directory: {}", e))
+}
+
+#[tauri::command]
+fn is_project_dirty(state: State<AppState>) -> Result<bool, String> {
+    let dirty = state.dirty.lock().map_err(|e| e.to_string())?;
+    Ok(*dirty)
 }
 
 #[tauri::command]
@@ -777,6 +806,9 @@ fn close_project(state: State<AppState>) -> Result<(), String> {
     *project_guard = None;
     let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
     *project_path_guard = None;
+    if let Ok(mut dirty) = state.dirty.lock() {
+        *dirty = false;
+    }
     Ok(())
 }
 
@@ -791,6 +823,7 @@ pub fn run() {
             file_path: Mutex::new(None),
             project: Mutex::new(None),
             project_path: Mutex::new(None),
+            dirty: Mutex::new(false),
         })
         .invoke_handler(tauri::generate_handler![
             open_file,
@@ -811,6 +844,7 @@ pub fn run() {
             update_project_state,
             set_project_can_log,
             ensure_dir,
+            is_project_dirty,
             close_project,
         ])
         .run(tauri::generate_context!())

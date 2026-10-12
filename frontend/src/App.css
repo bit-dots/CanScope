@@ -573,3 +573,32 @@
 .npd-btn-create:hover:not(:disabled) {
   opacity: 0.9;
 }
+
+.npd-dialog-sm {
+  width: 420px;
+}
+
+.npd-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.npd-btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.npd-btn-secondary:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.npd-btn-danger {
+  background: #4a2020;
+  color: #ff6b6b;
+}
+
+.npd-btn-danger:hover:not(:disabled) {
+  background: #5a2828;
+}

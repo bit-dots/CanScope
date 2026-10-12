@@ -9,6 +9,7 @@ import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
+import ConfirmDialog from './components/ConfirmDialog';
 import type {
   OpenResult,
   PlaybackState,
@@ -37,6 +38,8 @@ function App() {
   const [panelWidth, setPanelWidth] = createSignal(260);
   const [chartHeight, setChartHeight] = createSignal(200);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+  let isWindowClosing = false;
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -111,6 +114,20 @@ function App() {
     } catch {
       // No active project on startup is normal
     }
+
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const appWindow = getCurrentWindow();
+    appWindow.onCloseRequested(async (event) => {
+      try {
+        const dirty: boolean = await invoke('is_project_dirty');
+        if (!dirty) return;
+      } catch {
+        return;
+      }
+      event.preventDefault();
+      isWindowClosing = true;
+      setShowUnsavedDialog(true);
+    });
   });
 
   const handleNewProject = async () => {
@@ -319,6 +336,48 @@ function App() {
   };
 
   const handleCloseProject = async () => {
+    try {
+      const dirty: boolean = await invoke('is_project_dirty');
+      if (dirty) {
+        setShowUnsavedDialog(true);
+        return;
+      }
+      await doCloseProject();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleSaveAndClose = async () => {
+    setShowUnsavedDialog(false);
+    try {
+      await handleSaveProject();
+      if (isWindowClosing) {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        getCurrentWindow().close();
+      } else {
+        await doCloseProject();
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleDiscardAndClose = async () => {
+    setShowUnsavedDialog(false);
+    try {
+      if (isWindowClosing) {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        getCurrentWindow().close();
+      } else {
+        await doCloseProject();
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const doCloseProject = async () => {
     stopPolling();
     await invoke('close_project');
     setProject(null);
@@ -591,6 +650,32 @@ function App() {
         <NewProjectDialog
           onConfirm={handleConfirmNewProject}
           onCancel={() => setShowNewProjectDialog(false)}
+        />
+      )}
+      {showUnsavedDialog() && (
+        <ConfirmDialog
+          title="Unsaved Changes"
+          message={`Do you want to save changes to "${project()?.name ?? 'Untitled'}" before closing?`}
+          buttons={[
+            {
+              label: 'Save & Close',
+              kind: 'primary',
+              onClick: handleSaveAndClose,
+            },
+            {
+              label: 'Discard',
+              kind: 'danger',
+              onClick: handleDiscardAndClose,
+            },
+            {
+              label: 'Cancel',
+              kind: 'secondary',
+              onClick: () => {
+                isWindowClosing = false;
+                setShowUnsavedDialog(false);
+              },
+            },
+          ]}
         />
       )}
       <StatusBar
