@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use canscope_core::CanFrameStream;
@@ -474,10 +474,18 @@ fn recent_projects_path(app: &tauri::AppHandle) -> PathBuf {
 
 fn load_recent_projects(app: &tauri::AppHandle) -> Vec<RecentProjectEntry> {
     let path = recent_projects_path(app);
-    fs::read_to_string(&path)
+    let mut entries: Vec<RecentProjectEntry> = fs::read_to_string(&path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+
+    let original_len = entries.len();
+    entries.retain(|e| Path::new(&e.path).exists());
+    if entries.len() != original_len {
+        save_recent_projects(app, &entries);
+    }
+
+    entries
 }
 
 fn save_recent_projects(app: &tauri::AppHandle, entries: &[RecentProjectEntry]) {
