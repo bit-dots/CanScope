@@ -610,7 +610,7 @@ function App() {
         )}
         {loading() ? (
           <div class="loading">Loading project...</div>
-        ) : hasSource() ? (
+        ) : (hasSource() || project() !== null) ? (
           <div class="split-layout-h">
             <div class="signal-panel" style={{ width: panelWidth() + 'px' }}>
               <SignalTree
