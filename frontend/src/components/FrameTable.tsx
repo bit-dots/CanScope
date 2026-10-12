@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup } from 'solid-js';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 
@@ -11,8 +11,9 @@ const OVERSCAN = 20;
 
 const FrameTable: Component<FrameTableProps> = (props) => {
   let containerRef!: HTMLDivElement;
+  let resizeObserver: ResizeObserver | undefined;
   const [scrollTop, setScrollTop] = createSignal(0);
-  const [viewHeight, setViewHeight] = createSignal(600);
+  const [viewHeight, setViewHeight] = createSignal(0);
 
   const totalHeight = () => props.frames.length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
@@ -26,11 +27,18 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setScrollTop(containerRef.scrollTop);
   };
 
-  createEffect(() => {
-    if (containerRef) {
-      setViewHeight(containerRef.clientHeight);
-    }
-    props.frames.length;
+  onMount(() => {
+    setViewHeight(containerRef.clientHeight);
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setViewHeight(entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(containerRef);
+  });
+
+  onCleanup(() => {
+    resizeObserver?.disconnect();
   });
 
   return (
