@@ -73,22 +73,22 @@ cargo test
 ## 🧱 Architecture
 
 ```
-┌─────────────────────────────────────────┐
+┌──────────────────────────────────────────┐
 │              canscope-app                │
 │        Tauri Desktop App + IPC Commands  │
-├─────────────────────────────────────────┤
+├──────────────────────────────────────────┤
 │  canscope-playback   │  canscope-export  │
-│   Playback Engine     │  Format Export   │
-├─────────────────────────────────────────┤
+│   Playback Engine    │  Format Export    │
+├──────────────────────────────────────────┤
 │  canscope-dbc  │  canscope-parser        │
 │  DBC Decoder   │  ASC / CSV Parser       │
-├─────────────────────────────────────────┤
+├──────────────────────────────────────────┤
 │            canscope-core                 │
 │    CanFrame / CanFrameStream trait       │
-├─────────────────────────────────────────┤
+├──────────────────────────────────────────┤
 │        canscope-adapter (Phase 3)        │
 │   SocketCAN / PCAN Hardware Abstraction  │
-└─────────────────────────────────────────┘
+└──────────────────────────────────────────┘
 ```
 
 ## 📂 Project Structure
@@ -169,11 +169,7 @@ cd frontend && npm run dev
 cd frontend && npx tsc --noEmit
 ```
 
-### Code Style
 
-- Rust: `cargo fmt` + `cargo clippy`
-- TypeScript: `tsc --noEmit`
-- Commit: `feat(scope): description`
 
 ## 📄 License
 

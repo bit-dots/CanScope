@@ -73,22 +73,22 @@ cargo test
 ## 🧱 架构
 
 ```
-┌─────────────────────────────────────────┐
+┌──────────────────────────────────────────┐
 │              canscope-app                │
-│         Tauri 桌面应用 + IPC 命令         │
-├─────────────────────────────────────────┤
+│        Tauri Desktop App + IPC Commands  │
+├──────────────────────────────────────────┤
 │  canscope-playback   │  canscope-export  │
-│     回放引擎          │     格式导出       │
-├─────────────────────────────────────────┤
+│   Playback Engine    │  Format Export    │
+├──────────────────────────────────────────┤
 │  canscope-dbc  │  canscope-parser        │
-│  DBC 信号解码   │  ASC / CSV 解析         │
-├─────────────────────────────────────────┤
+│  DBC Decoder   │  ASC / CSV Parser       │
+├──────────────────────────────────────────┤
 │            canscope-core                 │
 │    CanFrame / CanFrameStream trait       │
-├─────────────────────────────────────────┤
-│         canscope-adapter (Phase 3)       │
-│      SocketCAN / PCAN 硬件接入层          │
-└─────────────────────────────────────────┘
+├──────────────────────────────────────────┤
+│        canscope-adapter (Phase 3)        │
+│   SocketCAN / PCAN Hardware Abstraction  │
+└──────────────────────────────────────────┘
 ```
 
 ## 📂 项目结构
@@ -169,11 +169,7 @@ cd frontend && npm run dev
 cd frontend && npx tsc --noEmit
 ```
 
-### 代码风格
 
-- Rust：`cargo fmt` + `cargo clippy`
-- TypeScript：`tsc --noEmit`
-- Commit：`feat(scope): 中文描述`
 
 ## 📄 许可证
 
