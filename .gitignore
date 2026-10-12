@@ -47,6 +47,7 @@ desktop.ini
 .idea/
 .trae/
 .agents/
+skills-lock.json
 *.swp
 *.swo
 *~
