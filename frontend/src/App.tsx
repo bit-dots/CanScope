@@ -8,6 +8,7 @@ import SignalChart from './components/SignalChart';
 import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
+import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
 import type {
   OpenResult,
   PlaybackState,
@@ -35,6 +36,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [panelWidth, setPanelWidth] = createSignal(260);
   const [chartHeight, setChartHeight] = createSignal(200);
+  const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -112,29 +114,39 @@ function App() {
   });
 
   const handleNewProject = async () => {
-    try {
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const selected = await save({
-        title: 'Save New Project',
-        filters: [
-          { name: 'CanScope Project', extensions: ['canscope'] },
-        ],
-        defaultPath: 'Untitled.canscope',
-      });
-      if (!selected) return;
-      if (typeof selected !== 'string') return;
+    setShowNewProjectDialog(true);
+  };
 
-      const fileName = selected.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || 'Untitled';
+  const handleConfirmNewProject = async (config: NewProjectConfig) => {
+    setShowNewProjectDialog(false);
+
+    try {
+      const sep = config.parentFolder.includes('\\') ? '\\' : '/';
+      const basePath = config.parentFolder.endsWith(sep)
+        ? config.parentFolder
+        : config.parentFolder + sep;
+
+      let projectDir: string;
+      let projectFilePath: string;
+
+      if (config.createSubfolder) {
+        projectDir = basePath + config.name;
+        projectFilePath = projectDir + sep + config.name + '.canscope';
+        await invoke('ensure_dir', { path: projectDir });
+      } else {
+        projectDir = basePath;
+        projectFilePath = basePath + config.name + '.canscope';
+      }
 
       const proj: ProjectInfo = await invoke('create_project', {
-        name: fileName,
+        name: config.name,
       });
 
       setProject(proj);
 
-      await invoke('save_project_as', { path: selected });
+      await invoke('save_project_as', { path: projectFilePath });
 
-      setProject(prev => prev ? { ...prev, projectPath: selected } : null);
+      setProject(prev => prev ? { ...prev, projectPath: projectFilePath } : null);
     } catch (e) {
       setError(String(e));
       console.error('Failed to create project:', e);
@@ -575,6 +587,12 @@ function App() {
           />
         )}
       </main>
+      {showNewProjectDialog() && (
+        <NewProjectDialog
+          onConfirm={handleConfirmNewProject}
+          onCancel={() => setShowNewProjectDialog(false)}
+        />
+      )}
       <StatusBar
         sourceLoaded={hasSource()}
         metadata={metadata()}

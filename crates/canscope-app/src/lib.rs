@@ -618,6 +618,9 @@ fn save_project_as(
     *project_guard = Some(project.clone());
 
     let save_path = PathBuf::from(&path);
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
     let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
     fs::write(&save_path, json).map_err(|e| e.to_string())?;
 
@@ -750,6 +753,11 @@ fn set_project_can_log(
 }
 
 #[tauri::command]
+fn ensure_dir(path: String) -> Result<(), String> {
+    fs::create_dir_all(&path).map_err(|e| format!("Failed to create directory: {}", e))
+}
+
+#[tauri::command]
 fn close_project(state: State<AppState>) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = None;
@@ -794,6 +802,7 @@ pub fn run() {
             get_recent_projects,
             update_project_state,
             set_project_can_log,
+            ensure_dir,
             close_project,
         ])
         .run(tauri::generate_context!())
