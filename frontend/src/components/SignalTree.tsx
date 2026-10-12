@@ -129,21 +129,29 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
                   'border-bottom': '1px solid var(--border)',
                 }}
               >
-                <span
+                <svg
                   onClick={e => { e.stopPropagation(); toggleMsg(msg.canId); }}
                   style={{
                     cursor: 'pointer',
                     width: '16px',
-                    'text-align': 'center',
-                    'font-size': '10px',
+                    height: '16px',
                     'flex-shrink': '0',
                     color: isSelected ? '#fff' : 'var(--text-secondary)',
+                    transition: 'transform 0.15s',
+                    transform: isExpanded ? '' : 'rotate(-90deg)',
                   }}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
-                  {isExpanded ? '▼' : '▶'}
-                </span>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
                 <span style={{
-                  'font-family': 'monospace',
+                  'font-family': '"JetBrains Mono", monospace',
                   'font-size': '11px',
                   'margin-left': '4px',
                   'flex-shrink': '0',
@@ -211,7 +219,7 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
                           <td style={{ ...sigTd, 'font-family': 'monospace' }}>
                             {sig.startBit}:{sig.bitLength}
                           </td>
-                          <td style={{ ...sigTd, 'font-family': 'monospace', 'font-size': '10px' }}>
+                          <td style={{ ...sigTd, 'font-family': '"JetBrains Mono", monospace', 'font-size': '10px' }}>
                             {sig.byteOrder === 'Intel' ? 'LE' : 'BE'}
                           </td>
                           <td style={{ ...sigTd, color: 'var(--text-secondary)' }}>

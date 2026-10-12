@@ -11,6 +11,9 @@ interface WelcomeScreenProps {
 const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
 
+  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  const modKey = isMac ? '⌘' : 'Ctrl';
+
   onMount(async () => {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -79,11 +82,16 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
 
       <div class="welcome-actions">
         <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>
-          <span class="welcome-btn-icon">+</span>
+          <svg class="welcome-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
           New Project
         </button>
         <button class="welcome-btn welcome-btn-secondary" onClick={props.onOpenProject}>
-          <span class="welcome-btn-icon">&#x1F4C2;</span>
+          <svg class="welcome-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
           Open Project
         </button>
       </div>
@@ -113,7 +121,10 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
                   onClick={(e) => handleRemoveRecent(e, p.path)}
                   title="Remove from list"
                 >
-                  &#x2715;
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="welcome-remove-icon">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </button>
               </div>
             ))}
@@ -123,8 +134,8 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
 
       <div class="welcome-footer">
         <span>Keyboard shortcuts:</span>
-        <kbd>Ctrl+N</kbd> New Project &nbsp;
-        <kbd>Ctrl+O</kbd> Open Project
+        <kbd>{modKey}+N</kbd> New Project &nbsp;
+        <kbd>{modKey}+O</kbd> Open Project
       </div>
     </div>
   );

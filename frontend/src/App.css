@@ -4,7 +4,26 @@
   height: 100vh;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 2px;
 }
 
 .main-content {
@@ -151,7 +170,7 @@
 
 .timeline-time {
   font-size: 12px;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
   color: var(--text-secondary);
   white-space: nowrap;
   min-width: 70px;
@@ -239,6 +258,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+
 }
 
 .welcome-btn-primary {
@@ -248,7 +268,11 @@
 
 .welcome-btn-primary:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
+}
+
+.welcome-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent);
 }
 
 .welcome-btn-secondary {
@@ -259,12 +283,22 @@
 
 .welcome-btn-secondary:hover {
   background: var(--bg-secondary);
-  transform: translateY(-1px);
+}
+
+.welcome-btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent);
 }
 
 .welcome-btn-icon {
-  font-size: 18px;
-  line-height: 1;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.welcome-remove-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .welcome-recent {
@@ -331,17 +365,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.7;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
   font-size: 10px;
 }
 
 .welcome-recent-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px;
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.12s, color 0.12s;
@@ -525,7 +561,7 @@
 }
 
 .npd-preview-path {
-  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
   color: var(--accent);
   word-break: break-all;

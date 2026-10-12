@@ -85,14 +85,14 @@ const SignalChart: Component<SignalChartProps> = (props) => {
             {
               grid: { show: true, stroke: '#333', width: 1 },
               ticks: { stroke: '#666' },
-              font: '11px sans-serif',
+              font: '11px "JetBrains Mono", monospace',
               stroke: '#999',
             },
             {
               side: 1,
               grid: { show: true, stroke: '#333', width: 1 },
               ticks: { stroke: '#666' },
-              font: '11px sans-serif',
+              font: '11px "JetBrains Mono", monospace',
               stroke: '#999',
               size: 60,
             },
@@ -118,6 +118,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
                   if (legendEl) {
                     (legendEl as HTMLElement).style.padding = '2px 4px';
                     (legendEl as HTMLElement).style.fontSize = '11px';
+                    (legendEl as HTMLElement).style.fontFamily = '"IBM Plex Sans", sans-serif';
                   }
                 },
               },
@@ -177,12 +178,19 @@ const SignalChart: Component<SignalChartProps> = (props) => {
               border: '1px solid ' + COLORS[i % COLORS.length] + '44',
             }}>
               {s.signalName}
-              <span
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="width:10px;height:10px;cursor:pointer;opacity:0.6;flex-shrink:0"
                 onClick={() => props.onRemoveSignal(s)}
-                style={{ cursor: 'pointer', opacity: 0.6, 'font-size': '10px' }}
               >
-                ✕
-              </span>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </span>
           ))}
         </div>

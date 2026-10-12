@@ -19,17 +19,7 @@ const StatusBar: Component<StatusBarProps> = (props) => {
   const fileName = () => props.metadata?.fileName ?? '';
 
   return (
-    <div style={{
-      display: 'flex',
-      'align-items': 'center',
-      'justify-content': 'space-between',
-      padding: '2px 12px',
-      background: 'var(--bg-secondary)',
-      'border-top': '1px solid var(--border)',
-      'min-height': '24px',
-      'font-size': '12px',
-      color: 'var(--text-secondary)',
-    }}>
+    <div class="flex items-center justify-between px-3 py-0.5 bg-bg-secondary border-t border-border text-xs text-text-secondary" style={{ 'min-height': '24px' }}>
       <span>
         {props.sourceLoaded
           ? `${fileName()}  |  ${props.frameCount} / ${props.totalFrameCount} frames${props.frameCount !== props.totalFrameCount ? ' (filtered)' : ''}  |  ${stateLabel[props.playbackState]}`

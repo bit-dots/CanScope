@@ -7,21 +7,7 @@ interface FilterBarProps {
   visible: boolean;
 }
 
-const inputStyle = {
-  padding: '2px 6px',
-  border: '1px solid var(--border)',
-  'border-radius': '3px',
-  background: 'var(--bg-primary)',
-  color: 'var(--text-primary)',
-  'font-size': '12px',
-  width: '120px',
-  outline: 'none',
-};
-
-const labelStyle = {
-  'font-size': '12px',
-  color: 'var(--text-secondary)',
-};
+const inputClass = 'py-0.5 px-1.5 border border-border rounded bg-bg-primary text-text-primary text-xs outline-none';
 
 const FilterBar: Component<FilterBarProps> = (props) => {
   const setCanId = (v: string) =>
@@ -42,33 +28,28 @@ const FilterBar: Component<FilterBarProps> = (props) => {
   if (!props.visible) return null;
 
   return (
-    <div style={{
-      display: 'flex',
-      'align-items': 'center',
-      gap: '10px',
-      padding: '4px 12px',
-      background: 'var(--bg-secondary)',
-      'border-bottom': '1px solid var(--border)',
-      'min-height': '30px',
-    }}>
-      <span style={labelStyle}>CAN ID:</span>
+    <div class="flex items-center gap-2.5 px-3 py-1 bg-bg-secondary border-b border-border" style={{ 'min-height': '30px' }}>
+      <span class="text-xs text-text-secondary">CAN ID:</span>
       <input
-        style={inputStyle}
+        class={inputClass}
+        style={{ width: '120px' }}
         placeholder="e.g. 0x123"
         value={props.filter.canId}
         onInput={e => setCanId(e.currentTarget.value)}
       />
 
-      <span style={labelStyle}>Time:</span>
+      <span class="text-xs text-text-secondary">Time:</span>
       <input
-        style={{ ...inputStyle, width: '70px' }}
+        class={inputClass}
+        style={{ width: '70px' }}
         placeholder="start (s)"
         value={props.filter.timeStart}
         onInput={e => setTimeStart(e.currentTarget.value)}
       />
-      <span style={{ ...labelStyle, margin: '0 -6px' }}>—</span>
+      <span class="text-xs text-text-secondary -mx-1.5">&mdash;</span>
       <input
-        style={{ ...inputStyle, width: '70px' }}
+        class={inputClass}
+        style={{ width: '70px' }}
         placeholder="end (s)"
         value={props.filter.timeEnd}
         onInput={e => setTimeEnd(e.currentTarget.value)}
@@ -77,15 +58,7 @@ const FilterBar: Component<FilterBarProps> = (props) => {
       {hasFilter() && (
         <button
           onClick={clearAll}
-          style={{
-            padding: '2px 10px',
-            border: '1px solid var(--border)',
-            'border-radius': '3px',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            'font-size': '11px',
-          }}
+          class="px-2.5 py-0.5 border border-border rounded bg-transparent text-text-secondary cursor-pointer text-[11px] transition-colors duration-150 hover:bg-bg-tertiary"
         >
           Clear
         </button>

@@ -1,3 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-bg-primary: #0D0D0D;
+  --color-bg-secondary: #1A1A2E;
+  --color-bg-tertiary: #16213E;
+  --color-text-primary: #E2E8F0;
+  --color-text-secondary: #94A3B8;
+  --color-accent: #2563EB;
+  --color-accent-hover: #3B82F6;
+  --color-border: #2A2A3E;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
 *,
 *::before,
 *::after {
@@ -7,23 +26,27 @@
 }
 
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0b0;
-  --accent: #e94560;
-  --accent-hover: #ff6b81;
-  --border: #2a2a4a;
-  --success: #4caf50;
-  --warning: #ff9800;
-  --error: #f44336;
+  --bg-primary: #0D0D0D;
+  --bg-secondary: #1A1A2E;
+  --bg-tertiary: #16213E;
+  --text-primary: #E2E8F0;
+  --text-secondary: #94A3B8;
+  --accent: #2563EB;
+  --accent-hover: #3B82F6;
+  --border: #2A2A3E;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
 
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-primary);
   background-color: var(--bg-primary);
+}
+
+code, pre, kbd, .mono {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 }
 
 body {

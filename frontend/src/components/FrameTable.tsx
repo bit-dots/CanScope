@@ -82,14 +82,14 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               >
                 <td style={tdStyle}>{idx + 1}</td>
                 <td style={tdStyle}>{frame.timestamp.toFixed(6)}</td>
-                <td style={{ ...tdStyle, 'font-family': 'monospace', color: 'var(--accent)' }}>
+                <td style={{ ...tdStyle, 'font-family': '"JetBrains Mono", monospace', color: 'var(--accent)' }}>
                   {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                 </td>
                 <td style={tdStyle}>
                   {frame.is_fd ? 'FD' : frame.is_extended ? 'EXT' : 'STD'}
                 </td>
                 <td style={tdStyle}>{frame.dlc}</td>
-                <td style={{ ...tdStyle, 'font-family': 'monospace', 'font-size': '11px' }}>
+                <td style={{ ...tdStyle, 'font-family': '"JetBrains Mono", monospace', 'font-size': '11px' }}>
                   {formatDataHex(frame.data, frame.dlc)}
                 </td>
                 <td style={{ ...tdStyle, 'font-size': '11px', color: 'var(--text-primary)' }}>

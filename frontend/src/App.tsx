@@ -576,19 +576,21 @@ function App() {
 
   return (
     <div class="app-layout">
-      <Toolbar
-        project={project()}
-        onFileOpen={handleFileOpen}
-        onLoadDbc={handleLoadDbc}
-        sourceLoaded={hasSource()}
-        playbackState={playbackState()}
-        onPlaybackControl={handlePlaybackControl}
-        speed={speed()}
-        onSpeedChange={handleSpeedChange}
-        onSaveProject={handleSaveProject}
-        onSaveProjectAs={handleSaveProjectAs}
-        onCloseProject={handleCloseProject}
-      />
+      {project() && (
+        <Toolbar
+          project={project()!}
+          onFileOpen={handleFileOpen}
+          onLoadDbc={handleLoadDbc}
+          sourceLoaded={hasSource()}
+          playbackState={playbackState()}
+          onPlaybackControl={handlePlaybackControl}
+          speed={speed()}
+          onSpeedChange={handleSpeedChange}
+          onSaveProject={handleSaveProject}
+          onSaveProjectAs={handleSaveProjectAs}
+          onCloseProject={handleCloseProject}
+        />
+      )}
       {hasSource() && (
         <>
           <FilterBar
