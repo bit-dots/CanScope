@@ -75,7 +75,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
   };
 
   return (
-    <div class="npd-overlay" onClick={props.onCancel}>
+    <div class="npd-overlay">
       <div class="npd-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         <div class="npd-header">
           <h2 class="npd-title">New Project</h2>
