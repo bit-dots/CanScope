@@ -1,4 +1,4 @@
-import { createSignal, createMemo, onCleanup } from 'solid-js';
+import { createSignal, createMemo, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Toolbar from './components/Toolbar';
 import FilterBar from './components/FilterBar';
@@ -7,11 +7,22 @@ import FrameTable from './components/FrameTable';
 import SignalChart from './components/SignalChart';
 import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
-import type { OpenResult, PlaybackState, FrameInfo, FileMetadata, FilterConfig, DbcTreeInfo, ChartSignal } from './types';
+import WelcomeScreen from './components/WelcomeScreen';
+import type {
+  OpenResult,
+  PlaybackState,
+  FrameInfo,
+  FileMetadata,
+  FilterConfig,
+  DbcTreeInfo,
+  ChartSignal,
+  ProjectInfo,
+} from './types';
 import { matchesFilter } from './types';
 import './App.css';
 
 function App() {
+  const [project, setProject] = createSignal<ProjectInfo | null>(null);
   const [metadata, setMetadata] = createSignal<FileMetadata | null>(null);
   const [frames, setFrames] = createSignal<FrameInfo[]>([]);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
@@ -62,10 +73,49 @@ function App() {
 
   onCleanup(() => stopPolling());
 
-  const handleFileOpen = async () => {
+  const loadFileData = async () => {
+    stopPolling();
+    setLoading(true);
+    setError(null);
+    setDbcTree(null);
+    setSelectedCanId(null);
+    setChartSignals([]);
+
+    try {
+      const result: OpenResult = await invoke('open_file', { path: '' });
+      if (result.metadata) {
+        setMetadata(result.metadata);
+        setFrames(result.frames);
+      }
+      setPlaybackState('stopped');
+    } catch (e) {
+      const msg = String(e);
+      setError(msg);
+      console.error('Failed to open file:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  onMount(async () => {
+    try {
+      const state: string = await invoke('get_playback_state');
+      if (state !== 'stopped') {
+        const progress: number | null = await invoke('get_progress');
+        if (progress !== null) {
+          loadFileData();
+        }
+      }
+    } catch {
+      // No active project on startup is normal
+    }
+  });
+
+  const handleNewProject = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
+        title: 'Select CAN Log File',
         filters: [
           { name: 'CAN Log Files', extensions: ['asc', 'csv'] },
           { name: 'All Files', extensions: ['*'] },
@@ -74,24 +124,217 @@ function App() {
       if (!selected) return;
       if (typeof selected !== 'string') return;
 
-      stopPolling();
+      const fileName = selected.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || 'Untitled';
+
       setLoading(true);
       setError(null);
-      setDbcTree(null);
-      setSelectedCanId(null);
-      setChartSignals([]);
+
+      const proj: ProjectInfo = await invoke('create_project', {
+        name: fileName,
+        canLogPath: selected,
+      });
+
+      setProject(proj);
 
       const result: OpenResult = await invoke('open_file', { path: selected });
       setMetadata(result.metadata);
       setFrames(result.frames);
       setPlaybackState('stopped');
-      setLoading(false);
+
+      if (proj.uiLayout) {
+        setPanelWidth(proj.uiLayout.panelWidth);
+        setChartHeight(proj.uiLayout.chartHeight);
+      }
+      if (proj.filters && proj.filters.canId) {
+        setFilter({ canId: proj.filters.canId, timeStart: proj.filters.timeStart, timeEnd: proj.filters.timeEnd });
+      }
     } catch (e) {
+      setError(String(e));
+      console.error('Failed to create project:', e);
+    } finally {
       setLoading(false);
-      const msg = String(e);
-      setError(msg);
-      console.error('Failed to open file:', e);
     }
+  };
+
+  const handleOpenProject = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        title: 'Open Project',
+        filters: [
+          { name: 'CanScope Project', extensions: ['canscope'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (!selected) return;
+      if (typeof selected !== 'string') return;
+
+      await openProjectByPath(selected);
+    } catch (e) {
+      setError(String(e));
+      console.error('Failed to open project:', e);
+    }
+  };
+
+  const handleOpenRecent = async (path: string) => {
+    try {
+      await openProjectByPath(path);
+    } catch (e) {
+      setError(String(e));
+      console.error('Failed to open recent project:', e);
+    }
+  };
+
+  const handleRemoveRecent = async (_path: string) => {
+    // Recent projects are managed server-side via add_to_recent
+    // The list will refresh on next WelcomeScreen mount
+  };
+
+  const openProjectByPath = async (path: string) => {
+    setLoading(true);
+    setError(null);
+    setDbcTree(null);
+    setSelectedCanId(null);
+    setChartSignals([]);
+    stopPolling();
+
+    try {
+      const proj: ProjectInfo = await invoke('open_project', { path });
+      setProject(proj);
+
+      const result: OpenResult = await invoke('open_file', { path: proj.canLogPath });
+      setMetadata(result.metadata);
+      setFrames(result.frames);
+      setPlaybackState('stopped');
+
+      if (proj.uiLayout) {
+        setPanelWidth(proj.uiLayout.panelWidth);
+        setChartHeight(proj.uiLayout.chartHeight);
+      }
+      if (proj.filters) {
+        setFilter({
+          canId: proj.filters.canId,
+          timeStart: proj.filters.timeStart,
+          timeEnd: proj.filters.timeEnd,
+        });
+      }
+      if (proj.chartSignals && proj.chartSignals.length > 0) {
+        setChartSignals(
+          proj.chartSignals.map(s => ({ canId: s.canId, signalName: s.signalName, unit: s.unit }))
+        );
+      }
+
+      if (proj.dbcPaths.length > 0) {
+        for (const dbcPath of proj.dbcPaths) {
+          try {
+            await invoke('load_dbc', { path: dbcPath });
+            const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
+            if (tree) {
+              setDbcTree(tree);
+              break;
+            }
+          } catch {
+            // DBC file may have been moved
+          }
+        }
+      }
+    } catch (e) {
+      setError(String(e));
+      console.error('Failed to open project:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProject = async () => {
+    try {
+      const proj = project();
+      if (!proj) return;
+
+      if (proj.projectPath) {
+        await invoke('save_project');
+      } else {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const selected = await save({
+          title: 'Save Project As',
+          filters: [
+            { name: 'CanScope Project', extensions: ['canscope'] },
+          ],
+        });
+        if (!selected || typeof selected !== 'string') return;
+
+        let savePath = selected;
+        if (!savePath.endsWith('.canscope')) {
+          savePath += '.canscope';
+        }
+        await persistState(savePath);
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleSaveProjectAs = async () => {
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const selected = await save({
+        title: 'Save Project As',
+        filters: [
+          { name: 'CanScope Project', extensions: ['canscope'] },
+        ],
+      });
+      if (!selected || typeof selected !== 'string') return;
+
+      let savePath = selected;
+      if (!savePath.endsWith('.canscope')) {
+        savePath += '.canscope';
+      }
+      await persistState(savePath);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const persistState = async (path: string) => {
+    await invoke('update_project_state', {
+      filters: {
+        canId: filter().canId,
+        timeStart: filter().timeStart,
+        timeEnd: filter().timeEnd,
+      },
+      chartSignals: chartSignals().map(s => ({
+        canId: s.canId,
+        signalName: s.signalName,
+        unit: s.unit,
+      })),
+      uiLayout: {
+        panelWidth: panelWidth(),
+        chartHeight: chartHeight(),
+      },
+      lastPosition: currentTime(),
+    });
+
+    await invoke('save_project_as', { path });
+
+    setProject(prev => prev ? { ...prev, projectPath: path } : null);
+  };
+
+  const handleCloseProject = async () => {
+    stopPolling();
+    await invoke('close_project');
+    setProject(null);
+    setMetadata(null);
+    setFrames([]);
+    setPlaybackState('stopped');
+    setDbcTree(null);
+    setSelectedCanId(null);
+    setChartSignals([]);
+    setError(null);
+    setFilter({ canId: '', timeStart: '', timeEnd: '' });
+  };
+
+  const handleFileOpen = async () => {
+    handleNewProject();
   };
 
   const handleLoadDbc = async () => {
@@ -181,6 +424,31 @@ function App() {
 
   const hasSource = () => metadata() !== null;
 
+  onMount(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'n') {
+          e.preventDefault();
+          if (!hasSource()) handleNewProject();
+        } else if (e.key === 'o') {
+          e.preventDefault();
+          if (!hasSource()) handleOpenProject();
+        } else if (e.key === 's') {
+          e.preventDefault();
+          if (hasSource()) {
+            if (e.shiftKey) {
+              handleSaveProjectAs();
+            } else {
+              handleSaveProject();
+            }
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+  });
+
   let isDraggingH = false;
   let isDraggingV = false;
 
@@ -218,6 +486,7 @@ function App() {
   return (
     <div class="app-layout">
       <Toolbar
+        project={project()}
         onFileOpen={handleFileOpen}
         onLoadDbc={handleLoadDbc}
         sourceLoaded={hasSource()}
@@ -225,24 +494,31 @@ function App() {
         onPlaybackControl={handlePlaybackControl}
         speed={speed()}
         onSpeedChange={handleSpeedChange}
+        onSaveProject={handleSaveProject}
+        onSaveProjectAs={handleSaveProjectAs}
+        onCloseProject={handleCloseProject}
       />
-      <FilterBar
-        filter={filter()}
-        onFilterChange={setFilter}
-        visible={hasSource()}
-      />
-      <Timeline
-        duration={metadata()?.duration ?? null}
-        currentTime={currentTime()}
-        onSeek={handleSeek}
-        disabled={!hasSource()}
-      />
+      {hasSource() && (
+        <>
+          <FilterBar
+            filter={filter()}
+            onFilterChange={setFilter}
+            visible={hasSource()}
+          />
+          <Timeline
+            duration={metadata()?.duration ?? null}
+            currentTime={currentTime()}
+            onSeek={handleSeek}
+            disabled={!hasSource()}
+          />
+        </>
+      )}
       <main class="main-content">
         {error() && (
           <div class="error-bar">{error()}</div>
         )}
         {loading() ? (
-          <div class="loading">Loading file...</div>
+          <div class="loading">Loading project...</div>
         ) : hasSource() ? (
           <div class="split-layout-h">
             <div class="signal-panel" style={{ width: panelWidth() + 'px' }}>
@@ -271,13 +547,12 @@ function App() {
             </div>
           </div>
         ) : (
-          <div class="welcome">
-            <h1>CanScope</h1>
-            <p>Cross-platform CAN bus analysis tool</p>
-            <button class="btn-open" onClick={handleFileOpen}>
-              Open CAN Log File
-            </button>
-          </div>
+          <WelcomeScreen
+            onNewProject={handleNewProject}
+            onOpenProject={handleOpenProject}
+            onOpenRecent={handleOpenRecent}
+            onRemoveRecent={handleRemoveRecent}
+          />
         )}
       </main>
       <StatusBar

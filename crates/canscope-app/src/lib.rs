@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -6,12 +7,79 @@ use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState};
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{Manager, State};
+
+const MAX_RECENT_PROJECTS: usize = 10;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FilterConfigJson {
+    can_id: String,
+    time_start: String,
+    time_end: String,
+}
+
+impl Default for FilterConfigJson {
+    fn default() -> Self {
+        Self {
+            can_id: String::new(),
+            time_start: String::new(),
+            time_end: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartSignalJson {
+    can_id: u32,
+    signal_name: String,
+    unit: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UiLayoutJson {
+    panel_width: f64,
+    chart_height: f64,
+}
+
+impl Default for UiLayoutJson {
+    fn default() -> Self {
+        Self {
+            panel_width: 260.0,
+            chart_height: 200.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectConfig {
+    name: String,
+    can_log_path: String,
+    dbc_paths: Vec<String>,
+    last_position: f64,
+    filters: FilterConfigJson,
+    chart_signals: Vec<ChartSignalJson>,
+    ui_layout: UiLayoutJson,
+    created_at: String,
+    modified_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RecentProjectEntry {
+    name: String,
+    path: String,
+    opened_at: String,
+}
 
 struct AppState {
     engine: Mutex<Option<PlaybackEngine<AscReader>>>,
     dbc: Mutex<Option<Dbc>>,
     file_path: Mutex<Option<PathBuf>>,
+    project: Mutex<Option<ProjectConfig>>,
+    project_path: Mutex<Option<PathBuf>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -326,6 +394,373 @@ fn get_speed(state: State<AppState>) -> Result<f64, String> {
     }
 }
 
+fn now_iso() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| {
+            let secs = d.as_secs();
+            let mut ts = secs;
+            let mut buf = [0u8; 20];
+            let mut i = 20;
+            loop {
+                i -= 1;
+                buf[i] = b'0' + (ts % 10) as u8;
+                ts /= 10;
+                if ts == 0 {
+                    break;
+                }
+            }
+            let secs_str = std::str::from_utf8(&buf[i..]).unwrap_or("0");
+            let datetime = chrono_lite(secs_str);
+            datetime
+        })
+        .unwrap_or_else(|_| "unknown".into())
+}
+
+fn chrono_lite(unix_secs: &str) -> String {
+    let seconds: i64 = unix_secs.parse().unwrap_or(0);
+    let days_since_epoch = seconds / 86400;
+    let time_of_day = seconds % 86400;
+    let hours = time_of_day / 3600;
+    let minutes = (time_of_day % 3600) / 60;
+    let secs = time_of_day % 60;
+
+    let mut year = 1970;
+    let mut remaining_days = days_since_epoch as i32;
+    loop {
+        let days_in_year = if is_leap(year) { 366 } else { 365 };
+        if remaining_days < days_in_year {
+            break;
+        }
+        remaining_days -= days_in_year;
+        year += 1;
+    }
+
+    let days_in_month = if is_leap(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+
+    let mut month = 0;
+    for (i, &dim) in days_in_month.iter().enumerate() {
+        if remaining_days < dim {
+            month = i + 1;
+            break;
+        }
+        remaining_days -= dim;
+    }
+    let day = remaining_days + 1;
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, secs
+    )
+}
+
+fn is_leap(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+fn recent_projects_path(app: &tauri::AppHandle) -> PathBuf {
+    let mut dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    fs::create_dir_all(&dir).ok();
+    dir.push("recent_projects.json");
+    dir
+}
+
+fn load_recent_projects(app: &tauri::AppHandle) -> Vec<RecentProjectEntry> {
+    let path = recent_projects_path(app);
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_recent_projects(app: &tauri::AppHandle, entries: &[RecentProjectEntry]) {
+    let path = recent_projects_path(app);
+    if let Ok(json) = serde_json::to_string_pretty(entries) {
+        fs::write(&path, json).ok();
+    }
+}
+
+fn add_to_recent(app: &tauri::AppHandle, name: &str, path: &str) {
+    let mut entries = load_recent_projects(app);
+    entries.retain(|e| e.path != path);
+    entries.insert(
+        0,
+        RecentProjectEntry {
+            name: name.to_string(),
+            path: path.to_string(),
+            opened_at: now_iso(),
+        },
+    );
+    entries.truncate(MAX_RECENT_PROJECTS);
+    save_recent_projects(app, &entries);
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectInfo {
+    name: String,
+    can_log_path: String,
+    dbc_paths: Vec<String>,
+    last_position: f64,
+    filters: FilterConfigJson,
+    chart_signals: Vec<ChartSignalJson>,
+    ui_layout: UiLayoutJson,
+    created_at: String,
+    modified_at: String,
+    project_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentProjectInfo {
+    name: String,
+    path: String,
+    opened_at: String,
+}
+
+impl From<&RecentProjectEntry> for RecentProjectInfo {
+    fn from(e: &RecentProjectEntry) -> Self {
+        Self {
+            name: e.name.clone(),
+            path: e.path.clone(),
+            opened_at: e.opened_at.clone(),
+        }
+    }
+}
+
+#[tauri::command]
+fn create_project(
+    _app: tauri::AppHandle,
+    name: String,
+    can_log_path: String,
+    state: State<AppState>,
+) -> Result<ProjectInfo, String> {
+    let now = now_iso();
+    let project = ProjectConfig {
+        name,
+        can_log_path: can_log_path.clone(),
+        dbc_paths: Vec::new(),
+        last_position: 0.0,
+        filters: FilterConfigJson::default(),
+        chart_signals: Vec::new(),
+        ui_layout: UiLayoutJson::default(),
+        created_at: now.clone(),
+        modified_at: now,
+    };
+
+    let log_path = PathBuf::from(&can_log_path);
+    let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
+
+    let engine = PlaybackEngine::new(reader);
+
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    *engine_guard = Some(engine);
+
+    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+    *file_path = Some(log_path);
+
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    *project_guard = Some(project.clone());
+
+    let mut project_path = state.project_path.lock().map_err(|e| e.to_string())?;
+    *project_path = None;
+
+    Ok(ProjectInfo {
+        name: project.name,
+        can_log_path: project.can_log_path,
+        dbc_paths: project.dbc_paths,
+        last_position: project.last_position,
+        filters: project.filters,
+        chart_signals: project.chart_signals,
+        ui_layout: project.ui_layout,
+        created_at: project.created_at,
+        modified_at: project.modified_at,
+        project_path: None,
+    })
+}
+
+#[tauri::command]
+fn save_project(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+) -> Result<String, String> {
+    let project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    let project = project_guard
+        .clone()
+        .ok_or_else(|| "No active project".to_string())?;
+
+    let project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    let save_path = match &*project_path_guard {
+        Some(p) => p.clone(),
+        None => {
+            return Err(
+                "Project has no file path yet. Use 'Save As' instead.".to_string(),
+            );
+        }
+    };
+
+    let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
+    fs::write(&save_path, json).map_err(|e| e.to_string())?;
+
+    add_to_recent(&app, &project.name, &save_path.to_string_lossy());
+
+    Ok(save_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn save_project_as(
+    app: tauri::AppHandle,
+    path: String,
+    state: State<AppState>,
+) -> Result<String, String> {
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    let mut project = project_guard
+        .clone()
+        .ok_or_else(|| "No active project".to_string())?;
+
+    let now = now_iso();
+    project.modified_at = now;
+    *project_guard = Some(project.clone());
+
+    let save_path = PathBuf::from(&path);
+    let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
+    fs::write(&save_path, json).map_err(|e| e.to_string())?;
+
+    let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    *project_path_guard = Some(save_path.clone());
+
+    add_to_recent(&app, &project.name, &path);
+
+    Ok(path)
+}
+
+#[tauri::command]
+fn open_project(
+    app: tauri::AppHandle,
+    path: String,
+    state: State<AppState>,
+) -> Result<ProjectInfo, String> {
+    let project_path = PathBuf::from(&path);
+    let json = fs::read_to_string(&project_path).map_err(|e| {
+        format!("Failed to read project file: {}", e)
+    })?;
+    let mut project: ProjectConfig =
+        serde_json::from_str(&json).map_err(|e| format!("Invalid project file: {}", e))?;
+
+    let log_path = PathBuf::from(&project.can_log_path);
+    if !log_path.exists() {
+        return Err(format!(
+            "CAN log file not found: {}\nThe file may have been moved or deleted.",
+            project.can_log_path
+        ));
+    }
+
+    let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
+
+    let mut engine = PlaybackEngine::new(reader);
+    if project.last_position > 0.0 {
+        let _ = engine.seek_to(project.last_position);
+    }
+
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    *engine_guard = Some(engine);
+
+    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+    *file_path = Some(log_path);
+
+    let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    *dbc_guard = None;
+
+    for dbc_path_str in &project.dbc_paths {
+        let dbc_path = PathBuf::from(dbc_path_str);
+        if dbc_path.exists() {
+            if let Ok(dbc) = canscope_dbc::parse_dbc(&dbc_path) {
+                *dbc_guard = Some(dbc);
+                break;
+            }
+        }
+    }
+
+    let now = now_iso();
+    project.modified_at = now;
+    let project_clone = project.clone();
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    *project_guard = Some(project);
+
+    let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    *project_path_guard = Some(project_path.clone());
+
+    add_to_recent(&app, &project_clone.name, &path);
+
+    Ok(ProjectInfo {
+        name: project_clone.name,
+        can_log_path: project_clone.can_log_path,
+        dbc_paths: project_clone.dbc_paths,
+        last_position: project_clone.last_position,
+        filters: project_clone.filters,
+        chart_signals: project_clone.chart_signals,
+        ui_layout: project_clone.ui_layout,
+        created_at: project_clone.created_at,
+        modified_at: project_clone.modified_at,
+        project_path: Some(path),
+    })
+}
+
+#[tauri::command]
+fn get_recent_projects(app: tauri::AppHandle) -> Result<Vec<RecentProjectInfo>, String> {
+    let entries = load_recent_projects(&app);
+    Ok(entries.iter().map(RecentProjectInfo::from).collect())
+}
+
+#[tauri::command]
+fn update_project_state(
+    state: State<AppState>,
+    filters: Option<FilterConfigJson>,
+    chart_signals: Option<Vec<ChartSignalJson>>,
+    ui_layout: Option<UiLayoutJson>,
+    last_position: Option<f64>,
+) -> Result<(), String> {
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut project) = *project_guard {
+        if let Some(f) = filters {
+            project.filters = f;
+        }
+        if let Some(c) = chart_signals {
+            project.chart_signals = c;
+        }
+        if let Some(u) = ui_layout {
+            project.ui_layout = u;
+        }
+        if let Some(p) = last_position {
+            project.last_position = p;
+        }
+        project.modified_at = now_iso();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn close_project(state: State<AppState>) -> Result<(), String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    *engine_guard = None;
+    let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    *dbc_guard = None;
+    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+    *file_path = None;
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    *project_guard = None;
+    let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    *project_path_guard = None;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -335,6 +770,8 @@ pub fn run() {
             engine: Mutex::new(None),
             dbc: Mutex::new(None),
             file_path: Mutex::new(None),
+            project: Mutex::new(None),
+            project_path: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             open_file,
@@ -347,6 +784,13 @@ pub fn run() {
             get_progress,
             set_speed,
             get_speed,
+            create_project,
+            open_project,
+            save_project,
+            save_project_as,
+            get_recent_projects,
+            update_project_state,
+            close_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CanScope");

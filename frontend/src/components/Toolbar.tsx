@@ -1,7 +1,8 @@
 import { Component } from 'solid-js';
-import type { PlaybackState } from '../types';
+import type { PlaybackState, ProjectInfo } from '../types';
 
 interface ToolbarProps {
+  project: ProjectInfo | null;
   onFileOpen: () => void;
   onLoadDbc: () => void;
   sourceLoaded: boolean;
@@ -9,6 +10,9 @@ interface ToolbarProps {
   onPlaybackControl: (action: string) => void;
   speed: number;
   onSpeedChange: (speed: number) => void;
+  onSaveProject: () => void;
+  onSaveProjectAs: () => void;
+  onCloseProject: () => void;
 }
 
 const SPEEDS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 32];
@@ -18,15 +22,55 @@ const Toolbar: Component<ToolbarProps> = (props) => {
   const isPaused = () => props.playbackState === 'paused';
 
   return (
-    <div style={{
-      display: 'flex',
-      'align-items': 'center',
-      gap: '8px',
-      padding: '6px 12px',
-      background: 'var(--bg-secondary)',
-      'border-bottom': '1px solid var(--border)',
-      'min-height': '40px',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        'align-items': 'center',
+        gap: '8px',
+        padding: '6px 12px',
+        background: 'var(--bg-secondary)',
+        'border-bottom': '1px solid var(--border)',
+        'min-height': '40px',
+      }}
+    >
+      {props.project && (
+        <>
+          <span
+            style={{
+              'font-size': '13px',
+              'font-weight': '600',
+              color: 'var(--text-primary)',
+              'margin-right': '4px',
+              'max-width': '180px',
+              overflow: 'hidden',
+              'text-overflow': 'ellipsis',
+              'white-space': 'nowrap',
+            }}
+            title={props.project.name}
+          >
+            {props.project.name}
+          </span>
+
+          <button
+            onClick={props.onSaveProject}
+            style={{
+              padding: '4px 10px',
+              border: 'none',
+              'border-radius': '4px',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              'font-size': '12px',
+            }}
+            title="Save Project (Ctrl+S)"
+          >
+            Save
+          </button>
+
+          <div style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
+        </>
+      )}
+
       <button
         onClick={props.onFileOpen}
         style={{
@@ -65,9 +109,13 @@ const Toolbar: Component<ToolbarProps> = (props) => {
             <button
               onClick={() => props.onPlaybackControl('pause')}
               style={{
-                padding: '4px 12px', border: 'none', 'border-radius': '4px',
-                background: 'var(--accent)', color: '#fff',
-                cursor: 'pointer', 'font-size': '13px',
+                padding: '4px 12px',
+                border: 'none',
+                'border-radius': '4px',
+                background: 'var(--accent)',
+                color: '#fff',
+                cursor: 'pointer',
+                'font-size': '13px',
               }}
             >
               Pause
@@ -76,9 +124,13 @@ const Toolbar: Component<ToolbarProps> = (props) => {
             <button
               onClick={() => props.onPlaybackControl('play')}
               style={{
-                padding: '4px 12px', border: 'none', 'border-radius': '4px',
-                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                cursor: 'pointer', 'font-size': '13px',
+                padding: '4px 12px',
+                border: 'none',
+                'border-radius': '4px',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                'font-size': '13px',
               }}
             >
               {isPaused() ? 'Resume' : 'Play'}
@@ -88,24 +140,32 @@ const Toolbar: Component<ToolbarProps> = (props) => {
           <button
             onClick={() => props.onPlaybackControl('stop')}
             style={{
-              padding: '4px 12px', border: 'none', 'border-radius': '4px',
-              background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-              cursor: 'pointer', 'font-size': '13px',
+              padding: '4px 12px',
+              border: 'none',
+              'border-radius': '4px',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              'font-size': '13px',
             }}
           >
             Stop
           </button>
 
-          <div style={{
-            display: 'flex',
-            'align-items': 'center',
-            gap: '4px',
-            'margin-left': '8px',
-          }}>
-            <span style={{ 'font-size': '11px', color: 'var(--text-secondary)' }}>Speed</span>
+          <div
+            style={{
+              display: 'flex',
+              'align-items': 'center',
+              gap: '4px',
+              'margin-left': '8px',
+            }}
+          >
+            <span style={{ 'font-size': '11px', color: 'var(--text-secondary)' }}>
+              Speed
+            </span>
             <select
               value={props.speed}
-              onChange={e => props.onSpeedChange(parseFloat(e.currentTarget.value))}
+              onChange={(e) => props.onSpeedChange(parseFloat(e.currentTarget.value))}
               style={{
                 padding: '3px 6px',
                 border: '1px solid var(--border)',
@@ -117,11 +177,29 @@ const Toolbar: Component<ToolbarProps> = (props) => {
                 outline: 'none',
               }}
             >
-              {SPEEDS.map(s => (
+              {SPEEDS.map((s) => (
                 <option value={s}>{s < 1 ? s.toFixed(2) : s}x</option>
               ))}
             </select>
           </div>
+
+          <div style={{ flex: 1 }} />
+
+          <button
+            onClick={props.onCloseProject}
+            style={{
+              padding: '4px 10px',
+              border: 'none',
+              'border-radius': '4px',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              'font-size': '12px',
+            }}
+            title="Close Project"
+          >
+            Close
+          </button>
         </>
       )}
     </div>

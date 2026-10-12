@@ -115,3 +115,39 @@ export function formatSignal(signal: DecodedSignalInfo): string {
   const unit = signal.unit ? ` ${signal.unit}` : '';
   return `${signal.name}=${display}${unit}`;
 }
+
+export interface FilterConfigJson {
+  canId: string;
+  timeStart: string;
+  timeEnd: string;
+}
+
+export interface ChartSignalJson {
+  canId: number;
+  signalName: string;
+  unit: string;
+}
+
+export interface UiLayoutJson {
+  panelWidth: number;
+  chartHeight: number;
+}
+
+export interface ProjectInfo {
+  name: string;
+  canLogPath: string;
+  dbcPaths: string[];
+  lastPosition: number;
+  filters: FilterConfigJson;
+  chartSignals: ChartSignalJson[];
+  uiLayout: UiLayoutJson;
+  createdAt: string;
+  modifiedAt: string;
+  projectPath: string | null;
+}
+
+export interface RecentProjectInfo {
+  name: string;
+  path: string;
+  openedAt: string;
+}
