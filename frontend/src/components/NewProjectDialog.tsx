@@ -107,10 +107,9 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
                 id="npd-folder"
                 class="npd-input npd-folder-input"
                 type="text"
-                placeholder="Select a folder..."
+                placeholder="Select or paste a folder path..."
                 value={parentFolder()}
                 onInput={(e) => setParentFolder(e.currentTarget.value)}
-                readonly
               />
               <button class="npd-browse-btn" onClick={handleBrowse}>
                 Browse
