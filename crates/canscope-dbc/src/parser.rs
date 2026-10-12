@@ -601,6 +601,52 @@ BO_ 256 Msg1: 8 BCM
     }
 
     #[test]
+    fn parse_sample_dbc() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("examples")
+            .join("sample.dbc");
+        assert!(path.exists(), "sample.dbc not found at {:?}", path);
+
+        let dbc = parse_dbc(&path).unwrap();
+
+        assert_eq!(dbc.nodes.len(), 4);
+        assert!(dbc.nodes.contains(&"ECU".to_string()));
+        assert!(dbc.nodes.contains(&"ABS".to_string()));
+        assert!(dbc.nodes.contains(&"EPS".to_string()));
+        assert!(dbc.nodes.contains(&"Gateway".to_string()));
+
+        assert_eq!(dbc.messages.len(), 3);
+
+        let engine = &dbc.messages[0];
+        assert_eq!(engine.can_id, 256);
+        assert_eq!(engine.name, "EngineData");
+        assert_eq!(engine.signals.len(), 2);
+        assert_eq!(engine.signals[0].name, "EngineSpeed");
+        assert_eq!(engine.signals[1].name, "CoolantTemp");
+
+        let steering = &dbc.messages[1];
+        assert_eq!(steering.can_id, 512);
+        assert_eq!(steering.name, "SteeringInfo");
+        assert_eq!(steering.signals[0].value_type, SigValueType::Signed);
+        assert_eq!(steering.signals[1].unit, "Nm");
+
+        let vehicle = dbc.messages.iter().find(|m| m.can_id == 848).unwrap();
+        assert_eq!(vehicle.name, "VehicleDynamics");
+        assert_eq!(vehicle.signals[0].byte_order, ByteOrder::Motorola);
+        assert_eq!(vehicle.signals[2].name, "BrakeSwitch");
+        assert_eq!(
+            vehicle.signals[2].value_descriptions.get(&0).map(|s| s.as_str()),
+            Some("Off")
+        );
+        assert_eq!(
+            vehicle.signals[2].value_descriptions.get(&1).map(|s| s.as_str()),
+            Some("On")
+        );
+    }
+
+    #[test]
     fn parse_multiplexed() {
         let dbc_content = r#"VERSION ""
 

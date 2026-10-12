@@ -284,6 +284,38 @@ End Triggerblock
     }
 
     #[test]
+    fn parse_sample_trace() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("examples")
+            .join("sample_trace.asc");
+        assert!(
+            path.exists(),
+            "sample_trace.asc not found at {:?}",
+            path
+        );
+
+        let mut reader = AscReader::open(&path).unwrap();
+        let mut frames = Vec::new();
+        while let Some(f) = reader.next() {
+            frames.push(f);
+        }
+
+        assert_eq!(frames.len(), 25, "expected 25 frames");
+
+        let meta = reader.metadata();
+        assert_eq!(meta.total_frames, Some(25));
+        assert_eq!(meta.bus_count, 2);
+
+        let f_ext = frames.iter().find(|f| f.can_id == 0x350).unwrap();
+        assert!(f_ext.is_extended, "0x350 should be extended frame");
+
+        let f_ch2 = frames.iter().find(|f| f.bus_id == 1).unwrap();
+        assert_eq!(f_ch2.can_id, 0x200, "channel 2 should have SteeringInfo");
+    }
+
+    #[test]
     fn seek_and_progress() {
         let asc = r#"date Wed Dec 31 00:00:00 2025
 base hex  timestamps absolute
