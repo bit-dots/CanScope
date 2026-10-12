@@ -135,7 +135,7 @@ export interface UiLayoutJson {
 
 export interface ProjectInfo {
   name: string;
-  canLogPath: string;
+  canLogPath: string | null;
   dbcPaths: string[];
   lastPosition: number;
   filters: FilterConfigJson;

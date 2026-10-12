@@ -113,46 +113,31 @@ function App() {
 
   const handleNewProject = async () => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        title: 'Select CAN Log File',
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const selected = await save({
+        title: 'Save New Project',
         filters: [
-          { name: 'CAN Log Files', extensions: ['asc', 'csv'] },
-          { name: 'All Files', extensions: ['*'] },
+          { name: 'CanScope Project', extensions: ['canscope'] },
         ],
+        defaultPath: 'Untitled.canscope',
       });
       if (!selected) return;
       if (typeof selected !== 'string') return;
 
       const fileName = selected.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || 'Untitled';
 
-      setLoading(true);
-      setError(null);
-
       const proj: ProjectInfo = await invoke('create_project', {
         name: fileName,
-        canLogPath: selected,
       });
 
       setProject(proj);
 
-      const result: OpenResult = await invoke('open_file', { path: selected });
-      setMetadata(result.metadata);
-      setFrames(result.frames);
-      setPlaybackState('stopped');
+      await invoke('save_project_as', { path: selected });
 
-      if (proj.uiLayout) {
-        setPanelWidth(proj.uiLayout.panelWidth);
-        setChartHeight(proj.uiLayout.chartHeight);
-      }
-      if (proj.filters && proj.filters.canId) {
-        setFilter({ canId: proj.filters.canId, timeStart: proj.filters.timeStart, timeEnd: proj.filters.timeEnd });
-      }
+      setProject(prev => prev ? { ...prev, projectPath: selected } : null);
     } catch (e) {
       setError(String(e));
       console.error('Failed to create project:', e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -202,10 +187,12 @@ function App() {
       const proj: ProjectInfo = await invoke('open_project', { path });
       setProject(proj);
 
-      const result: OpenResult = await invoke('open_file', { path: proj.canLogPath });
-      setMetadata(result.metadata);
-      setFrames(result.frames);
-      setPlaybackState('stopped');
+      if (proj.canLogPath) {
+        const result: OpenResult = await invoke('open_file', { path: proj.canLogPath });
+        setMetadata(result.metadata);
+        setFrames(result.frames);
+        setPlaybackState('stopped');
+      }
 
       if (proj.uiLayout) {
         setPanelWidth(proj.uiLayout.panelWidth);
@@ -334,7 +321,40 @@ function App() {
   };
 
   const handleFileOpen = async () => {
-    handleNewProject();
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        title: 'Open CAN Log File',
+        filters: [
+          { name: 'CAN Log Files', extensions: ['asc', 'csv'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (!selected) return;
+      if (typeof selected !== 'string') return;
+
+      setLoading(true);
+      setError(null);
+      setDbcTree(null);
+      setSelectedCanId(null);
+      setChartSignals([]);
+      stopPolling();
+      setFrames([]);
+
+      const result: OpenResult = await invoke('open_file', { path: selected });
+      setMetadata(result.metadata);
+      setFrames(result.frames);
+      setPlaybackState('stopped');
+
+      await invoke('set_project_can_log', { canLogPath: selected });
+
+      setProject(prev => prev ? { ...prev, canLogPath: selected } : null);
+    } catch (e) {
+      setError(String(e));
+      console.error('Failed to open CAN log:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLoadDbc = async () => {

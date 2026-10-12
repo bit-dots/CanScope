@@ -57,7 +57,7 @@ impl Default for UiLayoutJson {
 #[serde(rename_all = "camelCase")]
 struct ProjectConfig {
     name: String,
-    can_log_path: String,
+    can_log_path: Option<String>,
     dbc_paths: Vec<String>,
     last_position: f64,
     filters: FilterConfigJson,
@@ -506,7 +506,7 @@ fn add_to_recent(app: &tauri::AppHandle, name: &str, path: &str) {
 #[serde(rename_all = "camelCase")]
 struct ProjectInfo {
     name: String,
-    can_log_path: String,
+    can_log_path: Option<String>,
     dbc_paths: Vec<String>,
     last_position: f64,
     filters: FilterConfigJson,
@@ -539,13 +539,12 @@ impl From<&RecentProjectEntry> for RecentProjectInfo {
 fn create_project(
     _app: tauri::AppHandle,
     name: String,
-    can_log_path: String,
     state: State<AppState>,
 ) -> Result<ProjectInfo, String> {
     let now = now_iso();
     let project = ProjectConfig {
         name,
-        can_log_path: can_log_path.clone(),
+        can_log_path: None,
         dbc_paths: Vec::new(),
         last_position: 0.0,
         filters: FilterConfigJson::default(),
@@ -554,17 +553,6 @@ fn create_project(
         created_at: now.clone(),
         modified_at: now,
     };
-
-    let log_path = PathBuf::from(&can_log_path);
-    let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
-
-    let engine = PlaybackEngine::new(reader);
-
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    *engine_guard = Some(engine);
-
-    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
-    *file_path = Some(log_path);
 
     let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
     *project_guard = Some(project.clone());
@@ -654,26 +642,28 @@ fn open_project(
     let mut project: ProjectConfig =
         serde_json::from_str(&json).map_err(|e| format!("Invalid project file: {}", e))?;
 
-    let log_path = PathBuf::from(&project.can_log_path);
-    if !log_path.exists() {
-        return Err(format!(
-            "CAN log file not found: {}\nThe file may have been moved or deleted.",
-            project.can_log_path
-        ));
+    if let Some(ref can_log_path) = project.can_log_path {
+        let log_path = PathBuf::from(can_log_path);
+        if !log_path.exists() {
+            return Err(format!(
+                "CAN log file not found: {}\nThe file may have been moved or deleted.",
+                can_log_path
+            ));
+        }
+
+        let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
+
+        let mut engine = PlaybackEngine::new(reader);
+        if project.last_position > 0.0 {
+            let _ = engine.seek_to(project.last_position);
+        }
+
+        let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+        *engine_guard = Some(engine);
+
+        let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+        *file_path = Some(log_path);
     }
-
-    let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
-
-    let mut engine = PlaybackEngine::new(reader);
-    if project.last_position > 0.0 {
-        let _ = engine.seek_to(project.last_position);
-    }
-
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    *engine_guard = Some(engine);
-
-    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
-    *file_path = Some(log_path);
 
     let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
     *dbc_guard = None;
@@ -747,6 +737,19 @@ fn update_project_state(
 }
 
 #[tauri::command]
+fn set_project_can_log(
+    can_log_path: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut project) = *project_guard {
+        project.can_log_path = Some(can_log_path);
+        project.modified_at = now_iso();
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn close_project(state: State<AppState>) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = None;
@@ -790,6 +793,7 @@ pub fn run() {
             save_project_as,
             get_recent_projects,
             update_project_state,
+            set_project_can_log,
             close_project,
         ])
         .run(tauri::generate_context!())
