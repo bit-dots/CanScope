@@ -154,8 +154,8 @@
   border-radius: 4px;
   cursor: pointer;
   transition:
-    background-color 0.12s ease,
-    border-color 0.12s ease;
+    background-color 0.15s ease,
+    border-color 0.15s ease;
   position: relative;
 }
 
@@ -282,7 +282,7 @@
   border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  transition: background-color 0.15s ease;
 }
 
 .backstage__back:hover {
@@ -377,7 +377,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .backstage__card:hover {
@@ -422,7 +422,7 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  transition: background-color 0.15s ease;
 }
 
 .backstage__action-btn:hover {
@@ -434,7 +434,7 @@
 }
 
 .backstage__action-btn--danger:hover {
-  background: #dc2626;
+  background: color-mix(in srgb, var(--error) 85%, black);
 }
 
 .backstage__recent-list {

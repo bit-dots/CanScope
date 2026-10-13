@@ -10,6 +10,9 @@ import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
 import ConfirmDialog from './components/ConfirmDialog';
+import DockSystem from './components/docking/DockSystem';
+import { useDockManager } from './components/docking/useDockManager';
+import type { PanelDefinition } from './components/docking/dock-types';
 import type {
   OpenResult,
   PlaybackState,
@@ -35,12 +38,24 @@ function App() {
   const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [speed, setSpeed] = createSignal(1);
-  const [panelWidth, setPanelWidth] = createSignal(260);
-  const [chartHeight, setChartHeight] = createSignal(200);
   const [online, setOnline] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   let isWindowClosing = false;
+
+  const PANEL_DEFS: PanelDefinition[] = [
+    { id: 'dbc-tree', title: 'DBC 信号树', defaultPosition: 'left', defaultVisible: true, defaultSize: 260 },
+    { id: 'signal-decode', title: '信号解析', defaultPosition: 'left', defaultVisible: true },
+    { id: 'frame-monitor', title: '报文监控', defaultPosition: 'center', defaultVisible: true },
+    { id: 'chart', title: '图形曲线', defaultPosition: 'bottom', defaultVisible: true, defaultSize: 220 },
+    { id: 'message-send', title: '报文发送', defaultPosition: 'right', defaultVisible: false, defaultSize: 280 },
+    { id: 'statistics', title: '统计信息', defaultPosition: 'right', defaultVisible: false },
+    { id: 'log', title: '日志', defaultPosition: 'bottom', defaultVisible: false },
+  ];
+
+  const dockManager = useDockManager(PANEL_DEFS);
+
+  const chartHeight = () => dockManager.layout.zoneSizes.bottom;
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -226,8 +241,8 @@ function App() {
       }
 
       if (proj.uiLayout) {
-        setPanelWidth(proj.uiLayout.panelWidth);
-        setChartHeight(proj.uiLayout.chartHeight);
+        dockManager.resizeZone('left', proj.uiLayout.panelWidth);
+        dockManager.resizeZone('bottom', proj.uiLayout.chartHeight);
       }
       if (proj.filters) {
         setFilter({
@@ -326,8 +341,8 @@ function App() {
         unit: s.unit,
       })),
       uiLayout: {
-        panelWidth: panelWidth(),
-        chartHeight: chartHeight(),
+        panelWidth: dockManager.layout.zoneSizes.left,
+        chartHeight: dockManager.layout.zoneSizes.bottom,
       },
       lastPosition: currentTime(),
     });
@@ -440,7 +455,7 @@ function App() {
 
   const handleAddSignal = (s: ChartSignal) => {
     setChartSignals(prev => [...prev, s]);
-    if (chartHeight() < 100) setChartHeight(200);
+    if (chartHeight() < 100) dockManager.resizeZone('bottom', 200);
   };
 
   const handleRemoveSignal = (s: ChartSignal) => {
@@ -492,40 +507,6 @@ function App() {
     onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
   });
 
-  let isDraggingH = false;
-  let isDraggingV = false;
-
-  const startResizeH = (_e: MouseEvent) => {
-    isDraggingH = true;
-    const onMove = (e: MouseEvent) => {
-      if (isDraggingH) setPanelWidth(Math.max(180, Math.min(500, e.clientX)));
-    };
-    const onUp = () => {
-      isDraggingH = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
-
-  const startResizeV = (_e: MouseEvent) => {
-    isDraggingV = true;
-    const onMove = (e: MouseEvent) => {
-      if (isDraggingV) {
-        const rect = document.querySelector('.frame-panel')?.getBoundingClientRect();
-        if (rect) setChartHeight(Math.max(80, rect.bottom - e.clientY));
-      }
-    };
-    const onUp = () => {
-      isDraggingV = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
-
   // Phase 1: setSpeed kept for future Ribbon speed control
   void setSpeed;
 
@@ -543,9 +524,9 @@ function App() {
           onImportDbc={handleLoadDbc}
           onImportLdf={() => {}}
           onImportArxml={() => {}}
-          onOpenSendPanel={() => {}}
-          onOpenMonitorPanel={() => {}}
-          onOpenChartPanel={() => {}}
+          onOpenSendPanel={() => dockManager.togglePanel('message-send')}
+          onOpenMonitorPanel={() => dockManager.togglePanel('frame-monitor')}
+          onOpenChartPanel={() => dockManager.togglePanel('chart')}
           onOpenRecorder={() => {}}
           onStartRecord={() => {}}
           onStopRecord={() => {}}
@@ -581,33 +562,68 @@ function App() {
         )}
         {loading() ? (
           <div class="loading">Loading project...</div>
-        ) : (hasSource() || project() !== null) ? (
-          <div class="split-layout-h">
-            <div class="signal-panel" style={{ width: panelWidth() + 'px' }}>
-              <SignalTree
-                tree={dbcTree()}
-                onSelectMessage={handleSelectMessage}
-                selectedCanId={selectedCanId()}
-                onSelectSignal={handleAddSignal}
-                onRemoveSignal={handleRemoveSignal}
-                chartSignals={chartSignals()}
-              />
-            </div>
-            <div class="panel-resizer-h" onMouseDown={startResizeH} />
-            <div class="frame-panel">
-              <div class="table-area" style={{ flex: 1, 'min-height': '0' }}>
+        ): (hasSource() || project() !== null) ? (
+          <DockSystem
+            panels={{
+              'dbc-tree': (
+                <SignalTree
+                  tree={dbcTree()}
+                  onSelectMessage={handleSelectMessage}
+                  selectedCanId={selectedCanId()}
+                  onSelectSignal={handleAddSignal}
+                  onRemoveSignal={handleRemoveSignal}
+                  chartSignals={chartSignals()}
+                />
+              ),
+              'signal-decode': (
+                <div class="mock-panel">
+                  <div class="mock-panel__placeholder">
+                    选择一个信号查看解析详情
+                  </div>
+                </div>
+              ),
+              'frame-monitor': (
                 <FrameTable frames={filteredFrames()} />
-              </div>
-              <div class="panel-resizer-v" onMouseDown={startResizeV} />
-              <div class="chart-area" style={{ height: chartHeight() + 'px', 'flex-shrink': '0' }}>
+              ),
+              'chart': (
                 <SignalChart
                   frames={frames()}
                   signals={chartSignals()}
                   onRemoveSignal={handleRemoveSignal}
                 />
-              </div>
-            </div>
-          </div>
+              ),
+              'message-send': (
+                <div class="mock-panel">
+                  <div class="mock-panel__placeholder">
+                    报文发送 — 功能开发中
+                  </div>
+                </div>
+              ),
+              'statistics': (
+                <div class="mock-panel">
+                  <div class="mock-panel__placeholder">
+                    统计信息 — 功能开发中
+                  </div>
+                </div>
+              ),
+              'log': (
+                <div class="mock-panel">
+                  <div class="mock-panel__placeholder">
+                    日志 — 功能开发中
+                  </div>
+                </div>
+              ),
+            }}
+            panelDefs={PANEL_DEFS}
+            layout={dockManager.layout}
+            openPanel={dockManager.openPanel}
+            closePanel={dockManager.closePanel}
+            togglePanel={dockManager.togglePanel}
+            setActivePanel={dockManager.setActivePanel}
+            movePanel={dockManager.movePanel}
+            resizeZone={dockManager.resizeZone}
+            isPanelVisible={dockManager.isPanelVisible}
+          />
         ) : (
           <WelcomeScreen
             onNewProject={handleNewProject}

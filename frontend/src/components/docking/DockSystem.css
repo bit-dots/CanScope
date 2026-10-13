@@ -1,0 +1,240 @@
+.dock-system {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.dock-system__middle {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dock-system__center {
+  flex: 1;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+/* ============================================
+   Zones
+   ============================================ */
+.dock-zone {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.dock-zone--hidden {
+  display: none;
+}
+
+.dock-zone--drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.dock-zone--left {
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dock-zone--right {
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dock-zone--top {
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dock-zone--bottom {
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dock-zone--center {
+  border: none;
+  flex: 1;
+}
+
+.dock-zone__content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dock-zone__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ============================================
+   Splitter
+   ============================================ */
+.dock-splitter {
+  flex-shrink: 0;
+  background: var(--border);
+  transition: background-color 0.15s ease;
+  z-index: 10;
+}
+
+.dock-splitter:hover {
+  background: var(--accent);
+}
+
+.dock-splitter--vertical {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.dock-splitter--horizontal {
+  height: 4px;
+  cursor: row-resize;
+}
+
+/* ============================================
+   Tab Bar
+   ============================================ */
+.dock-tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 30px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.dock-tab-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+.dock-tab {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+}
+
+.dock-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dock-tab--active {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.dock-tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.dock-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 2px;
+}
+
+/* ============================================
+   Panel
+   ============================================ */
+.dock-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dock-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.dock-panel__header:active {
+  cursor: grabbing;
+}
+
+.dock-panel__title {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.dock-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dock-panel__close:hover {
+  background: var(--bg-tertiary);
+  color: var(--error);
+}
+
+.dock-panel__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 2px;
+}
+
+.dock-panel__close svg {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.dock-panel__body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

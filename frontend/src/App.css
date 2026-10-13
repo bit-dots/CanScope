@@ -29,8 +29,8 @@ select:focus-visible,
    Scrollbar — 暗色主题滚动条
    ============================================ */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -39,11 +39,11 @@ select:focus-visible,
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--text-secondary);
 }
 
 ::-webkit-scrollbar-corner {
@@ -73,10 +73,10 @@ select:focus-visible,
 
 .error-bar {
   padding: 8px 16px;
-  background: #4a2020;
-  color: #ff6b6b;
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
   font-size: 13px;
-  border-bottom: 1px solid #603030;
+  border-bottom: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
 }
 
 .frame-table {
@@ -294,7 +294,7 @@ select:focus-visible,
 }
 
 .welcome-btn-primary {
-  background: var(--accent, #4D96FF);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -362,11 +362,11 @@ select:focus-visible,
   padding: 10px 14px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.15s ease;
 }
 
 .welcome-recent-item:hover {
-  background: var(--bg-tertiary, #2a2a2a);
+  background: var(--bg-tertiary);
 }
 
 .welcome-recent-info {
@@ -412,7 +412,7 @@ select:focus-visible,
   padding: 4px;
   border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.12s, color 0.12s;
+  transition: opacity 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 
@@ -422,7 +422,7 @@ select:focus-visible,
 
 .welcome-recent-remove:hover {
   opacity: 1 !important;
-  color: #ff6b6b;
+  color: var(--error);
 }
 
 .welcome-footer {
@@ -507,7 +507,7 @@ select:focus-visible,
 }
 
 .npd-required {
-  color: #e05555;
+  color: var(--error);
 }
 
 .npd-input {
@@ -545,7 +545,7 @@ select:focus-visible,
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s;
+  transition: background 0.15s;
 }
 
 .npd-browse-btn:hover {
@@ -616,7 +616,7 @@ select:focus-visible,
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.12s;
+  transition: opacity 0.15s;
 }
 
 .npd-btn:disabled {
@@ -663,10 +663,28 @@ select:focus-visible,
 }
 
 .npd-btn-danger {
-  background: #4a2020;
-  color: #ff6b6b;
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  color: var(--error);
 }
 
 .npd-btn-danger:hover:not(:disabled) {
-  background: #5a2828;
+  background: color-mix(in srgb, var(--error) 32%, transparent);
+}
+
+.mock-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.mock-panel__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 13px;
+  user-select: none;
 }
