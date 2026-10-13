@@ -1,6 +1,6 @@
 import { createSignal, createMemo, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import Toolbar from './components/Toolbar';
+import Ribbon from './components/ribbon/Ribbon';
 import FilterBar from './components/FilterBar';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
@@ -37,6 +37,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [panelWidth, setPanelWidth] = createSignal(260);
   const [chartHeight, setChartHeight] = createSignal(200);
+  const [online, setOnline] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   let isWindowClosing = false;
@@ -391,43 +392,6 @@ function App() {
     setFilter({ canId: '', timeStart: '', timeEnd: '' });
   };
 
-  const handleFileOpen = async () => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        title: 'Open CAN Log File',
-        filters: [
-          { name: 'CAN Log Files', extensions: ['asc', 'csv'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
-      });
-      if (!selected) return;
-      if (typeof selected !== 'string') return;
-
-      setLoading(true);
-      setError(null);
-      setDbcTree(null);
-      setSelectedCanId(null);
-      setChartSignals([]);
-      stopPolling();
-      setFrames([]);
-
-      const result: OpenResult = await invoke('open_file', { path: selected });
-      setMetadata(result.metadata);
-      setFrames(result.frames);
-      setPlaybackState('stopped');
-
-      await invoke('set_project_can_log', { canLogPath: selected });
-
-      setProject(prev => prev ? { ...prev, canLogPath: selected } : null);
-    } catch (e) {
-      setError(String(e));
-      console.error('Failed to open CAN log:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLoadDbc = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
@@ -480,19 +444,6 @@ function App() {
 
   const handleRemoveSignal = (s: ChartSignal) => {
     setChartSignals(prev => prev.filter(x => !(x.canId === s.canId && x.signalName === s.signalName)));
-  };
-
-  const handleSpeedChange = async (newSpeed: number) => {
-    setSpeed(newSpeed);
-    try {
-      await invoke('set_speed', { speed: newSpeed });
-    } catch (e) {
-      console.error('set_speed failed:', e);
-    }
-    if (playbackState() === 'playing') {
-      stopPolling();
-      startPolling();
-    }
   };
 
   const handlePlaybackControl = async (action: string) => {
@@ -574,23 +525,38 @@ function App() {
     document.addEventListener('mouseup', onUp);
   };
 
+  // Phase 1: setSpeed kept for future Ribbon speed control
+  void setSpeed;
+
   return (
     <div class="app-layout">
-      {project() && (
-        <Toolbar
-          project={project()!}
-          onFileOpen={handleFileOpen}
-          onLoadDbc={handleLoadDbc}
-          sourceLoaded={hasSource()}
-          playbackState={playbackState()}
-          onPlaybackControl={handlePlaybackControl}
-          speed={speed()}
-          onSpeedChange={handleSpeedChange}
-          onSaveProject={handleSaveProject}
-          onSaveProjectAs={handleSaveProjectAs}
-          onCloseProject={handleCloseProject}
-        />
-      )}
+      <Ribbon
+        online={online()}
+        playbackState={playbackState()}
+        projectLoaded={project() !== null}
+        onToggleOnline={() => setOnline(prev => !prev)}
+        onStart={() => handlePlaybackControl('play')}
+        onStop={() => handlePlaybackControl('stop')}
+        onOpenChannelConfig={() => {}}
+        onImportDbc={handleLoadDbc}
+        onImportLdf={() => {}}
+        onImportArxml={() => {}}
+        onOpenSendPanel={() => {}}
+        onOpenMonitorPanel={() => {}}
+        onOpenChartPanel={() => {}}
+        onOpenRecorder={() => {}}
+        onStartRecord={() => {}}
+        onStopRecord={() => {}}
+        onOpenPlayback={() => {}}
+        onOpenUds={() => {}}
+        onOpenObd={() => {}}
+        onOpenEcuFlash={() => {}}
+        onNewProject={handleNewProject}
+        onOpenProject={handleOpenProject}
+        onSaveProject={handleSaveProject}
+        onSaveProjectAs={handleSaveProjectAs}
+        onCloseProject={handleCloseProject}
+      />
       {hasSource() && (
         <>
           <FilterBar

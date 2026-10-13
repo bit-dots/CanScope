@@ -1,0 +1,358 @@
+/* ============================================
+   CanScope Ribbon — Office 风格功能区样式
+   所有色值均遵循 design.md 设计系统
+   ============================================ */
+
+/* ---- Ribbon 根容器 ---- */
+.ribbon {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+  z-index: 100;
+}
+
+/* ============================================
+   Tab Row — 页签行
+   ============================================ */
+.ribbon__tabs {
+  display: flex;
+  align-items: flex-end;
+  height: 34px;
+  padding: 0 2px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  gap: 0;
+}
+
+.ribbon__tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.ribbon__tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.ribbon__tab--active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.ribbon__tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+}
+
+.ribbon__tab--file {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ribbon__tab--file:hover {
+  color: var(--accent-hover);
+  background: var(--bg-tertiary);
+}
+
+/* ============================================
+   Content Area — 功能区内容区
+   ============================================ */
+.ribbon__content {
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  animation: ribbonContentIn 0.12s ease-out;
+}
+
+@keyframes ribbonContentIn {
+  from {
+    opacity: 0.6;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 120px;
+  }
+}
+
+.ribbon__groups {
+  display: flex;
+  align-items: flex-start;
+  padding: 6px 8px 4px;
+  gap: 0;
+  min-height: 86px;
+}
+
+/* ============================================
+   RibbonGroup — 功能组
+   ============================================ */
+.ribbon-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 10px;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.ribbon-group:last-child {
+  border-right: none;
+}
+
+.ribbon-group__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 240px;
+}
+
+.ribbon-group__label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* ============================================
+   RibbonButton — 功能按钮
+   ============================================ */
+.ribbon-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 4px 2px 2px;
+  gap: 2px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+  position: relative;
+}
+
+.ribbon-button:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+.ribbon-button:active {
+  background: var(--bg-primary);
+}
+
+.ribbon-button--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.ribbon-button--active {
+  background: var(--bg-secondary);
+  border-color: var(--accent);
+}
+
+.ribbon-button__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-primary);
+}
+
+.ribbon-button__icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ribbon-button__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 48px;
+}
+
+.ribbon-button--dropdown {
+  position: relative;
+}
+
+.ribbon-button__arrow {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 8px;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+/* Placeholder tab content */
+.ribbon__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 86px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+/* ============================================
+   Backstage — 文件后台视图
+   ============================================ */
+.backstage {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.backstage--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.backstage__header {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+
+.backstage__back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.backstage__back:hover {
+  background: var(--bg-tertiary);
+}
+
+.backstage__title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.backstage__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.backstage__nav {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  padding: 12px 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.backstage__nav-item {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 24px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  text-align: left;
+}
+
+.backstage__nav-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.backstage__nav-item--active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
+.backstage__nav-item--active:hover {
+  background: var(--accent-hover);
+}
+
+.backstage__content {
+  flex: 1;
+  padding: 32px 48px;
+  overflow-y: auto;
+}
+
+.backstage__content-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
