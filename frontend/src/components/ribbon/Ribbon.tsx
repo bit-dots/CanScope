@@ -19,13 +19,13 @@ const IconOnline: Component = () => (
 
 const IconPlay: Component = () => (
   <svg viewBox="0 0 24 24">
-    <polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none" />
+    <polygon points="6,3 20,12 6,21" />
   </svg>
 );
 
 const IconStop: Component = () => (
   <svg viewBox="0 0 24 24">
-    <rect x="5" y="5" width="14" height="14" rx="1" fill="currentColor" stroke="none" />
+    <rect x="5" y="5" width="14" height="14" rx="1" />
   </svg>
 );
 
@@ -74,7 +74,7 @@ const IconChart: Component = () => (
 const IconRecord: Component = () => (
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" />
-    <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 

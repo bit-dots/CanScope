@@ -49,10 +49,10 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
 
-      if (mins < 1) return 'Just now';
-      if (mins < 60) return `${mins}m ago`;
-      if (hours < 24) return `${hours}h ago`;
-      if (days < 7) return `${days}d ago`;
+      if (mins < 1) return '刚刚';
+      if (mins < 60) return `${mins} 分钟前`;
+      if (hours < 24) return `${hours} 小时前`;
+      if (days < 7) return `${days} 天前`;
 
       return d.toLocaleDateString(undefined, {
         month: 'short',
@@ -78,7 +78,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
         />
       </div>
       <h1 class="welcome-title">CanScope</h1>
-      <p class="welcome-subtitle">CAN Bus Playback &amp; Analysis Tool</p>
+      <p class="welcome-subtitle">CAN 总线回放与分析工具</p>
 
       <div class="welcome-actions">
         <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>
@@ -86,19 +86,19 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          New Project
+          新建工程
         </button>
         <button class="welcome-btn welcome-btn-secondary" onClick={props.onOpenProject}>
           <svg class="welcome-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           </svg>
-          Open Project
+          打开工程
         </button>
       </div>
 
       {recentProjects().length > 0 && (
         <div class="welcome-recent">
-          <div class="welcome-recent-header">Recent Projects</div>
+          <div class="welcome-recent-header">最近工程</div>
           <div class="welcome-recent-list">
             {recentProjects().map((p) => (
               <div
@@ -119,7 +119,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
                 <button
                   class="welcome-recent-remove"
                   onClick={(e) => handleRemoveRecent(e, p.path)}
-                  title="Remove from list"
+                  title="从列表中移除"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="welcome-remove-icon">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -133,9 +133,9 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
       )}
 
       <div class="welcome-footer">
-        <span>Keyboard shortcuts:</span>
-        <kbd>{modKey}+N</kbd> New Project &nbsp;
-        <kbd>{modKey}+O</kbd> Open Project
+        <span>快捷键：</span>
+        <kbd>{modKey}+N</kbd> 新建工程 &nbsp;
+        <kbd>{modKey}+O</kbd> 打开工程
       </div>
     </div>
   );
