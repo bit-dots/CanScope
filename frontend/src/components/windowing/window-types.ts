@@ -22,6 +22,7 @@ export interface WindowState {
   snapState: SnapState;
   minimized: boolean;
   preMaximize: { rect: WindowRect; snapState: SnapState } | null;
+  preSnap: WindowRect | null;
 }
 
 export interface PanelWindowState {
@@ -57,5 +58,6 @@ export function createDefaultWindowState(
     snapState: 'floating',
     minimized: false,
     preMaximize: null,
+    preSnap: null,
   };
 }

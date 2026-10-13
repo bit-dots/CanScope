@@ -1,4 +1,4 @@
-import { createSignal, createMemo, onCleanup, onMount } from 'solid-js';
+import { createSignal, createMemo, createEffect, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Ribbon from './components/ribbon/Ribbon';
 import FilterBar from './components/FilterBar';
@@ -503,12 +503,18 @@ function App() {
     onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
 
     // Anchor resource-manager as left sidebar, full height
-    requestAnimationFrame(() => {
+    // Use createEffect so height syncs on workspace re-mount (open/close project)
+    createEffect(() => {
+      const ws = workspaceEl();
+      const proj = project();
+      if (!ws || !proj) return;
       requestAnimationFrame(() => {
-        const ws = workspaceEl();
-        if (ws) {
-          windowManager.setPanelRect('resource-manager', { height: ws.clientHeight });
-        }
+        requestAnimationFrame(() => {
+          const ws2 = workspaceEl();
+          if (ws2) {
+            windowManager.setPanelRect('resource-manager', { height: ws2.clientHeight });
+          }
+        });
       });
     });
 

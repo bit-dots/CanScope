@@ -174,6 +174,30 @@ export function useWindowManager(
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
+    // Restore pre-snap size when dragging a snapped window
+    if (p.window.snapState !== 'floating' && p.window.preSnap) {
+      const preSnap = p.window.preSnap;
+      const viewportOffset = getWorkspaceViewportOffset();
+      // Position so cursor appears at roughly 40% into the title bar
+      const wsX = e.clientX - viewportOffset.left;
+      const wsY = e.clientY - viewportOffset.top;
+      const snappedRestoreX = Math.max(0, wsX - preSnap.width * 0.4);
+      const snappedRestoreY = Math.max(0, wsY - 15);
+      setState('panels', panelId, 'window', 'rect', {
+        x: snappedRestoreX,
+        y: snappedRestoreY,
+        width: preSnap.width,
+        height: preSnap.height,
+      });
+      setState('panels', panelId, 'window', 'preSnap', null);
+      setState('panels', panelId, 'window', 'snapState', 'floating');
+      setDragOffset({
+        x: wsX - snappedRestoreX,
+        y: wsY - snappedRestoreY,
+      });
+      return;
+    }
+
     const viewportOffset = getWorkspaceViewportOffset();
     const startRect = { ...p.window.rect };
 
@@ -222,6 +246,9 @@ export function useWindowManager(
 
     const preview = snapPreview();
     if (preview) {
+      // Save current rect before applying snap (for restore on unsnap)
+      const p = state.panels[panelId];
+      setState('panels', panelId, 'window', 'preSnap', { ...p.window.rect });
       setState('panels', panelId, 'window', 'rect', { ...preview.rect });
       setState('panels', panelId, 'window', 'snapState', preview.snapState);
     }
