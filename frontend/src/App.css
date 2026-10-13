@@ -56,11 +56,25 @@ select:focus-visible,
   scrollbar-color: var(--border) transparent;
 }
 
+/* Floating Window styles are in components/windowing/FloatingWindow.css */
+
 .main-content {
   flex: 1;
   overflow: hidden;
   position: relative;
 }
+
+/* Workspace — container for floating windows */
+.workspace {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* Snap preview overlay is in components/windowing/FloatingWindow.css */
+/* WindowTaskbar styles are in components/windowing/WindowTaskbar.css */
 
 .loading {
   display: flex;

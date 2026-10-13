@@ -1,0 +1,215 @@
+.floating-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  min-width: 280px;
+  min-height: 180px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(37, 99, 235, 0.08);
+  transition: box-shadow 0.15s ease;
+}
+
+.floating-window:focus-within {
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+/* ---- Snap state variants ---- */
+.floating-window--snapped {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.floating-window--snapped-left {
+  border-right: 2px solid var(--accent);
+}
+
+.floating-window--snapped-right {
+  border-left: 2px solid var(--accent);
+}
+
+.floating-window--snapped-top {
+  border-bottom: 2px solid var(--accent);
+}
+
+.floating-window--snapped-bottom {
+  border-top: 2px solid var(--accent);
+}
+
+.floating-window--snapped-top-left,
+.floating-window--snapped-top-right,
+.floating-window--snapped-bottom-left,
+.floating-window--snapped-bottom-right {
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+/* ---- Maximized ---- */
+.floating-window--maximized {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* ---- Dragging ---- */
+.floating-window--dragging {
+  opacity: 0.92;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7), 0 0 0 2px var(--accent);
+  transition: none;
+  pointer-events: none;
+}
+
+/* ---- Title Bar ---- */
+.floating-window__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.floating-window__titlebar:active {
+  cursor: grabbing;
+}
+
+.floating-window--maximized .floating-window__titlebar {
+  cursor: default;
+}
+
+.floating-window__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Controls ---- */
+.floating-window__controls {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.floating-window__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.floating-window__btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.floating-window__btn--close:hover {
+  background: var(--error);
+  color: #fff;
+}
+
+/* ---- Content ---- */
+.floating-window__content {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-primary);
+  min-height: 0;
+}
+
+/* ---- Resize Handles ---- */
+.floating-window__resize {
+  position: absolute;
+  z-index: 20;
+}
+
+/* Edges */
+.floating-window__resize--n {
+  top: 0;
+  left: 4px;
+  right: 4px;
+  height: 6px;
+  cursor: n-resize;
+}
+
+.floating-window__resize--s {
+  bottom: 0;
+  left: 4px;
+  right: 4px;
+  height: 6px;
+  cursor: s-resize;
+}
+
+.floating-window__resize--e {
+  right: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 6px;
+  cursor: e-resize;
+}
+
+.floating-window__resize--w {
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 6px;
+  cursor: w-resize;
+}
+
+/* Corners */
+.floating-window__resize--nw {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+}
+
+.floating-window__resize--ne {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
+}
+
+.floating-window__resize--sw {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
+}
+
+.floating-window__resize--se {
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+}
+
+/* Snap preview overlay */
+.snap-preview {
+  position: absolute;
+  background: rgba(37, 99, 235, 0.12);
+  border: 2px dashed rgba(37, 99, 235, 0.4);
+  pointer-events: none;
+  z-index: 9999;
+  transition: all 0.1s ease;
+}

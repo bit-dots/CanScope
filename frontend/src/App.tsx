@@ -10,9 +10,9 @@ import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
 import ConfirmDialog from './components/ConfirmDialog';
-import DockSystem from './components/docking/DockSystem';
-import { useDockManager } from './components/docking/useDockManager';
-import type { PanelDefinition } from './components/docking/dock-types';
+import FloatingWindow from './components/windowing/FloatingWindow';
+import WindowTaskbar from './components/windowing/WindowTaskbar';
+import { useWindowManager } from './components/windowing/useWindowManager';
 import type {
   OpenResult,
   PlaybackState,
@@ -43,19 +43,18 @@ function App() {
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   let isWindowClosing = false;
 
-  const PANEL_DEFS: PanelDefinition[] = [
-    { id: 'dbc-tree', title: 'DBC 信号树', defaultPosition: 'left', defaultVisible: true, defaultSize: 260 },
-    { id: 'signal-decode', title: '信号解析', defaultPosition: 'left', defaultVisible: true },
-    { id: 'frame-monitor', title: '报文监控', defaultPosition: 'center', defaultVisible: true },
-    { id: 'chart', title: '图形曲线', defaultPosition: 'bottom', defaultVisible: true, defaultSize: 220 },
-    { id: 'message-send', title: '报文发送', defaultPosition: 'right', defaultVisible: false, defaultSize: 280 },
-    { id: 'statistics', title: '统计信息', defaultPosition: 'right', defaultVisible: false },
-    { id: 'log', title: '日志', defaultPosition: 'bottom', defaultVisible: false },
+  const PANEL_DEFS = [
+    { id: 'dbc-tree', title: 'DBC 信号树', defaultVisible: true, defaultPosition: { x: 20, y: 20, width: 300, height: 400 } },
+    { id: 'signal-decode', title: '信号解析', defaultVisible: true, defaultPosition: { x: 340, y: 20, width: 300, height: 400 } },
+    { id: 'frame-monitor', title: '报文监控', defaultVisible: true, defaultPosition: { x: 0, y: 0, width: 0, height: 0 } },
+    { id: 'chart', title: '图形曲线', defaultVisible: true, defaultPosition: { x: 20, y: 440, width: 620, height: 240 } },
+    { id: 'message-send', title: '报文发送', defaultVisible: false, defaultPosition: { x: 200, y: 100, width: 400, height: 350 } },
+    { id: 'statistics', title: '统计信息', defaultVisible: false, defaultPosition: { x: 250, y: 120, width: 450, height: 380 } },
+    { id: 'log', title: '日志', defaultVisible: false, defaultPosition: { x: 150, y: 80, width: 500, height: 300 } },
   ];
 
-  const dockManager = useDockManager(PANEL_DEFS);
-
-  const chartHeight = () => dockManager.layout.zoneSizes.bottom;
+  const [workspaceEl, setWorkspaceEl] = createSignal<HTMLElement | null>(null);
+  const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
 
   const filteredFrames = createMemo<FrameInfo[]>(() => {
     const f = filter();
@@ -240,10 +239,6 @@ function App() {
         setPlaybackState('stopped');
       }
 
-      if (proj.uiLayout) {
-        dockManager.resizeZone('left', proj.uiLayout.panelWidth);
-        dockManager.resizeZone('bottom', proj.uiLayout.chartHeight);
-      }
       if (proj.filters) {
         setFilter({
           canId: proj.filters.canId,
@@ -341,8 +336,8 @@ function App() {
         unit: s.unit,
       })),
       uiLayout: {
-        panelWidth: dockManager.layout.zoneSizes.left,
-        chartHeight: dockManager.layout.zoneSizes.bottom,
+        panelWidth: 260,
+        chartHeight: 220,
       },
       lastPosition: currentTime(),
     });
@@ -455,7 +450,6 @@ function App() {
 
   const handleAddSignal = (s: ChartSignal) => {
     setChartSignals(prev => [...prev, s]);
-    if (chartHeight() < 100) dockManager.resizeZone('bottom', 200);
   };
 
   const handleRemoveSignal = (s: ChartSignal) => {
@@ -505,6 +499,13 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
+
+    // Maximize frame-monitor after initial layout
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        windowManager.toggleMaximize('frame-monitor');
+      });
+    });
   });
 
   // Phase 1: setSpeed kept for future Ribbon speed control
@@ -524,9 +525,9 @@ function App() {
           onImportDbc={handleLoadDbc}
           onImportLdf={() => {}}
           onImportArxml={() => {}}
-          onOpenSendPanel={() => dockManager.togglePanel('message-send')}
-          onOpenMonitorPanel={() => dockManager.togglePanel('frame-monitor')}
-          onOpenChartPanel={() => dockManager.togglePanel('chart')}
+          onOpenSendPanel={() => windowManager.togglePanel('message-send')}
+          onOpenMonitorPanel={() => windowManager.togglePanel('frame-monitor')}
+          onOpenChartPanel={() => windowManager.togglePanel('chart')}
           onOpenRecorder={() => {}}
           onStartRecord={() => {}}
           onStopRecord={() => {}}
@@ -563,67 +564,117 @@ function App() {
         {loading() ? (
           <div class="loading">Loading project...</div>
         ): (hasSource() || project() !== null) ? (
-          <DockSystem
-            panels={{
-              'dbc-tree': (
-                <SignalTree
-                  tree={dbcTree()}
-                  onSelectMessage={handleSelectMessage}
-                  selectedCanId={selectedCanId()}
-                  onSelectSignal={handleAddSignal}
-                  onRemoveSignal={handleRemoveSignal}
-                  chartSignals={chartSignals()}
-                />
-              ),
-              'signal-decode': (
-                <div class="mock-panel">
-                  <div class="mock-panel__placeholder">
-                    选择一个信号查看解析详情
-                  </div>
-                </div>
-              ),
-              'frame-monitor': (
-                <FrameTable frames={filteredFrames()} />
-              ),
-              'chart': (
-                <SignalChart
-                  frames={frames()}
-                  signals={chartSignals()}
-                  onRemoveSignal={handleRemoveSignal}
-                />
-              ),
-              'message-send': (
-                <div class="mock-panel">
-                  <div class="mock-panel__placeholder">
-                    报文发送 — 功能开发中
-                  </div>
-                </div>
-              ),
-              'statistics': (
-                <div class="mock-panel">
-                  <div class="mock-panel__placeholder">
-                    统计信息 — 功能开发中
-                  </div>
-                </div>
-              ),
-              'log': (
-                <div class="mock-panel">
-                  <div class="mock-panel__placeholder">
-                    日志 — 功能开发中
-                  </div>
-                </div>
-              ),
+          <div
+            ref={setWorkspaceEl}
+            class="workspace"
+            onMouseMove={(e) => {
+              windowManager.onDrag(e);
+              windowManager.onResize(e);
             }}
-            panelDefs={PANEL_DEFS}
-            layout={dockManager.layout}
-            openPanel={dockManager.openPanel}
-            closePanel={dockManager.closePanel}
-            togglePanel={dockManager.togglePanel}
-            setActivePanel={dockManager.setActivePanel}
-            movePanel={dockManager.movePanel}
-            resizeZone={dockManager.resizeZone}
-            isPanelVisible={dockManager.isPanelVisible}
-          />
+            onMouseUp={() => {
+              windowManager.endDrag();
+              windowManager.endResize();
+            }}
+            onMouseLeave={() => {
+              windowManager.endDrag();
+              windowManager.endResize();
+            }}
+          >
+            {/* Snap preview overlay */}
+            {windowManager.snapPreview() && (
+              <div
+                class="snap-preview"
+                style={{
+                  left: `${windowManager.snapPreview()!.rect.x}px`,
+                  top: `${windowManager.snapPreview()!.rect.y}px`,
+                  width: `${windowManager.snapPreview()!.rect.width}px`,
+                  height: `${windowManager.snapPreview()!.rect.height}px`,
+                }}
+              />
+            )}
+            {/* Rendered panels as floating windows */}
+            {windowManager.visiblePanels().map((panel) => {
+              const panelContent = (() => {
+                switch (panel.id) {
+                  case 'dbc-tree':
+                    return (
+                      <SignalTree
+                        tree={dbcTree()}
+                        onSelectMessage={handleSelectMessage}
+                        selectedCanId={selectedCanId()}
+                        onSelectSignal={handleAddSignal}
+                        onRemoveSignal={handleRemoveSignal}
+                        chartSignals={chartSignals()}
+                      />
+                    );
+                  case 'signal-decode':
+                    return (
+                      <div class="mock-panel">
+                        <div class="mock-panel__placeholder">
+                          选择一个信号查看解析详情
+                        </div>
+                      </div>
+                    );
+                  case 'frame-monitor':
+                    return <FrameTable frames={filteredFrames()} />;
+                  case 'chart':
+                    return (
+                      <SignalChart
+                        frames={frames()}
+                        signals={chartSignals()}
+                        onRemoveSignal={handleRemoveSignal}
+                      />
+                    );
+                  case 'message-send':
+                    return (
+                      <div class="mock-panel">
+                        <div class="mock-panel__placeholder">
+                          报文发送 — 功能开发中
+                        </div>
+                      </div>
+                    );
+                  case 'statistics':
+                    return (
+                      <div class="mock-panel">
+                        <div class="mock-panel__placeholder">
+                          统计信息 — 功能开发中
+                        </div>
+                      </div>
+                    );
+                  case 'log':
+                    return (
+                      <div class="mock-panel">
+                        <div class="mock-panel__placeholder">
+                          日志 — 功能开发中
+                        </div>
+                      </div>
+                    );
+                  default:
+                    return null;
+                }
+              })();
+
+              return (
+                <FloatingWindow
+                  panel={panel}
+                  isDragging={windowManager.draggingPanelId() === panel.id}
+                  onMouseDown={(e) => windowManager.startDrag(e, panel.id)}
+                  onMinimize={() => windowManager.minimizePanel(panel.id)}
+                  onMaximize={() => windowManager.toggleMaximize(panel.id)}
+                  onClose={() => windowManager.closePanel(panel.id)}
+                  onResizeStart={(e, dir) => windowManager.startResize(e, panel.id, dir)}
+                  onActivate={() => windowManager.setActivePanel(panel.id)}
+                >
+                  {panelContent}
+                </FloatingWindow>
+              );
+            })}
+            {/* Minimized windows taskbar */}
+            <WindowTaskbar
+              panels={windowManager.minimizedPanels()}
+              onRestore={(id) => windowManager.restorePanel(id)}
+            />
+          </div>
         ) : (
           <WelcomeScreen
             onNewProject={handleNewProject}
