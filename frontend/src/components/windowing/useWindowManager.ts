@@ -276,6 +276,12 @@ export function useWindowManager(
     bringToFront(panelId);
   }
 
+  function setPanelRect(panelId: string, rect: Partial<WindowRect>) {
+    const p = state.panels[panelId];
+    if (!p) return;
+    setState('panels', panelId, 'window', 'rect', (prev) => ({ ...prev, ...rect }));
+  }
+
   // Resize handling
   function startResize(e: MouseEvent, panelId: string, direction: string) {
     e.preventDefault();
@@ -362,6 +368,7 @@ export function useWindowManager(
     toggleMaximize,
     minimizePanel,
     restorePanel,
+    setPanelRect,
     startResize,
     onResize,
     endResize,
