@@ -34,17 +34,17 @@ const FilterBar: Component<FilterBarProps> = (props) => {
         id="filter-canid"
         class={inputClass}
         style={{ width: '120px' }}
-        placeholder="e.g. 0x123"
+        placeholder="例如 0x123"
         value={props.filter.canId}
         onInput={e => setCanId(e.currentTarget.value)}
       />
 
-      <label for="filter-time-start" class="text-xs text-text-secondary">Time:</label>
+      <label for="filter-time-start" class="text-xs text-text-secondary">时间:</label>
       <input
         id="filter-time-start"
         class={inputClass}
         style={{ width: '70px' }}
-        placeholder="start (s)"
+        placeholder="起始 (秒)"
         value={props.filter.timeStart}
         onInput={e => setTimeStart(e.currentTarget.value)}
       />
@@ -52,6 +52,7 @@ const FilterBar: Component<FilterBarProps> = (props) => {
       <input
         id="filter-time-end"
         class={inputClass}
+        placeholder="结束 (秒)"
         value={props.filter.timeEnd}
         onInput={e => setTimeEnd(e.currentTarget.value)}
       />
@@ -61,7 +62,7 @@ const FilterBar: Component<FilterBarProps> = (props) => {
           onClick={clearAll}
           class="px-2.5 py-0.5 border border-border rounded bg-transparent text-text-secondary cursor-pointer text-[11px] transition-colors duration-150 hover:bg-bg-tertiary"
         >
-          Clear
+          清除
         </button>
       )}
     </div>

@@ -60,13 +60,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           background: 'var(--bg-secondary)',
         }}>
           <tr>
-            <th style={thStyle('#', '40px')}>#</th>
-            <th style={thStyle('Time', '100px')}>Time (s)</th>
-            <th style={thStyle('CAN ID', '80px')}>CAN ID</th>
-            <th style={thStyle('Type', '55px')}>Type</th>
-            <th style={thStyle('DLC', '45px')}>DLC</th>
-            <th style={thStyle('Data', '200px')}>Data</th>
-            <th style={thStyle('Signals')}>Signals</th>
+            <th style={{ width: '40px' }}>#</th>
+            <th style={{ width: '100px' }}>时间 (s)</th>
+            <th style={{ width: '80px' }}>CAN ID</th>
+            <th style={{ width: '55px' }}>Type</th>
+            <th style={{ width: '45px' }}>DLC</th>
+            <th style={{ width: '200px' }}>Data</th>
+            <th>Signals</th>
           </tr>
         </thead>
         <tbody>
@@ -75,24 +75,21 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             const idx = startIndex() + i;
             return (
               <tr
-                style={{
-                  height: `${ROW_HEIGHT}px`,
-                  background: idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)',
-                }}
+                style={{ height: `${ROW_HEIGHT}px`, background: idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)' }}
               >
-                <td style={tdStyle}>{idx + 1}</td>
-                <td style={tdStyle}>{frame.timestamp.toFixed(6)}</td>
-                <td style={{ ...tdStyle, 'font-family': '"JetBrains Mono", monospace', color: 'var(--accent)' }}>
+                <td>{idx + 1}</td>
+                <td>{frame.timestamp.toFixed(6)}</td>
+                <td style={{ 'font-family': 'var(--font-mono)', color: 'var(--accent)' }}>
                   {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                 </td>
-                <td style={tdStyle}>
+                <td>
                   {frame.is_fd ? 'FD' : frame.is_extended ? 'EXT' : 'STD'}
                 </td>
-                <td style={tdStyle}>{frame.dlc}</td>
-                <td style={{ ...tdStyle, 'font-family': '"JetBrains Mono", monospace', 'font-size': '11px' }}>
+                <td>{frame.dlc}</td>
+                <td style={{ 'font-family': 'var(--font-mono)', 'font-size': '11px' }}>
                   {formatDataHex(frame.data, frame.dlc)}
                 </td>
-                <td style={{ ...tdStyle, 'font-size': '11px', color: 'var(--text-primary)' }}>
+                <td style={{ 'font-size': '11px', color: 'var(--text-primary)' }}>
                   {frame.signals && frame.signals.length > 0
                     ? frame.signals.map(s => formatSignal(s)).join(', ')
                     : <span style="color: var(--text-secondary)">—</span>
@@ -111,35 +108,26 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
+          display: 'flex',
+          'flex-direction': 'column',
+          'align-items': 'center',
+          gap: '10px',
           color: 'var(--text-secondary)',
+          'font-size': '12px',
         }}>
-          No frames to display
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span style={{ color: 'var(--text-primary)', 'font-weight': '500' }}>
+            暂无报文数据
+          </span>
+          <span>请加载数据文件并启动播放</span>
         </div>
       )}
     </div>
   );
 };
 
-function thStyle(_text: string, width?: string): Record<string, string> {
-  return {
-    'text-align': 'left',
-    padding: '4px 8px',
-    'border-bottom': '1px solid var(--border)',
-    'font-size': '12px',
-    'font-weight': '600',
-    color: 'var(--text-secondary)',
-    'white-space': 'nowrap',
-    ...(width ? { width } : {}),
-  };
-}
 
-const tdStyle: Record<string, string> = {
-  padding: '2px 8px',
-  'font-size': '12px',
-  color: 'var(--text-primary)',
-  'white-space': 'nowrap',
-  overflow: 'hidden',
-  'text-overflow': 'ellipsis',
-};
 
 export default FrameTable;

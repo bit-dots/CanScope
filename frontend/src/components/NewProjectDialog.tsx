@@ -27,7 +27,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
   });
 
   const displayPath = createMemo(() => {
-    const name = projectName().trim() || 'Untitled';
+    const name = projectName().trim() || '未命名';
     const parent = parentFolder();
     if (!parent) return name + '.canscope';
 
@@ -45,7 +45,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
-        title: 'Select Parent Folder',
+        title: '选择父文件夹',
         directory: true,
       });
       if (selected && typeof selected === 'string') {
@@ -59,7 +59,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
   const handleConfirm = () => {
     if (!canConfirm()) return;
     props.onConfirm({
-      name: projectName().trim() || 'Untitled',
+      name: projectName().trim() || '未命名',
       parentFolder: parentFolder(),
       createSubfolder: createSubfolder(),
     });
@@ -78,8 +78,8 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
     <div class="npd-overlay">
       <div class="npd-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         <div class="npd-header">
-          <h2 class="npd-title">New Project</h2>
-          <button class="npd-close" onClick={props.onCancel} aria-label="Close">
+          <h2 class="npd-title">新建工程</h2>
+          <button class="npd-close" onClick={props.onCancel} aria-label="关闭">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -90,13 +90,13 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
         <div class="npd-body">
           <div class="npd-field">
             <label class="npd-label" for="npd-name">
-              Project Name <span class="npd-required">*</span>
+              工程名称 <span class="npd-required">*</span>
             </label>
             <input
               id="npd-name"
               class="npd-input"
               type="text"
-              placeholder="e.g. CAN Bus Analysis Q3"
+              placeholder="工程名称，例如: CAN总线分析"
               value={projectName()}
               onInput={(e) => setProjectName(e.currentTarget.value)}
               autofocus
@@ -105,19 +105,19 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
 
           <div class="npd-field">
             <label class="npd-label" for="npd-folder">
-              Parent Folder
+              父文件夹
             </label>
             <div class="npd-folder-row">
               <input
                 id="npd-folder"
                 class="npd-input npd-folder-input"
                 type="text"
-                placeholder="Select or paste a folder path..."
+                placeholder="选择或粘贴文件夹路径..."
                 value={parentFolder()}
                 onInput={(e) => setParentFolder(e.currentTarget.value)}
               />
               <button class="npd-browse-btn" onClick={handleBrowse}>
-                Browse
+                浏览
               </button>
             </div>
           </div>
@@ -131,7 +131,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
                 onChange={(e) => setCreateSubfolder(e.currentTarget.checked)}
               />
               <span class="npd-checkbox-text">
-                Create a subfolder for this project
+                创建子文件夹
               </span>
             </label>
           </div>
@@ -154,14 +154,14 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
 
         <div class="npd-footer">
           <button class="npd-btn npd-btn-cancel" onClick={props.onCancel}>
-            Cancel
+            取消
           </button>
           <button
             class="npd-btn npd-btn-create"
             onClick={handleConfirm}
             disabled={!canConfirm()}
           >
-            Create Project
+            创建工程
           </button>
         </div>
       </div>

@@ -69,23 +69,25 @@ select:focus-visible,
 }
 
 .frame-table th {
-  padding: 6px 12px;
+  padding: 4px 8px;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   background: var(--bg-secondary);
-  border-bottom: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
   user-select: none;
+  color: var(--text-secondary);
 }
 
 .frame-table td {
-  padding: 4px 12px;
-  font-size: 13px;
+  padding: 2px 8px;
+  font-size: 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
 .frame-table tbody tr:hover {

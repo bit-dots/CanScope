@@ -118,6 +118,7 @@ function App() {
 
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const appWindow = getCurrentWindow();
+    appWindow.setTheme('dark');
     appWindow.onCloseRequested(async (event) => {
       try {
         const dirty: boolean = await invoke('is_project_dirty');
@@ -624,21 +625,21 @@ function App() {
       )}
       {showUnsavedDialog() && (
         <ConfirmDialog
-          title="Unsaved Changes"
-          message={`Do you want to save changes to "${project()?.name ?? 'Untitled'}" before closing?`}
+          title="未保存的更改"
+          message={`工程 "${project()?.name ?? '未命名'}" 有未保存的更改，是否在关闭前保存？`}
           buttons={[
             {
-              label: 'Save & Close',
+              label: '保存并关闭',
               kind: 'primary',
               onClick: handleSaveAndClose,
             },
             {
-              label: 'Discard',
+              label: '放弃',
               kind: 'danger',
               onClick: handleDiscardAndClose,
             },
             {
-              label: 'Cancel',
+              label: '取消',
               kind: 'secondary',
               onClick: () => {
                 isWindowClosing = false;

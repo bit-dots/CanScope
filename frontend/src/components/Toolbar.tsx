@@ -37,8 +37,8 @@ const Toolbar: Component<ToolbarProps> = (props) => {
       <button
         onClick={props.onSaveProject}
         class={btnMuted}
-        title="Save Project (Ctrl+S)"
-        aria-label="Save Project"
+        title="保存工程 (Ctrl+S)"
+        aria-label="保存工程"
       >
         Save
       </button>
@@ -48,9 +48,9 @@ const Toolbar: Component<ToolbarProps> = (props) => {
       <button
         onClick={props.onFileOpen}
         class={btnDefault}
-        aria-label="Open File"
+        aria-label="打开文件"
       >
-        Open File
+        打开文件
       </button>
 
       {props.sourceLoaded && (
@@ -69,31 +69,31 @@ const Toolbar: Component<ToolbarProps> = (props) => {
             <button
               onClick={() => props.onPlaybackControl('pause')}
               class={btnAccent}
-              aria-label="Pause"
+              aria-label="暂停"
             >
-              Pause
-            </button>
+              暂停
+              </button>
           ) : (
             <button
               onClick={() => props.onPlaybackControl('play')}
               class={btnDefault}
-              aria-label={isPaused() ? 'Resume' : 'Play'}
+              aria-label={isPaused() ? '继续' : '播放'}
             >
-              {isPaused() ? 'Resume' : 'Play'}
+              {isPaused() ? '继续' : '播放'}
             </button>
           )}
 
           <button
             onClick={() => props.onPlaybackControl('stop')}
             class={btnDefault}
-            aria-label="Stop"
+            aria-label="停止"
           >
-            Stop
-          </button>
+            停止
+            </button>
 
           <div class="flex items-center gap-1 ml-2">
             <span class="text-[11px] text-text-secondary">
-              Speed
+              速度
             </span>
             <select
               value={props.speed}
@@ -113,10 +113,10 @@ const Toolbar: Component<ToolbarProps> = (props) => {
       <button
         onClick={props.onCloseProject}
         class={btnMuted}
-        title="Close Project"
-        aria-label="Close Project"
+        title="关闭工程"
+        aria-label="关闭工程"
       >
-        Close
+        关闭
       </button>
     </div>
   );

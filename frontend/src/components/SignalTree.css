@@ -1,0 +1,209 @@
+/* ============================================
+   SignalTree — DBC 信号树样式
+   ============================================ */
+
+.signal-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-secondary);
+}
+
+.signal-tree__header {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.signal-tree__title {
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.signal-tree__stat {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.signal-tree__search {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.signal-tree__list {
+  flex: 1;
+  overflow: auto;
+  font-size: 12px;
+}
+
+/* Message Row */
+.signal-tree__msg {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  transition: background-color 0.1s ease;
+}
+
+.signal-tree__msg:hover {
+  background: var(--bg-tertiary);
+}
+
+.signal-tree__msg--selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.signal-tree__msg--selected:hover {
+  background: var(--accent-hover);
+}
+
+.signal-tree__arrow {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.15s;
+}
+
+.signal-tree__msg--selected .signal-tree__arrow {
+  color: #fff;
+}
+
+.signal-tree__arrow--collapsed {
+  transform: rotate(-90deg);
+}
+
+.signal-tree__canid {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.signal-tree__msg-name {
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.signal-tree__msg-count {
+  margin-left: auto;
+  font-size: 10px;
+  flex-shrink: 0;
+  padding-left: 6px;
+  opacity: 0.6;
+}
+
+/* Signal Detail Table */
+.signal-tree__signals {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.signal-tree__sig-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.signal-tree__sig-th {
+  padding: 2px 6px;
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.signal-tree__sig-row {
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.signal-tree__sig-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.signal-tree__sig-td {
+  padding: 2px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.signal-tree__sig-td--inchart {
+  font-weight: 600;
+}
+
+.signal-tree__sig-mux {
+  color: var(--accent);
+  font-size: 9px;
+  margin-right: 2px;
+}
+
+.signal-tree__sig-bits {
+  font-family: var(--font-mono);
+}
+
+.signal-tree__sig-order {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.signal-tree__sig-unit {
+  color: var(--text-secondary);
+}
+
+/* Empty state */
+.signal-tree__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px 20px;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  background: var(--bg-secondary);
+}
+
+.signal-tree__empty-title {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.signal-tree__empty-desc {
+  text-align: center;
+  line-height: 1.6;
+}
+
+.signal-tree__empty-icon {
+  opacity: 0.4;
+}
+
+/* No matches */
+.signal-tree__no-matches {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}

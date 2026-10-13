@@ -1,6 +1,7 @@
 import { Component, createSignal } from 'solid-js';
 import type { DbcTreeInfo, DbcMessageInfo, ChartSignal } from '../types';
 import { formatHex } from '../types';
+import './SignalTree.css';
 
 const COLORS = ['#38BFA7', '#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF922B'];
 
@@ -37,12 +38,18 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
 
   if (!props.tree) {
     return (
-      <div style={{
-        padding: '16px 12px',
-        color: 'var(--text-secondary)',
-        'font-size': '12px',
-      }}>
-        Load a DBC file to view signals
+      <div class="signal-tree__empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="signal-tree__empty-icon">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <span class="signal-tree__empty-title">未加载 DBC 文件</span>
+        <span class="signal-tree__empty-desc">
+          请在主页 Ribbon 中点击 "DBC 导入"<br />加载数据库文件以查看信号
+        </span>
       </div>
     );
   }
@@ -70,47 +77,23 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      'flex-direction': 'column',
-      height: '100%',
-      background: 'var(--bg-secondary)',
-    }}>
-      <div style={{
-        padding: '6px 10px',
-        'border-bottom': '1px solid var(--border)',
-        'font-size': '11px',
-        color: 'var(--text-secondary)',
-      }}>
-        <div style={{ 'margin-bottom': '6px', 'font-weight': '600', 'font-size': '12px', color: 'var(--text-primary)' }}>
-          DBC Signals
-          <span style={{ 'margin-left': '6px', 'font-weight': '400', color: 'var(--text-secondary)' }}>
-            {props.tree.messageCount} msgs / {props.tree.signalCount} sigs
+    <div class="signal-tree">
+      <div class="signal-tree__header">
+        <div class="signal-tree__title">
+          DBC 信号
+          <span class="signal-tree__stat">
+            {props.tree.messageCount} 条报文 / {props.tree.signalCount} 个信号
           </span>
         </div>
         <input
-          style={{
-            width: '100%',
-            padding: '3px 6px',
-            border: '1px solid var(--border)',
-            'border-radius': '3px',
-            background: 'var(--bg-primary)',
-            color: 'var(--text-primary)',
-            'font-size': '11px',
-            outline: 'none',
-            'box-sizing': 'border-box',
-          }}
-          placeholder="Search messages / signals..."
+          class="signal-tree__search"
+          placeholder="搜索报文 / 信号..."
           value={search()}
           onInput={e => setSearch(e.currentTarget.value)}
         />
       </div>
 
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        'font-size': '12px',
-      }}>
+      <div class="signal-tree__list">
         {filtered().map(msg => {
           const isExpanded = expanded().has(msg.canId);
           const isSelected = props.selectedCanId === msg.canId;
@@ -119,110 +102,71 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
             <div>
               <div
                 onClick={() => selectMsg(msg)}
-                style={{
-                  display: 'flex',
-                  'align-items': 'center',
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  background: isSelected ? 'var(--accent)' : 'transparent',
-                  color: isSelected ? '#fff' : 'var(--text-primary)',
-                  'border-bottom': '1px solid var(--border)',
-                }}
+                class="signal-tree__msg"
+                classList={{ 'signal-tree__msg--selected': isSelected }}
               >
                 <svg
                   onClick={e => { e.stopPropagation(); toggleMsg(msg.canId); }}
-                  style={{
-                    cursor: 'pointer',
-                    width: '16px',
-                    height: '16px',
-                    'flex-shrink': '0',
-                    color: isSelected ? '#fff' : 'var(--text-secondary)',
-                    transition: 'transform 0.15s',
-                    transform: isExpanded ? '' : 'rotate(-90deg)',
-                  }}
+                  class="signal-tree__arrow"
+                  classList={{ 'signal-tree__arrow--collapsed': !isExpanded }}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                  aria-label={isExpanded ? '折叠' : '展开'}
                 >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
-                <span style={{
-                  'font-family': '"JetBrains Mono", monospace',
-                  'font-size': '11px',
-                  'margin-left': '4px',
-                  'flex-shrink': '0',
-                }}>
+                <span class="signal-tree__canid">
                   {formatHex(msg.canId, 3)}
                 </span>
-                <span style={{
-                  'margin-left': '8px',
-                  overflow: 'hidden',
-                  'text-overflow': 'ellipsis',
-                  'white-space': 'nowrap',
-                  'font-weight': '500',
-                }}>
+                <span class="signal-tree__msg-name">
                   {msg.name}
                 </span>
-                <span style={{
-                  'margin-left': 'auto',
-                  'font-size': '10px',
-                  'flex-shrink': '0',
-                  'padding-left': '6px',
-                  opacity: 0.6,
-                }}>
+                <span class="signal-tree__msg-count">
                   {msg.signalCount}
                 </span>
               </div>
 
               {isExpanded && (
-                <div style={{
-                  background: 'var(--bg-primary)',
-                  'border-bottom': '1px solid var(--border)',
-                }}>
-                  <table style={{
-                    width: '100%',
-                    'border-collapse': 'collapse',
-                    'font-size': '11px',
-                  }}>
+                <div class="signal-tree__signals">
+                  <table class="signal-tree__sig-table">
                     <thead>
-                      <tr style={{ color: 'var(--text-secondary)' }}>
-                        <th style={sigTh}>Signal</th>
-                        <th style={sigTh}>Bits</th>
-                        <th style={sigTh}>Order</th>
-                        <th style={sigTh}>Unit</th>
+                      <tr>
+                        <th class="signal-tree__sig-th">信号</th>
+                        <th class="signal-tree__sig-th">位</th>
+                        <th class="signal-tree__sig-th">字节序</th>
+                        <th class="signal-tree__sig-th">单位</th>
                       </tr>
                     </thead>
                     <tbody>
                       {msg.signals.map(sig => {
                           const inChart = isChartSignal(msg.canId, sig.name);
+                          const chartIdx = props.chartSignals.findIndex(s => s.canId === msg.canId && s.signalName === sig.name);
+                          const color = chartIdx >= 0 ? COLORS[chartIdx % COLORS.length] : null;
                           return (
                         <tr
                           onClick={() => toggleSignalChart(msg.canId, sig.name, sig.unit)}
-                          style={{
-                            'border-top': '1px solid var(--border)',
-                            cursor: 'pointer',
-                            background: inChart ? COLORS[props.chartSignals.findIndex(s => s.canId === msg.canId && s.signalName === sig.name) % COLORS.length] + '14' : 'transparent',
-                          }}
+                          class="signal-tree__sig-row"
+                          style={color ? { background: color + '14' } : {}}
                         >
-                          <td style={{ ...sigTd, 'font-weight': inChart ? '600' : '400' }}>
+                          <td class="signal-tree__sig-td" classList={{ 'signal-tree__sig-td--inchart': inChart }}>
                             {sig.multiplexer !== 'None' && (
-                              <span style={{ color: 'var(--accent)', 'font-size': '9px', 'margin-right': '2px' }}>
+                              <span class="signal-tree__sig-mux">
                                 [{sig.multiplexer === 'Multiplexor' ? 'M' : 'm'}]
                               </span>
                             )}
                             {sig.name}
                           </td>
-                          <td style={{ ...sigTd, 'font-family': 'monospace' }}>
+                          <td class="signal-tree__sig-td signal-tree__sig-bits">
                             {sig.startBit}:{sig.bitLength}
                           </td>
-                          <td style={{ ...sigTd, 'font-family': '"JetBrains Mono", monospace', 'font-size': '10px' }}>
+                          <td class="signal-tree__sig-td signal-tree__sig-order">
                             {sig.byteOrder === 'Intel' ? 'LE' : 'BE'}
                           </td>
-                          <td style={{ ...sigTd, color: 'var(--text-secondary)' }}>
+                          <td class="signal-tree__sig-td signal-tree__sig-unit">
                             {sig.unit || '—'}
                           </td>
                         </tr>
@@ -237,31 +181,13 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
         })}
 
         {filtered().length === 0 && (
-          <div style={{
-            padding: '12px',
-            'text-align': 'center',
-            color: 'var(--text-secondary)',
-          }}>
-            No matches
+          <div class="signal-tree__no-matches">
+            无匹配结果
           </div>
         )}
       </div>
     </div>
   );
-};
-
-const sigTh: Record<string, string> = {
-  padding: '2px 6px',
-  'text-align': 'left',
-  'font-weight': '500',
-};
-
-const sigTd: Record<string, string> = {
-  padding: '2px 6px',
-  'white-space': 'nowrap',
-  overflow: 'hidden',
-  'text-overflow': 'ellipsis',
-  'max-width': '180px',
 };
 
 export default SignalTree;
