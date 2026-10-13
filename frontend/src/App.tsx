@@ -44,7 +44,8 @@ function App() {
   let isWindowClosing = false;
 
   const PANEL_DEFS = [
-    { id: 'dbc-tree', title: 'DBC 信号树', defaultVisible: true, defaultPosition: { x: 20, y: 20, width: 300, height: 400 } },
+    { id: 'resource-manager', title: '资源管理器', defaultVisible: true, defaultPosition: { x: 20, y: 20, width: 300, height: 400 } },
+    { id: 'dbc-tree', title: 'DBC 信号树', defaultVisible: true, defaultPosition: { x: 340, y: 20, width: 300, height: 400 } },
     { id: 'signal-decode', title: '信号解析', defaultVisible: true, defaultPosition: { x: 340, y: 20, width: 300, height: 400 } },
     { id: 'frame-monitor', title: '报文监控', defaultVisible: true, defaultPosition: { x: 0, y: 0, width: 0, height: 0 } },
     { id: 'chart', title: '图形曲线', defaultVisible: true, defaultPosition: { x: 20, y: 440, width: 620, height: 240 } },
@@ -525,6 +526,7 @@ function App() {
           onImportDbc={handleLoadDbc}
           onImportLdf={() => {}}
           onImportArxml={() => {}}
+          onOpenResourceManager={() => windowManager.togglePanel('resource-manager')}
           onOpenSendPanel={() => windowManager.togglePanel('message-send')}
           onOpenMonitorPanel={() => windowManager.togglePanel('frame-monitor')}
           onOpenChartPanel={() => windowManager.togglePanel('chart')}
@@ -596,6 +598,14 @@ function App() {
             {windowManager.visiblePanels().map((panel) => {
               const panelContent = (() => {
                 switch (panel.id) {
+                  case 'resource-manager':
+                    return (
+                      <div class="mock-panel">
+                        <div class="mock-panel__placeholder">
+                          项目资源 — 通道 / ECU / 窗口列表
+                        </div>
+                      </div>
+                    );
                   case 'dbc-tree':
                     return (
                       <SignalTree

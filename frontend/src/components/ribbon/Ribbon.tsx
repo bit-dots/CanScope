@@ -108,6 +108,14 @@ const IconEcu: Component = () => (
   </svg>
 );
 
+const IconResource: Component = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2l-1-2H8L7 7H5a2 2 0 0 0-2 2z" />
+    <path d="M12 11v7" />
+    <path d="M9 14h6" />
+  </svg>
+);
+
 /* ============================================
    Ribbon Tab Definitions
    ============================================ */
@@ -118,7 +126,7 @@ interface RibbonTabDef {
 
 const TABS: RibbonTabDef[] = [
   { id: 'file', label: '文件' },
-  { id: 'home', label: '主页' },
+  { id: 'project', label: '项目' },
   { id: 'analysis', label: '分析' },
   { id: 'calibration', label: '标定' },
   { id: 'diagnosis', label: '诊断' },
@@ -143,6 +151,7 @@ export interface RibbonProps {
   onImportDbc: () => void;
   onImportLdf: () => void;
   onImportArxml: () => void;
+  onOpenResourceManager: () => void;
   onOpenSendPanel: () => void;
   onOpenMonitorPanel: () => void;
   onOpenChartPanel: () => void;
@@ -161,7 +170,7 @@ export interface RibbonProps {
 }
 
 const Ribbon: Component<RibbonProps> = (props) => {
-  const [activeTab, setActiveTab] = createSignal('home');
+  const [activeTab, setActiveTab] = createSignal('analysis');
   const [backstageVisible, setBackstageVisible] = createSignal(false);
 
   const handleTabClick = (tabId: string) => {
@@ -200,20 +209,28 @@ const Ribbon: Component<RibbonProps> = (props) => {
 
       {/* ---- Content Area ---- */}
       <div class="ribbon__content">
-        {/* 主页 */}
-        {activeTab() === 'home' && (
+        {/* 项目 */}
+        {activeTab() === 'project' && (
+          <div class="ribbon__groups">
+            <RibbonGroup label="项目资源">
+              <RibbonButton icon={<IconResource />} label="资源管理器" onClick={props.onOpenResourceManager} />
+            </RibbonGroup>
+            <RibbonGroup label="数据库">
+              <RibbonButton icon={<IconImport />} label="DBC 导入" onClick={props.onImportDbc} />
+              <RibbonButton icon={<IconImport />} label="LDF 导入" onClick={props.onImportLdf} />
+              <RibbonButton icon={<IconImport />} label="ARXML 导入" onClick={props.onImportArxml} />
+            </RibbonGroup>
+          </div>
+        )}
+
+        {/* 分析 */}
+        {activeTab() === 'analysis' && (
           <div class="ribbon__groups">
             <RibbonGroup label="连接/测量">
               <RibbonButton icon={<IconOnline />} label="在线" active={props.online} onClick={props.onToggleOnline} />
               <RibbonButton icon={<IconPlay />} label="启动" onClick={props.onStart} disabled={props.playbackState === 'playing'} />
               <RibbonButton icon={<IconStop />} label="停止" onClick={props.onStop} disabled={props.playbackState === 'stopped'} />
               <RibbonButton icon={<IconChannel />} label="通道" onClick={props.onOpenChannelConfig} dropdown />
-            </RibbonGroup>
-
-            <RibbonGroup label="数据库">
-              <RibbonButton icon={<IconImport />} label="DBC 导入" onClick={props.onImportDbc} />
-              <RibbonButton icon={<IconImport />} label="LDF 导入" onClick={props.onImportLdf} />
-              <RibbonButton icon={<IconImport />} label="ARXML 导入" onClick={props.onImportArxml} />
             </RibbonGroup>
 
             <RibbonGroup label="报文">
@@ -228,7 +245,12 @@ const Ribbon: Component<RibbonProps> = (props) => {
               <RibbonButton icon={<IconStop />} label="停止记录" onClick={props.onStopRecord} />
               <RibbonButton icon={<IconPlayback />} label="数据回放" onClick={props.onOpenPlayback} />
             </RibbonGroup>
+          </div>
+        )}
 
+        {/* 诊断 */}
+        {activeTab() === 'diagnosis' && (
+          <div class="ribbon__groups">
             <RibbonGroup label="诊断">
               <RibbonButton icon={<IconUds />} label="UDS 诊断" onClick={props.onOpenUds} />
               <RibbonButton icon={<IconObd />} label="OBD 诊断" onClick={props.onOpenObd} />
@@ -238,7 +260,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
         )}
 
         {/* 占位页签 */}
-        <For each={['analysis', 'calibration', 'diagnosis', 'simulation', 'acquisition', 'tools', 'help']}>
+        <For each={['calibration', 'simulation', 'acquisition', 'tools', 'help']}>
           {(tabId) => (
             <div style={{ display: activeTab() === tabId ? 'flex' : 'none' }} class="ribbon__placeholder">
               {TABS.find(t => t.id === tabId)?.label} — 功能开发中
