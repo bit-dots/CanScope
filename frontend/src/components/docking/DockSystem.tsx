@@ -35,8 +35,19 @@ export function useDockContext() {
   return ctx;
 }
 
+interface DragState {
+  panelId: string;
+  originZone: string;
+  startX: number;
+  startY: number;
+}
+
+const DRAG_THRESHOLD = 5;
+
 const DockSystem: Component<DockSystemProps> = (props) => {
-  const [dragOverZone, setDragOverZone] = createSignal<string | null>(null);
+  const [dragging, setDragging] = createSignal<DragState | null>(null);
+  const [dragGhostPos, setDragGhostPos] = createSignal<{ x: number; y: number } | null>(null);
+  const [dropTargetZone, setDropTargetZone] = createSignal<string | null>(null);
   const [, setResizing] = createSignal<string | null>(null);
 
   const ctx: DockManagerCtx = {
@@ -73,34 +84,62 @@ const DockSystem: Component<DockSystemProps> = (props) => {
     return null;
   };
 
-  const handleDragOver = (e: DragEvent, zone: string) => {
+  const detectZoneFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const zoneEl = (el as HTMLElement).closest('[data-dock-zone]');
+    if (!zoneEl) return null;
+    return zoneEl.getAttribute('data-dock-zone');
+  };
+
+  const handlePanelHeaderMouseDown = (e: MouseEvent, panelId: string, zone: string) => {
+    if ((e.target as HTMLElement).closest('.dock-panel__close')) return;
+    if (e.button !== 0) return;
+
     e.preventDefault();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'move';
-    }
-    setDragOverZone(zone);
-  };
+    const startX = e.clientX;
+    const startY = e.clientY;
 
-  const handleDragLeave = (_e: DragEvent, zone: string) => {
-    if (dragOverZone() === zone) {
-      setDragOverZone(null);
-    }
-  };
+    setDragging({ panelId, originZone: zone, startX, startY });
 
-  const handleDrop = (e: DragEvent, zone: string) => {
-    e.preventDefault();
-    setDragOverZone(null);
-    const panelId = e.dataTransfer?.getData('text/panel-id');
-    if (panelId && zone) {
-      props.movePanel(panelId, zone as DockPosition);
-    }
-  };
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
 
-  const handleDragStart = (e: DragEvent, panelId: string) => {
-    if (e.dataTransfer) {
-      e.dataTransfer.setData('text/panel-id', panelId);
-      e.dataTransfer.effectAllowed = 'move';
-    }
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+        return;
+      }
+
+      setDragGhostPos({ x: ev.clientX, y: ev.clientY });
+      const targetZone = detectZoneFromPoint(ev.clientX, ev.clientY);
+      setDropTargetZone(targetZone);
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      const ds = dragging();
+      if (!ds) {
+        cleanup();
+        return;
+      }
+
+      const targetZone = detectZoneFromPoint(ev.clientX, ev.clientY);
+      if (targetZone && targetZone !== ds.originZone) {
+        props.movePanel(ds.panelId, targetZone as DockPosition);
+      }
+
+      setDragging(null);
+      setDragGhostPos(null);
+      setDropTargetZone(null);
+      cleanup();
+    };
+
+    const cleanup = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   };
 
   const startResize = (zone: string, direction: 'horizontal' | 'vertical') => {
@@ -150,15 +189,13 @@ const DockSystem: Component<DockSystemProps> = (props) => {
     return (
       <div
         class="dock-zone"
+        data-dock-zone={zone}
         classList={{
           [`dock-zone--${zone}`]: true,
           'dock-zone--hidden': !hasContent,
-          'dock-zone--drag-over': dragOverZone() === zone,
+          'dock-zone--drag-over': dropTargetZone() === zone,
         }}
         style={zoneStyle()}
-        onDragOver={(e) => handleDragOver(e, zone)}
-        onDragLeave={(e) => handleDragLeave(e, zone)}
-        onDrop={(e) => handleDrop(e, zone)}
       >
         <Show when={panelIds.length > 1}>
           <div class="dock-tab-bar">
@@ -185,8 +222,7 @@ const DockSystem: Component<DockSystemProps> = (props) => {
             <div class="dock-panel">
               <div
                 class="dock-panel__header"
-                draggable="true"
-                onDragStart={(e) => handleDragStart(e, active!)}
+                onMouseDown={(e) => handlePanelHeaderMouseDown(e, active!, zone)}
               >
                 <span class="dock-panel__title">
                   {props.panelDefs.find(d => d.id === active)?.title ?? active}
@@ -255,6 +291,21 @@ const DockSystem: Component<DockSystemProps> = (props) => {
             onMouseDown={startResize('bottom', 'vertical')}
           />
           {renderZone('bottom')}
+        </Show>
+
+        <Show when={dragging() !== null && dragGhostPos() !== null}>
+          <div
+            class="dock-drag-ghost"
+            style={{
+              left: dragGhostPos()!.x + 'px',
+              top: dragGhostPos()!.y + 'px',
+            }}
+          >
+            {(() => {
+              const d = dragging()!;
+              return props.panelDefs.find(p => p.id === d.panelId)?.title ?? d.panelId;
+            })()}
+          </div>
         </Show>
       </div>
     </DockContext.Provider>

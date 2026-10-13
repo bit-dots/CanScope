@@ -39,6 +39,24 @@
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
+.dock-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  white-space: nowrap;
+}
+
 .dock-zone--left {
   border-right: 1px solid var(--border);
   flex-shrink: 0;
