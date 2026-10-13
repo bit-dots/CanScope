@@ -1,0 +1,83 @@
+/* ============================================
+   SignalChart — 信号曲线图样式
+   ============================================ */
+
+.signal-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.signal-chart__tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  flex-wrap: wrap;
+  min-height: 26px;
+}
+
+.signal-chart__tags-label {
+  color: var(--text-secondary);
+  margin-right: 4px;
+  font-weight: 600;
+}
+
+.signal-chart__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.signal-chart__tag-close {
+  width: 10px;
+  height: 10px;
+  cursor: pointer;
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: opacity 0.12s ease;
+}
+
+.signal-chart__tag-close:hover {
+  opacity: 1;
+}
+
+.signal-chart__plot {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Empty state */
+.signal-chart__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px 20px;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.signal-chart__empty-icon {
+  opacity: 0.35;
+}
+
+.signal-chart__empty-title {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.signal-chart__empty-desc {
+  text-align: center;
+  line-height: 1.6;
+  font-size: 12px;
+}

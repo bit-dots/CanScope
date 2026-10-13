@@ -2,6 +2,7 @@ import { Component, createMemo, onMount, onCleanup, createEffect } from 'solid-j
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { FrameInfo, ChartSignal } from '../types';
+import './SignalChart.css';
 
 interface SignalChartProps {
   frames: FrameInfo[];
@@ -146,37 +147,19 @@ const SignalChart: Component<SignalChartProps> = (props) => {
   });
 
   return (
-    <div style={{
-      display: 'flex',
-      'flex-direction': 'column',
-      height: '100%',
-      background: 'var(--bg-primary)',
-    }}>
+    <div class="signal-chart">
       {props.signals.length > 0 && (
-        <div style={{
-          display: 'flex',
-          'align-items': 'center',
-          gap: '4px',
-          padding: '2px 8px',
-          'border-bottom': '1px solid var(--border)',
-          'font-size': '11px',
-          'flex-wrap': 'wrap',
-          'min-height': '26px',
-        }}>
-          <span style={{ color: 'var(--text-secondary)', 'margin-right': '4px', 'font-weight': '600' }}>
-            Signals:
-          </span>
+        <div class="signal-chart__tags">
+          <span class="signal-chart__tags-label">信号:</span>
           {props.signals.map((s, i) => (
-            <span style={{
-              display: 'inline-flex',
-              'align-items': 'center',
-              gap: '4px',
-              padding: '1px 6px',
-              'border-radius': '3px',
-              background: COLORS[i % COLORS.length] + '22',
-              color: COLORS[i % COLORS.length],
-              border: '1px solid ' + COLORS[i % COLORS.length] + '44',
-            }}>
+            <span
+              class="signal-chart__tag"
+              style={{
+                background: COLORS[i % COLORS.length] + '22',
+                color: COLORS[i % COLORS.length],
+                border: '1px solid ' + COLORS[i % COLORS.length] + '44',
+              }}
+            >
               {s.signalName}
               <svg
                 viewBox="0 0 24 24"
@@ -185,7 +168,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                style="width:10px;height:10px;cursor:pointer;opacity:0.6;flex-shrink:0"
+                class="signal-chart__tag-close"
                 onClick={() => props.onRemoveSignal(s)}
               >
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -195,20 +178,18 @@ const SignalChart: Component<SignalChartProps> = (props) => {
           ))}
         </div>
       )}
-      <div
-        ref={containerRef}
-        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
-      >
+      <div ref={containerRef} class="signal-chart__plot">
         {props.signals.length === 0 && (
-          <div style={{
-            display: 'flex',
-            'align-items': 'center',
-            'justify-content': 'center',
-            height: '100%',
-            color: 'var(--text-secondary)',
-            'font-size': '13px',
-          }}>
-            Click a signal in the tree to plot its curve
+          <div class="signal-chart__empty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="signal-chart__empty-icon">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <span class="signal-chart__empty-title">
+              无信号数据
+            </span>
+            <span class="signal-chart__empty-desc">
+              请在左侧信号树中点击信号<br />将其添加到图表中查看曲线
+            </span>
           </div>
         )}
       </div>

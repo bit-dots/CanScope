@@ -24,8 +24,7 @@
         "height": 700,
         "minWidth": 900,
         "minHeight": 600,
-        "center": true,
-        "theme": "dark"
+        "center": true
       }
     ],
     "security": {

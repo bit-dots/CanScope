@@ -23,7 +23,37 @@ select:focus-visible,
 [tabindex]:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent);
-  border-radius: 2px;
+}
+
+/* ============================================
+   Scrollbar — 暗色主题滚动条
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .main-content {

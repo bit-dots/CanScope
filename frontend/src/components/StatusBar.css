@@ -1,0 +1,112 @@
+/* ============================================
+   StatusBar — 底部状态栏样式
+   ============================================ */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  min-height: 24px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  gap: 20px;
+}
+
+.status-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.status-bar__file {
+  color: var(--text-secondary);
+}
+
+.status-bar__file--loaded {
+  color: var(--text-primary);
+}
+
+.status-bar__separator {
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.status-bar__label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.status-bar__value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.status-bar__value--success {
+  color: var(--success);
+}
+
+.status-bar__value--accent {
+  color: var(--accent);
+}
+
+.status-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Playback state badge */
+.status-bar__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-bar__state--playing {
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.status-bar__state--paused {
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.status-bar__state--stopped {
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.status-bar__state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-bar__state-dot--playing {
+  background: var(--success);
+}
+
+.status-bar__state-dot--paused {
+  background: var(--warning);
+}
+
+.status-bar__state-dot--stopped {
+  background: var(--text-secondary);
+}
+
+.status-bar__version {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
