@@ -106,7 +106,7 @@ export function useWindowManager(
     const p = state.panels[id];
     if (!p) return;
     if (p.visible && !p.window.minimized) {
-      closePanel(id);
+      bringToFront(id);
     } else {
       openPanel(id);
     }
