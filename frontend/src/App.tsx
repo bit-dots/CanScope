@@ -13,6 +13,7 @@ import ConfirmDialog from './components/ConfirmDialog';
 import FloatingWindow from './components/windowing/FloatingWindow';
 import WindowTaskbar from './components/windowing/WindowTaskbar';
 import { useWindowManager } from './components/windowing/useWindowManager';
+import ResourceManager from './components/ResourceManager';
 import type {
   OpenResult,
   PlaybackState,
@@ -600,11 +601,16 @@ function App() {
                 switch (panel.id) {
                   case 'resource-manager':
                     return (
-                      <div class="mock-panel">
-                        <div class="mock-panel__placeholder">
-                          项目资源 — 通道 / ECU / 窗口列表
-                        </div>
-                      </div>
+                      <ResourceManager
+                        dbcTree={dbcTree()}
+                        projectName={project()?.name ?? '未命名'}
+                        dbcPaths={project()?.dbcPaths ?? []}
+                        canLogPath={project()?.canLogPath ?? null}
+                        visiblePanels={windowManager.visiblePanels()}
+                        minimizedPanels={windowManager.minimizedPanels()}
+                        onSelectMessage={handleSelectMessage}
+                        onActivatePanel={(id) => windowManager.setActivePanel(id)}
+                      />
                     );
                   case 'dbc-tree':
                     return (

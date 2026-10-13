@@ -1,0 +1,212 @@
+/* ============================================
+   ResourceManager — 项目资源管理器
+   ============================================ */
+
+.resource-manager {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-secondary);
+  user-select: none;
+}
+
+/* ---- Tab Bar ---- */
+.rm-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.rm-tab {
+  flex: 1;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.rm-tab:hover {
+  color: var(--text-primary);
+}
+
+.rm-tab--active {
+  color: var(--text-primary);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* ---- Content ---- */
+.rm-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rm-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rm-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rm-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.rm-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ---- Tree ---- */
+.rm-tree {
+  padding: 2px 0;
+}
+
+.rm-section {
+  /* container for a collapsible section */
+}
+
+/* ---- Row ---- */
+.rm-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding-right: 8px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  white-space: nowrap;
+}
+
+.rm-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.rm-row--parent {
+  font-weight: 500;
+}
+
+.rm-row--dimmed {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.rm-row--dimmed:hover {
+  background: transparent;
+}
+
+/* ---- Arrow ---- */
+.rm-arrow-spacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.rm-arrow-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.rm-arrow {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.rm-arrow--open {
+  transform: rotate(0deg);
+}
+
+.rm-arrow:not(.rm-arrow--open) {
+  transform: rotate(-90deg);
+}
+
+/* ---- Icon ---- */
+.rm-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.rm-icon--msg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Label / Meta / Badge ---- */
+.rm-row__label {
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.rm-row--dimmed .rm-row__label {
+  color: var(--text-secondary);
+}
+
+.rm-row__meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  flex-shrink: 1;
+  text-align: right;
+}
+
+.rm-row__badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+/* ---- Empty state ---- */
+.rm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  padding: 24px 16px;
+  gap: 8px;
+}
+
+.rm-empty__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.rm-empty__desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+}
