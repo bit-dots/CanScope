@@ -530,33 +530,35 @@ function App() {
 
   return (
     <div class="app-layout">
-      <Ribbon
-        online={online()}
-        playbackState={playbackState()}
-        projectLoaded={project() !== null}
-        onToggleOnline={() => setOnline(prev => !prev)}
-        onStart={() => handlePlaybackControl('play')}
-        onStop={() => handlePlaybackControl('stop')}
-        onOpenChannelConfig={() => {}}
-        onImportDbc={handleLoadDbc}
-        onImportLdf={() => {}}
-        onImportArxml={() => {}}
-        onOpenSendPanel={() => {}}
-        onOpenMonitorPanel={() => {}}
-        onOpenChartPanel={() => {}}
-        onOpenRecorder={() => {}}
-        onStartRecord={() => {}}
-        onStopRecord={() => {}}
-        onOpenPlayback={() => {}}
-        onOpenUds={() => {}}
-        onOpenObd={() => {}}
-        onOpenEcuFlash={() => {}}
-        onNewProject={handleNewProject}
-        onOpenProject={handleOpenProject}
-        onSaveProject={handleSaveProject}
-        onSaveProjectAs={handleSaveProjectAs}
-        onCloseProject={handleCloseProject}
-      />
+      {project() && (
+        <Ribbon
+          online={online()}
+          playbackState={playbackState()}
+          projectLoaded={project() !== null}
+          onToggleOnline={() => setOnline(prev => !prev)}
+          onStart={() => handlePlaybackControl('play')}
+          onStop={() => handlePlaybackControl('stop')}
+          onOpenChannelConfig={() => {}}
+          onImportDbc={handleLoadDbc}
+          onImportLdf={() => {}}
+          onImportArxml={() => {}}
+          onOpenSendPanel={() => {}}
+          onOpenMonitorPanel={() => {}}
+          onOpenChartPanel={() => {}}
+          onOpenRecorder={() => {}}
+          onStartRecord={() => {}}
+          onStopRecord={() => {}}
+          onOpenPlayback={() => {}}
+          onOpenUds={() => {}}
+          onOpenObd={() => {}}
+          onOpenEcuFlash={() => {}}
+          onNewProject={handleNewProject}
+          onOpenProject={handleOpenProject}
+          onSaveProject={handleSaveProject}
+          onSaveProjectAs={handleSaveProjectAs}
+          onCloseProject={handleCloseProject}
+        />
+      )}
       {hasSource() && (
         <>
           <FilterBar
