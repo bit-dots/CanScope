@@ -41,6 +41,9 @@ export function useWindowManager(
   const [resizingPanelId, setResizingPanelId] = createSignal<string | null>(null);
   const [resizeDirection, setResizeDirection] = createSignal<string | null>(null);
 
+  let globalDragCleanup: (() => void) | null = null;
+  let globalResizeCleanup: (() => void) | null = null;
+
   // Initialize panels
   for (const def of panelDefs) {
     const defaultPos = def.defaultPosition ?? {
@@ -177,8 +180,15 @@ export function useWindowManager(
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
-    // Capture mouseup on document so releasing outside workspace still ends drag
-    document.addEventListener('mouseup', endDrag, { once: true });
+    // Capture mousemove/mouseup on document so dragging works even when cursor leaves workspace
+    const onMouseMove = (e: MouseEvent) => onDrag(e);
+    const onMouseUp = () => { endDrag(); };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp, { once: true });
+    globalDragCleanup = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
 
     // Restore pre-snap size when dragging a snapped window
     if (p.window.snapState !== 'floating' && p.window.preSnap) {
@@ -265,6 +275,9 @@ export function useWindowManager(
 
     setSnapPreview(null);
     setDraggingPanelId(null);
+
+    globalDragCleanup?.();
+    globalDragCleanup = null;
   }
 
   // Maximize / Restore
@@ -330,7 +343,14 @@ export function useWindowManager(
     setResizingPanelId(panelId);
     setResizeDirection(direction);
 
-    document.addEventListener('mouseup', endResize, { once: true });
+    const onMouseMove = (e: MouseEvent) => onResize(e);
+    const onMouseUp = () => { endResize(); };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp, { once: true });
+    globalResizeCleanup = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
   }
 
   function onResize(e: MouseEvent) {
@@ -378,6 +398,9 @@ export function useWindowManager(
   function endResize() {
     setResizingPanelId(null);
     setResizeDirection(null);
+
+    globalResizeCleanup?.();
+    globalResizeCleanup = null;
   }
 
   function minimizedPanels() {

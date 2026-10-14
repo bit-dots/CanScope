@@ -55,8 +55,8 @@ export function createDefaultWindowState(
     rect: {
       x: defaultPosition?.x ?? 0,
       y: defaultPosition?.y ?? 0,
-      width: defaultPosition?.width ?? 400,
-      height: defaultPosition?.height ?? 300,
+      width: Math.max(defaultPosition?.width ?? 400, MIN_WINDOW_WIDTH),
+      height: Math.max(defaultPosition?.height ?? 300, MIN_WINDOW_HEIGHT),
     },
     snapState: 'floating',
     minimized: false,
