@@ -145,7 +145,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           <thead class="frame-table__thead">
             <tr>
               <th class="frame-table__th frame-table__th--time">
-                时间 ({isRelativeTime() ? '相对' : '绝对'} s)
+                时间
               </th>
               <th class="frame-table__th frame-table__th--channel">通道</th>
               <th class="frame-table__th frame-table__th--canid">ID</th>
