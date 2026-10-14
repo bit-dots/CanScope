@@ -19,6 +19,7 @@ interface FloatingWindowProps {
   onPopOut?: () => void;
   onResizeStart: (e: MouseEvent, direction: string) => void;
   onActivate: () => void;
+  titleIcon?: JSX.Element;
   children: JSX.Element;
 }
 
@@ -106,7 +107,10 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
         onDblClick={props.onMaximize}
         onContextMenu={openContextMenu}
       >
-        <span class="floating-window__title">{panel.title}</span>
+        <span class="floating-window__title">
+          {props.titleIcon && <span class="floating-window__title-icon">{props.titleIcon}</span>}
+          {panel.title}
+        </span>
         <div class="floating-window__controls">
           <button
             class="floating-window__btn floating-window__btn--minimize"

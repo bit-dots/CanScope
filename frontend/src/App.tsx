@@ -8,6 +8,7 @@ import SignalChart from './components/SignalChart';
 import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
+import { Radio } from 'lucide-solid';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
 import DatabaseManagerDialog, { type DatabaseEntry } from './components/DatabaseManagerDialog';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -710,6 +711,7 @@ function App() {
                   panel={panel}
                   isDragging={windowManager.draggingPanelId() === panel.id}
                   visiblePanelCount={windowManager.visiblePanels().length}
+                  titleIcon={panel.id === 'frame-monitor' ? <Radio size={14} /> : undefined}
                   onMouseDown={(e) => windowManager.startDrag(e, panel.id)}
                   onMinimize={() => windowManager.minimizePanel(panel.id)}
                   onMaximize={() => windowManager.toggleMaximize(panel.id)}
