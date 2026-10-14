@@ -7,7 +7,10 @@ import {
   SnapState,
   MIN_WINDOW_WIDTH,
   MIN_WINDOW_HEIGHT,
-  SNAP_THRESHOLD,
+  SNAP_THRESHOLD_TOP,
+  SNAP_THRESHOLD_BOTTOM,
+  SNAP_THRESHOLD_LEFT,
+  SNAP_THRESHOLD_RIGHT,
   createDefaultWindowState,
 } from './window-types';
 
@@ -124,10 +127,10 @@ export function useWindowManager(
     wsY: number,
     workspace: WindowRect
   ): SnapState {
-    const nearLeft = wsX < SNAP_THRESHOLD;
-    const nearRight = wsX > workspace.width - SNAP_THRESHOLD;
-    const nearTop = wsY < SNAP_THRESHOLD;
-    const nearBottom = wsY > workspace.height - SNAP_THRESHOLD;
+    const nearLeft = wsX < SNAP_THRESHOLD_LEFT;
+    const nearRight = wsX > workspace.width - SNAP_THRESHOLD_RIGHT;
+    const nearTop = wsY < SNAP_THRESHOLD_TOP;
+    const nearBottom = wsY > workspace.height - SNAP_THRESHOLD_BOTTOM;
 
     if (nearLeft && nearTop) return 'snapped-top-left';
     if (nearRight && nearTop) return 'snapped-top-right';

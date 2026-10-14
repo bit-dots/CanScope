@@ -41,7 +41,10 @@ export interface WindowManagerState {
 
 export const MIN_WINDOW_WIDTH = 280;
 export const MIN_WINDOW_HEIGHT = 180;
-export const SNAP_THRESHOLD = 60;
+export const SNAP_THRESHOLD_TOP = 5;
+export const SNAP_THRESHOLD_BOTTOM = 5;
+export const SNAP_THRESHOLD_LEFT = 10;
+export const SNAP_THRESHOLD_RIGHT = 10;
 export const UNSNAP_DISTANCE = 100;
 export const RESIZE_HANDLE_SIZE = 6;
 
