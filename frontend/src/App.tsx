@@ -664,8 +664,6 @@ function App() {
                     return (
                       <FrameTable
                         frames={filteredFrames()}
-                        filter={filter()}
-                        onFilterChange={setFilter}
                         totalFrameCount={frames().length}
                       />
                     );

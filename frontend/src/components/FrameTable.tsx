@@ -1,50 +1,56 @@
 import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
-import type { FrameInfo, FilterConfig } from '../types';
+import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
-import { X, ArrowDownToLine, Activity, Search } from 'lucide-solid';
+import { Info, Search, Trash2, Pause, Play, Clock, Activity } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
-  filter: FilterConfig;
-  onFilterChange: (filter: FilterConfig) => void;
   totalFrameCount: number;
 }
 
 const ROW_HEIGHT = 28;
 const OVERSCAN = 20;
 
-type FrameType = 'ALL' | 'STD' | 'EXT' | 'FD';
-
 const FrameTable: Component<FrameTableProps> = (props) => {
   let containerRef!: HTMLDivElement;
   let resizeObserver: ResizeObserver | undefined;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewHeight, setViewHeight] = createSignal(0);
-  const [autoScroll, setAutoScroll] = createSignal(true);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
-  const [typeFilter, setTypeFilter] = createSignal<FrameType>('ALL');
-  const [canIdInput, setCanIdInput] = createSignal(props.filter.canId);
+  const [isPaused, setIsPaused] = createSignal(false);
+  const [isRelativeTime, setIsRelativeTime] = createSignal(false);
 
-  const filteredFrames = () => {
-    let result = props.frames;
-    const tf = typeFilter();
-    if (tf !== 'ALL') {
-      result = result.filter(f => {
-        if (tf === 'FD') return f.is_fd;
-        if (tf === 'EXT') return f.is_extended && !f.is_fd;
-        return !f.is_extended && !f.is_fd;
-      });
+  const pauseSnapshot = createSignal(0);
+  const [pausedCount, setPausedCount] = pauseSnapshot;
+
+  const displayedFrames = () => {
+    if (isPaused()) {
+      return props.frames.slice(0, pausedCount());
     }
-    return result;
+    return props.frames;
   };
 
-  const totalHeight = () => filteredFrames().length * ROW_HEIGHT;
+  const handlePauseToggle = () => {
+    if (!isPaused()) {
+      setPausedCount(props.frames.length);
+    }
+    setIsPaused(!isPaused());
+  };
+
+  const formatTimestamp = (frame: FrameInfo) => {
+    if (isRelativeTime() && props.frames.length > 0) {
+      return (frame.timestamp - props.frames[0].timestamp).toFixed(6);
+    }
+    return frame.timestamp.toFixed(6);
+  };
+
+  const totalHeight = () => displayedFrames().length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
   const endIndex = () => Math.min(
-    filteredFrames().length,
+    displayedFrames().length,
     Math.ceil((scrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
   );
-  const visibleFrames = () => filteredFrames().slice(startIndex(), endIndex());
+  const visibleFrames = () => displayedFrames().slice(startIndex(), endIndex());
 
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);
@@ -64,127 +70,81 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     resizeObserver?.disconnect();
   });
 
-  const handleCanIdFilter = () => {
-    const val = canIdInput().trim();
-    if (val === props.filter.canId) return;
-    props.onFilterChange({ ...props.filter, canId: val });
-  };
-
-  const handleCanIdKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCanIdFilter();
-    }
-  };
-
-  const handleClearFilter = () => {
-    setCanIdInput('');
-    props.onFilterChange({ ...props.filter, canId: '' });
-  };
-
-  const handleTypeFilter = (type: FrameType) => {
-    setTypeFilter(type);
-    setSelectedRow(null);
-  };
-
   const handleRowClick = (idx: number) => {
     setSelectedRow(prev => prev === idx ? null : idx);
   };
 
-  const handleClickCanId = (canId: number, isExtended: boolean) => {
-    const hex = formatHex(canId, isExtended ? 8 : 3);
-    setCanIdInput(hex);
-    props.onFilterChange({ ...props.filter, canId: hex });
-  };
-
-  const typeButtons: { type: FrameType; label: string }[] = [
-    { type: 'ALL', label: '全部' },
-    { type: 'STD', label: 'STD' },
-    { type: 'EXT', label: 'EXT' },
-    { type: 'FD', label: 'FD' },
-  ];
+  const count = () => displayedFrames().length;
 
   return (
     <div class="frame-table">
       {/* ---- 工具栏 ---- */}
       <div class="frame-table__toolbar">
         <div class="frame-table__toolbar-left">
-          {/* CAN ID 快速过滤 */}
-          <div class="frame-table__toolbar-group">
-            <label class="frame-table__toolbar-label">CAN ID</label>
-            <div class="frame-table__canid-input-wrap">
-              <input
-                type="text"
-                class="frame-table__canid-input"
-                placeholder="0x..."
-                value={canIdInput()}
-                onInput={(e) => setCanIdInput(e.currentTarget.value)}
-                onKeyDown={handleCanIdKeyDown}
-                spellcheck={false}
-              />
-              {canIdInput() && (
-                <button
-                  class="frame-table__canid-clear"
-                  onClick={handleClearFilter}
-                  title="清除过滤"
-                  aria-label="清除过滤"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          </div>
+          {/* 属性 */}
+          <button
+            class="frame-table__tool-btn"
+            disabled={selectedRow() === null}
+            title="查看报文属性"
+            aria-label="查看报文属性"
+          >
+            <Info size={14} />
+            <span>属性</span>
+          </button>
 
-          {/* 帧类型过滤 */}
-          <div class="frame-table__toolbar-group">
-            <label class="frame-table__toolbar-label">类型</label>
-            <div class="frame-table__type-buttons">
-              <For each={typeButtons}>
-                {(btn) => (
-                  <button
-                    class="frame-table__type-btn"
-                    classList={{ 'frame-table__type-btn--active': typeFilter() === btn.type }}
-                    onClick={() => handleTypeFilter(btn.type)}
-                  >
-                    {btn.label}
-                  </button>
-                )}
-              </For>
-            </div>
-          </div>
+          {/* 查找 */}
+          <button
+            class="frame-table__tool-btn"
+            title="查找报文"
+            aria-label="查找报文"
+          >
+            <Search size={14} />
+            <span>查找</span>
+          </button>
+
+          {/* 清空 */}
+          <button
+            class="frame-table__tool-btn"
+            title="清空报文列表"
+            aria-label="清空报文列表"
+          >
+            <Trash2 size={14} />
+            <span>清空</span>
+          </button>
+
+          {/* 暂停 */}
+          <button
+            class="frame-table__tool-btn"
+            classList={{ 'frame-table__tool-btn--active': isPaused() }}
+            onClick={handlePauseToggle}
+            title={isPaused() ? '继续输出' : '暂停输出'}
+            aria-label={isPaused() ? '继续输出' : '暂停输出'}
+          >
+            {isPaused() ? <Play size={14} /> : <Pause size={14} />}
+            <span>{isPaused() ? '继续' : '暂停'}</span>
+          </button>
+
+          {/* 时间显示格式 */}
+          <button
+            class="frame-table__tool-btn"
+            classList={{ 'frame-table__tool-btn--active': isRelativeTime() }}
+            onClick={() => setIsRelativeTime(!isRelativeTime())}
+            title={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
+            aria-label={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
+          >
+            <Clock size={14} />
+            <span>{isRelativeTime() ? '相对' : '绝对'}</span>
+          </button>
         </div>
 
         <div class="frame-table__toolbar-right">
-          {/* 报文计数 */}
           <span class="frame-table__frame-count">
-            <span class="frame-table__frame-count-current">{filteredFrames().length.toLocaleString()}</span>
+            <span class="frame-table__frame-count-current">{count().toLocaleString()}</span>
             <span class="frame-table__frame-count-sep">/</span>
             <span>{props.totalFrameCount.toLocaleString()}</span>
             <span class="frame-table__frame-count-label"> 帧</span>
+            {isPaused() && <span class="frame-table__frame-count-label"> · 已暂停</span>}
           </span>
-
-          {/* 自动滚动 */}
-          <button
-            class="frame-table__tool-btn"
-            classList={{ 'frame-table__tool-btn--active': autoScroll() }}
-            onClick={() => setAutoScroll(!autoScroll())}
-            title={autoScroll() ? '自动滚动：开' : '自动滚动：关'}
-            aria-label={autoScroll() ? '关闭自动滚动' : '开启自动滚动'}
-          >
-            <ArrowDownToLine size={14} />
-            <span>自动滚动</span>
-          </button>
-
-          {/* 清除选中 */}
-          {selectedRow() !== null && (
-            <button
-              class="frame-table__tool-btn"
-              onClick={() => setSelectedRow(null)}
-              title="清除选中"
-              aria-label="清除选中"
-            >
-              <X size={14} />
-            </button>
-          )}
         </div>
       </div>
 
@@ -198,7 +158,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           <thead class="frame-table__thead">
             <tr>
               <th class="frame-table__th frame-table__th--idx">#</th>
-              <th class="frame-table__th frame-table__th--time">时间 (s)</th>
+              <th class="frame-table__th frame-table__th--time">
+                时间 ({isRelativeTime() ? '相对' : '绝对'} s)
+              </th>
               <th class="frame-table__th frame-table__th--canid">CAN ID</th>
               <th class="frame-table__th frame-table__th--type">Type</th>
               <th class="frame-table__th frame-table__th--dlc">DLC</th>
@@ -224,15 +186,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   onClick={() => handleRowClick(idx)}
                 >
                   <td class="frame-table__td frame-table__td--idx">{idx + 1}</td>
-                  <td class="frame-table__td frame-table__td--time">{frame.timestamp.toFixed(6)}</td>
-                  <td
-                    class="frame-table__td frame-table__td--canid"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleClickCanId(frame.can_id, frame.is_extended);
-                    }}
-                    title="点击过滤此 CAN ID"
-                  >
+                  <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame)}</td>
+                  <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                   </td>
                   <td class="frame-table__td frame-table__td--type">
@@ -281,22 +236,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             <span class="frame-table__empty-desc">请加载数据文件并启动播放</span>
           </div>
         </Show>
-
-        {/* 过滤后无结果 */}
-        <Show when={props.totalFrameCount > 0 && filteredFrames().length === 0}>
-          <div class="frame-table__empty">
-            <div class="frame-table__empty-icon">
-              <Search size={40} stroke-width={1.2} />
-            </div>
-            <span class="frame-table__empty-title">无匹配报文</span>
-            <span class="frame-table__empty-desc">当前过滤条件下未找到任何报文</span>
-          </div>
-        </Show>
       </div>
     </div>
   );
 };
-
-
 
 export default FrameTable;

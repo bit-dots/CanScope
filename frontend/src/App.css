@@ -121,120 +121,13 @@ select:focus-visible,
 .frame-table__toolbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .frame-table__toolbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.frame-table__toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.frame-table__toolbar-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* CAN ID 输入 */
-.frame-table__canid-input-wrap {
-  position: relative;
-}
-
-.frame-table__canid-input {
-  width: 110px;
-  height: 24px;
-  padding: 0 24px 0 8px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.frame-table__canid-input::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
-
-.frame-table__canid-input:focus {
-  border-color: var(--accent);
-}
-
-.frame-table__canid-clear {
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 2px;
-  transition: color 0.15s, background 0.15s;
-}
-
-.frame-table__canid-clear:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-}
-
-/* 类型过滤按钮组 */
-.frame-table__type-buttons {
-  display: flex;
-  gap: 1px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.frame-table__type-btn {
-  padding: 1px 10px;
-  height: 24px;
-  border: none;
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  user-select: none;
-}
-
-.frame-table__type-btn:not(:last-child) {
-  border-right: 1px solid var(--border);
-}
-
-.frame-table__type-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.frame-table__type-btn--active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.frame-table__type-btn--active:hover {
-  background: var(--accent-hover);
-  color: #fff;
 }
 
 /* 帧计数 */
@@ -286,6 +179,11 @@ select:focus-visible,
   background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary));
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.frame-table__tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* ---- 内容区：报文表格 ---- */
