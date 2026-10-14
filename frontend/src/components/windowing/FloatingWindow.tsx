@@ -9,10 +9,13 @@ import './FloatingWindow.css';
 interface FloatingWindowProps {
   panel: PanelWindowState;
   isDragging: boolean;
+  visiblePanelCount: number;
   onMouseDown: (e: MouseEvent) => void;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
+  onCloseOther?: () => void;
+  onCloseAll?: () => void;
   onPopOut?: () => void;
   onResizeStart: (e: MouseEvent, direction: string) => void;
   onActivate: () => void;
@@ -42,42 +45,36 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
   const closeContextMenu = () => setContextMenu(null);
 
   const buildContextMenuItems = (): ContextMenuItem[] => {
-    const items: ContextMenuItem[] = [
-      {
-        id: 'minimize',
-        label: '最小化',
-        action: props.onMinimize,
-      },
-    ];
+    const singlePanel = props.visiblePanelCount <= 1;
 
-    if (isMaximized()) {
-      items.push({
-        id: 'restore',
-        label: '还原',
-        action: props.onMaximize,
-      });
-    } else {
-      items.push({
-        id: 'maximize',
-        label: '最大化',
-        action: props.onMaximize,
-      });
-    }
-
-    if (props.onPopOut) {
-      items.push({
-        id: 'popout',
-        label: '弹出到新窗口',
-        action: props.onPopOut,
-      });
-    }
-
-    items.push({ id: 'sep1', label: '', separator: true });
+    const items: ContextMenuItem[] = [];
 
     items.push({
       id: 'close',
       label: '关闭',
       action: props.onClose,
+    });
+
+    items.push({
+      id: 'close-other',
+      label: '关闭其他',
+      action: props.onCloseOther,
+      disabled: singlePanel,
+    });
+
+    items.push({
+      id: 'close-all',
+      label: '全部关闭',
+      action: props.onCloseAll,
+      disabled: singlePanel,
+    });
+
+    items.push({ id: 'sep1', label: '', separator: true });
+
+    items.push({
+      id: 'popout',
+      label: '移动到新窗口',
+      action: props.onPopOut,
     });
 
     return items;

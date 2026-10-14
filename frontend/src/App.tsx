@@ -690,10 +690,23 @@ function App() {
                 <FloatingWindow
                   panel={panel}
                   isDragging={windowManager.draggingPanelId() === panel.id}
+                  visiblePanelCount={windowManager.visiblePanels().length}
                   onMouseDown={(e) => windowManager.startDrag(e, panel.id)}
                   onMinimize={() => windowManager.minimizePanel(panel.id)}
                   onMaximize={() => windowManager.toggleMaximize(panel.id)}
                   onClose={() => windowManager.closePanel(panel.id)}
+                  onCloseOther={() => {
+                    const visible = windowManager.visiblePanels();
+                    for (const p of visible) {
+                      if (p.id !== panel.id) windowManager.closePanel(p.id);
+                    }
+                  }}
+                  onCloseAll={() => {
+                    const visible = windowManager.visiblePanels();
+                    for (const p of visible) {
+                      windowManager.closePanel(p.id);
+                    }
+                  }}
                   onPopOut={() => windowManager.popOutPanel(panel.id)}
                   onResizeStart={(e, dir) => windowManager.startResize(e, panel.id, dir)}
                   onActivate={() => windowManager.setActivePanel(panel.id)}
