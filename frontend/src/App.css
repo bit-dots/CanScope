@@ -721,11 +721,12 @@ select:focus-visible,
   align-items: center;
   justify-content: space-between;
   height: 36px;
-  padding: 0 8px 0 14px;
+  padding: 0 4px 0 14px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   user-select: none;
+  position: relative;
 }
 
 .dm-titlebar-text {
@@ -735,6 +736,13 @@ select:focus-visible,
   letter-spacing: 0.02em;
 }
 
+.dm-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dm-titlebar-help,
 .dm-titlebar-close {
   display: flex;
   align-items: center;
@@ -749,9 +757,106 @@ select:focus-visible,
   transition: background 0.12s, color 0.12s;
 }
 
+.dm-titlebar-help:hover,
+.dm-titlebar-help--active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
 .dm-titlebar-close:hover {
   background: color-mix(in srgb, var(--error) 24%, transparent);
   color: var(--error);
+}
+
+/* Help Popover */
+.dm-help-popover {
+  position: absolute;
+  top: 100%;
+  right: 8px;
+  margin-top: 6px;
+  width: 300px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  animation: dm-help-in 0.15s ease-out;
+}
+
+@keyframes dm-help-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dm-help-popover-arrow {
+  position: absolute;
+  top: -6px;
+  right: 14px;
+  width: 12px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.dm-help-popover-arrow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+
+.dm-help-popover-body {
+  padding: 14px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.dm-help-popover-body strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.dm-help-popover-body ul {
+  margin: 0;
+  padding: 0 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dm-help-popover-body li {
+  margin: 0;
+}
+
+.dm-help-popover-body .dm-inline-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  margin: 0 2px;
+  vertical-align: middle;
 }
 
 /* ── Icon Toolbar ──────────────────────── */

@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { Component, createSignal, For, Show, onCleanup } from 'solid-js';
 
 export interface DatabaseEntry {
   id: string;
@@ -48,8 +48,28 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
       type: getFileType(p),
     }))
   );
+  const [showHelp, setShowHelp] = createSignal(false);
+  let helpRef: HTMLDivElement | undefined;
 
   const hasEntries = () => entries().length > 0;
+
+  const closeHelp = () => setShowHelp(false);
+  const toggleHelp = () => setShowHelp((v) => !v);
+
+  onCleanup(() => {
+    document.removeEventListener('click', handleHelpOutsideClick);
+  });
+
+  const handleHelpOutsideClick = (e: MouseEvent) => {
+    if (helpRef && !helpRef.contains(e.target as Node)) {
+      closeHelp();
+    }
+  };
+
+  const setupHelpClickOutside = () => {
+    setTimeout(() => document.addEventListener('click', handleHelpOutsideClick), 0);
+    setShowHelp(true);
+  };
 
   const handleImport = async () => {
     try {
@@ -94,7 +114,13 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') props.onCancel();
+    if (e.key === 'Escape') {
+      if (showHelp()) {
+        closeHelp();
+      } else {
+        props.onCancel();
+      }
+    }
   };
 
   const handleConfirm = () => {
@@ -107,12 +133,46 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
         {/* Title Bar */}
         <div class="dm-titlebar">
           <span class="dm-titlebar-text">数据库管理</span>
-          <button class="dm-titlebar-close" onClick={props.onCancel} aria-label="关闭">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div class="dm-titlebar-actions">
+            <button
+              class="dm-titlebar-help"
+              classList={{ 'dm-titlebar-help--active': showHelp() }}
+              onClick={toggleHelp}
+              aria-label="帮助"
+              title="关于此窗口"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
+            <button class="dm-titlebar-close" onClick={props.onCancel} aria-label="关闭">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Help Popover */}
+          <Show when={showHelp()}>
+            <div
+              ref={helpRef}
+              class="dm-help-popover"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div class="dm-help-popover-arrow" />
+              <div class="dm-help-popover-body">
+                <strong>在此统一管理工程加载的数据库文件。</strong>
+                <ul>
+                  <li>点击工具栏 <span class="dm-inline-kbd">⊕</span> 导入 DBC 或 LDF 文件</li>
+                  <li>在列表中确认后，点击"确定"将一次性加载所有 DBC</li>
+                  <li>LDF / ARXML 文件的后端支持尚未实现，导入后暂不解析</li>
+                </ul>
+              </div>
+            </div>
+          </Show>
         </div>
 
         {/* Icon Toolbar */}
