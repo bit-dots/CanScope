@@ -845,13 +845,6 @@ select:focus-visible,
   white-space: nowrap;
 }
 
-.dm-help-popover-body .dm-inline-icon {
-  display: inline;
-  vertical-align: middle;
-  margin: 0 1px;
-  color: var(--accent);
-}
-
 /* ── Icon Toolbar ──────────────────────── */
 .dm-toolbar {
   display: flex;
@@ -959,7 +952,14 @@ select:focus-visible,
   white-space: nowrap;
 }
 
-.dm-section-empty svg {
+.dm-inline-icon {
+  display: inline;
+  vertical-align: middle;
+  margin: 0 1px;
+  color: var(--accent);
+}
+
+.dm-section-empty > svg {
   opacity: 0.3;
 }
 
