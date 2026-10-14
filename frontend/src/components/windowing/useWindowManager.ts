@@ -231,19 +231,23 @@ export function useWindowManager(
 
     const snap = getSnapFromCursor(wsX, wsY, workspace);
 
+    // Always update snap preview based on cursor position
     if (snap !== 'floating') {
       const snapRect = getSnapRect(snap, workspace);
       setSnapPreview({ snapState: snap, rect: snapRect });
     } else {
       setSnapPreview(null);
-      setState('panels', panelId, 'window', 'rect', {
-        x: Math.max(0, Math.min(newX, workspace.width - p.window.rect.width)),
-        y: Math.max(0, Math.min(newY, workspace.height - p.window.rect.height)),
-        width: p.window.rect.width,
-        height: p.window.rect.height,
-      });
-      setState('panels', panelId, 'window', 'snapState', 'floating');
     }
+
+    // Always update panel position — cursor-driven movement + overflow support
+    const MIN_VISIBLE = 20;
+    setState('panels', panelId, 'window', 'rect', {
+      x: Math.max(-p.window.rect.width + MIN_VISIBLE, Math.min(newX, workspace.width - MIN_VISIBLE)),
+      y: Math.max(-p.window.rect.height + MIN_VISIBLE, Math.min(newY, workspace.height - MIN_VISIBLE)),
+      width: p.window.rect.width,
+      height: p.window.rect.height,
+    });
+    setState('panels', panelId, 'window', 'snapState', 'floating');
   }
 
   function endDrag() {
