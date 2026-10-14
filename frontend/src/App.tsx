@@ -134,7 +134,7 @@ function App() {
 
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const appWindow = getCurrentWindow();
-    appWindow.setTheme('dark');
+    appWindow.setTheme('dark').catch((e) => console.error('setTheme failed:', e));
     appWindow.onCloseRequested(async (event) => {
       try {
         const dirty: boolean = await invoke('is_project_dirty');

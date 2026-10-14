@@ -827,6 +827,7 @@ pub fn run() {
         })
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_theme(Some(tauri::Theme::Dark));
                 if let Ok(Some(monitor)) = window.current_monitor() {
                     let size = monitor.size();
                     let scale = monitor.scale_factor();
