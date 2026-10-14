@@ -177,6 +177,9 @@ export function useWindowManager(
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
+    // Capture mouseup on document so releasing outside workspace still ends drag
+    document.addEventListener('mouseup', endDrag, { once: true });
+
     // Restore pre-snap size when dragging a snapped window
     if (p.window.snapState !== 'floating' && p.window.preSnap) {
       const preSnap = p.window.preSnap;
@@ -322,6 +325,8 @@ export function useWindowManager(
     bringToFront(panelId);
     setResizingPanelId(panelId);
     setResizeDirection(direction);
+
+    document.addEventListener('mouseup', endResize, { once: true });
   }
 
   function onResize(e: MouseEvent) {

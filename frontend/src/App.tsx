@@ -594,10 +594,6 @@ function App() {
               windowManager.endDrag();
               windowManager.endResize();
             }}
-            onMouseLeave={() => {
-              windowManager.endDrag();
-              windowManager.endResize();
-            }}
           >
             {/* Snap preview overlay */}
             {windowManager.snapPreview() && (
