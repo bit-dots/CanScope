@@ -124,34 +124,6 @@ select:focus-visible,
   gap: 6px;
 }
 
-.frame-table__toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 帧计数 */
-.frame-table__frame-count {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
-  user-select: none;
-}
-
-.frame-table__frame-count-current {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.frame-table__frame-count-sep {
-  margin: 0 2px;
-  color: var(--border);
-}
-
-.frame-table__frame-count-label {
-  font-family: inherit;
-}
-
 /* 工具按钮 */
 .frame-table__tool-btn {
   display: flex;

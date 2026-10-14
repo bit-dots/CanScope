@@ -74,7 +74,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setSelectedRow(prev => prev === idx ? null : idx);
   };
 
-  const count = () => displayedFrames().length;
   const errorCount = () => props.frames.filter((f) => (f as any).is_error).length;
   const hasError = () => errorCount() > 0;
 
@@ -132,16 +131,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           >
             <ListClock size={14} />
           </button>
-        </div>
-
-        <div class="frame-table__toolbar-right">
-          <span class="frame-table__frame-count">
-            <span class="frame-table__frame-count-current">{count().toLocaleString()}</span>
-            <span class="frame-table__frame-count-sep">/</span>
-            <span>{props.totalFrameCount.toLocaleString()}</span>
-            <span class="frame-table__frame-count-label"> 帧</span>
-            {isPaused() && <span class="frame-table__frame-count-label"> · 已暂停</span>}
-          </span>
         </div>
       </div>
 
