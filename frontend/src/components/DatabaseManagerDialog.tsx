@@ -27,6 +27,18 @@ const getFileName = (path: string): string => {
 let idCounter = 0;
 const nextId = () => `db-${++idCounter}`;
 
+const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: boolean }> = (props) => (
+  <button
+    class="dm-toolbar-btn"
+    onClick={props.onClick}
+    disabled={props.disabled}
+    aria-label={props.title}
+    title={props.title}
+  >
+    {props.children}
+  </button>
+);
+
 const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => {
   const [entries, setEntries] = createSignal<DatabaseEntry[]>(() =>
     props.initialPaths.map((p) => ({
@@ -82,121 +94,131 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      props.onCancel();
-    }
+    if (e.key === 'Escape') props.onCancel();
   };
 
   const handleConfirm = () => {
     props.onConfirm(entries());
   };
 
-  const badgeClass = (type: 'dbc' | 'ldf') =>
-    `dm-badge${type === 'dbc' ? ' dm-badge--dbc' : ' dm-badge--ldf'}`;
-
   return (
     <div class="dm-overlay" onKeyDown={handleKeyDown}>
       <div class="dm-dialog" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div class="dm-header">
-          <div>
-            <h2 class="dm-title">数据库管理</h2>
-            <p class="dm-subtitle">管理项目中加载的 DBC 和 LDF 数据库文件</p>
-          </div>
-          <button class="dm-close" onClick={props.onCancel} aria-label="关闭">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        {/* Title Bar */}
+        <div class="dm-titlebar">
+          <span class="dm-titlebar-text">数据库管理</span>
+          <button class="dm-titlebar-close" onClick={props.onCancel} aria-label="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
 
-        {/* Body */}
-        <div class="dm-body">
-          <div class="dm-toolbar">
-            <button class="dm-import-btn" onClick={handleImport}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              导入数据库文件
-            </button>
-            <Show when={hasEntries()}>
-              <span class="dm-count">{entries().length} 个文件</span>
-            </Show>
-          </div>
+        {/* Icon Toolbar */}
+        <div class="dm-toolbar">
+          <ToolbarIcon title="导入数据库文件" onClick={handleImport}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="16" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          </ToolbarIcon>
+          <div class="dm-toolbar-sep" />
+          <ToolbarIcon title="通道绑定" onClick={() => {}} disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+          </ToolbarIcon>
+          <Show when={hasEntries()}>
+            <div class="dm-toolbar-sep" />
+            <span class="dm-toolbar-count">{entries().length} 个文件</span>
+          </Show>
+        </div>
 
-          <Show
-            when={hasEntries()}
-            fallback={
-              <div class="dm-empty">
-                <div class="dm-empty-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="40" height="40">
+        {/* Content */}
+        <div class="dm-content">
+          {/* Section: Database Files */}
+          <section class="dm-section">
+            <h3 class="dm-section-title">数据库文件</h3>
+            <Show
+              when={hasEntries()}
+              fallback={
+                <div class="dm-section-empty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="32" height="32">
                     <ellipse cx="12" cy="6" rx="8" ry="3" />
                     <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
                     <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
                   </svg>
+                  <p>暂无文件，点击工具栏 <span class="dm-inline-kbd">⊕</span> 导入</p>
                 </div>
-                <p class="dm-empty-title">暂无数据库文件</p>
-                <p class="dm-empty-desc">点击上方按钮导入 DBC 或 LDF 文件到当前工程</p>
-              </div>
-            }
-          >
-            <div class="dm-table">
-              {/* Table Header */}
-              <div class="dm-table-head">
-                <div class="dm-th dm-th--name">文件名</div>
-                <div class="dm-th dm-th--type">类型</div>
-                <div class="dm-th dm-th--path">路径</div>
-                <div class="dm-th dm-th--action"></div>
-              </div>
-
-              {/* Table Body */}
-              <div class="dm-table-body">
-                <For each={entries()}>
-                  {(entry) => (
-                    <div class="dm-row">
-                      <div class="dm-cell dm-cell--name">
-                        <span class="dm-file-icon">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <Show when={entry.type === 'dbc'} fallback={<polyline points="10 13 8 13" />}>
-                              <line x1="16" y1="13" x2="8" y2="13" />
-                              <line x1="16" y1="17" x2="8" y2="17" />
-                            </Show>
-                          </svg>
+              }
+            >
+              <div class="dm-files-table">
+                <div class="dm-files-head">
+                  <span class="dm-files-th dm-files-th--name">文件名</span>
+                  <span class="dm-files-th dm-files-th--type">类型</span>
+                  <span class="dm-files-th dm-files-th--path">路径</span>
+                  <span class="dm-files-th dm-files-th--action"></span>
+                </div>
+                <div class="dm-files-body">
+                  <For each={entries()}>
+                    {(entry) => (
+                      <div class="dm-files-row">
+                        <span class="dm-files-cell dm-files-cell--name">
+                          <span class="dm-files-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <Show
+                                when={entry.type === 'dbc'}
+                                fallback={<polyline points="10 13 8 13" />}
+                              >
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                              </Show>
+                            </svg>
+                          </span>
+                          {entry.name}
                         </span>
-                        <span class="dm-name">{entry.name}</span>
+                        <span class="dm-files-cell dm-files-cell--type">
+                          <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
+                            {entry.type.toUpperCase()}
+                          </span>
+                        </span>
+                        <span class="dm-files-cell dm-files-cell--path" title={entry.path}>
+                          {entry.path}
+                        </span>
+                        <span class="dm-files-cell dm-files-cell--action">
+                          <button class="dm-files-remove" onClick={() => handleRemove(entry.id)} title="移除">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </span>
                       </div>
-                      <div class="dm-cell dm-cell--type">
-                        <span class={badgeClass(entry.type)}>{entry.type.toUpperCase()}</span>
-                      </div>
-                      <div class="dm-cell dm-cell--path" title={entry.path}>
-                        {entry.path}
-                      </div>
-                      <div class="dm-cell dm-cell--action">
-                        <button class="dm-remove-btn" onClick={() => handleRemove(entry.id)} title="移除">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </For>
+                    )}
+                  </For>
+                </div>
               </div>
-            </div>
-          </Show>
+            </Show>
+          </section>
+
+          {/* Section: Channel Binding (placeholder) */}
+          <section class="dm-section">
+            <h3 class="dm-section-title">通道绑定</h3>
+            <div class="dm-section-placeholder">功能开发中</div>
+          </section>
         </div>
 
         {/* Footer */}
         <div class="dm-footer">
-          <button class="dm-btn dm-btn-cancel" onClick={props.onCancel}>
+          <button class="dm-footer-btn dm-footer-btn--cancel" onClick={props.onCancel}>
             取消
           </button>
-          <button class="dm-btn dm-btn-confirm" onClick={handleConfirm}>
+          <button class="dm-footer-btn dm-footer-btn--confirm" onClick={handleConfirm}>
             确定
           </button>
         </div>
