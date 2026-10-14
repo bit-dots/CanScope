@@ -161,8 +161,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             {visibleFrames().map((frame, i) => {
               const idx = startIndex() + i;
               const isSelected = selectedRow() === idx;
-              const typeLabel = frame.is_fd ? 'FD' : frame.is_extended ? 'EXT' : 'STD';
-              const typeClass = frame.is_fd ? 'fd' : frame.is_extended ? 'ext' : 'std';
+              const isBrs = (frame as any).is_brs as boolean | undefined;
+              const typeLabel = frame.is_fd
+                ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
+                : 'CAN';
+              const typeClass = frame.is_fd
+                ? (isBrs ? 'canfd-brs' : 'canfd')
+                : 'can';
               return (
                 <tr
                   class="frame-table__row"

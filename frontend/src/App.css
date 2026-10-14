@@ -314,19 +314,19 @@ select:focus-visible,
   letter-spacing: 0.04em;
 }
 
-.frame-table__type-badge--std {
+.frame-table__type-badge--can {
   background: color-mix(in srgb, var(--success) 16%, transparent);
   color: var(--success);
 }
 
-.frame-table__type-badge--ext {
-  background: color-mix(in srgb, var(--accent-hover) 16%, transparent);
-  color: var(--accent-hover);
-}
-
-.frame-table__type-badge--fd {
+.frame-table__type-badge--canfd {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
+}
+
+.frame-table__type-badge--canfd-brs {
+  background: color-mix(in srgb, var(--accent-hover) 18%, transparent);
+  color: var(--accent-hover);
 }
 
 /* 方向 Badge */
