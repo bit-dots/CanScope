@@ -252,7 +252,7 @@ interface FloatWindowConfig {
 - [x] PanelManager 状态管理（SolidJS Store）
 - [x] 拖拽停靠核心逻辑（区域检测 + 吸附）
 - [x] 标签组合（同区域多面板 Tab 切换）
-- [ ] 浮动窗口
+- [x] 浮动窗口（标题栏右键菜单 → Tauri WebviewWindow 弹出）
 - [x] 面板关闭/打开/重置
 
 ### Phase 3：面板内容迁移

@@ -380,6 +380,31 @@ export function useWindowManager(
       .sort((a, b) => a.zIndex - b.zIndex);
   }
 
+  async function popOutPanel(panelId: string) {
+    const p = state.panels[panelId];
+    if (!p || !p.visible) return;
+
+    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+
+    const panelLabel = `panel-${panelId}`;
+
+    const popout = new WebviewWindow(panelLabel, {
+      url: `panel-popout.html?panelId=${encodeURIComponent(panelId)}`,
+      title: p.title,
+      width: p.window.rect.width,
+      height: p.window.rect.height,
+      resizable: true,
+      decorations: true,
+      center: true,
+    });
+
+    setState('panels', panelId, 'visible', false);
+
+    popout.once('tauri://destroyed', () => {
+      setState('panels', panelId, 'visible', true);
+    });
+  }
+
   return {
     state,
     snapPreview,
@@ -401,5 +426,6 @@ export function useWindowManager(
     endResize,
     minimizedPanels,
     visiblePanels,
+    popOutPanel,
   };
 }

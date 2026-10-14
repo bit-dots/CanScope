@@ -1,8 +1,9 @@
-import { Component, JSX } from 'solid-js';
+import { Component, JSX, createSignal } from 'solid-js';
 import {
   PanelWindowState,
   SnapState,
 } from './window-types';
+import ContextMenu, { ContextMenuItem } from '../ContextMenu';
 import './FloatingWindow.css';
 
 interface FloatingWindowProps {
@@ -12,6 +13,7 @@ interface FloatingWindowProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
+  onPopOut?: () => void;
   onResizeStart: (e: MouseEvent, direction: string) => void;
   onActivate: () => void;
   children: JSX.Element;
@@ -28,6 +30,58 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
   const isSnapped = () =>
     panel.window.snapState !== 'floating' &&
     panel.window.snapState !== 'maximized';
+
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number } | null>(null);
+
+  const openContextMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const closeContextMenu = () => setContextMenu(null);
+
+  const buildContextMenuItems = (): ContextMenuItem[] => {
+    const items: ContextMenuItem[] = [
+      {
+        id: 'minimize',
+        label: '最小化',
+        action: props.onMinimize,
+      },
+    ];
+
+    if (isMaximized()) {
+      items.push({
+        id: 'restore',
+        label: '还原',
+        action: props.onMaximize,
+      });
+    } else {
+      items.push({
+        id: 'maximize',
+        label: '最大化',
+        action: props.onMaximize,
+      });
+    }
+
+    if (props.onPopOut) {
+      items.push({
+        id: 'popout',
+        label: '弹出到新窗口',
+        action: props.onPopOut,
+      });
+    }
+
+    items.push({ id: 'sep1', label: '', separator: true });
+
+    items.push({
+      id: 'close',
+      label: '关闭',
+      action: props.onClose,
+    });
+
+    return items;
+  };
 
   return (
     <div
@@ -53,6 +107,7 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
         class="floating-window__titlebar"
         onMouseDown={props.onMouseDown}
         onDblClick={props.onMaximize}
+        onContextMenu={openContextMenu}
       >
         <span class="floating-window__title">{panel.title}</span>
         <div class="floating-window__controls">
@@ -129,6 +184,16 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
           </button>
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu() && (
+        <ContextMenu
+          x={contextMenu()!.x}
+          y={contextMenu()!.y}
+          items={buildContextMenuItems()}
+          onClose={closeContextMenu}
+        />
+      )}
 
       {/* Content */}
       <div class="floating-window__content">

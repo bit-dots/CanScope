@@ -694,6 +694,7 @@ function App() {
                   onMinimize={() => windowManager.minimizePanel(panel.id)}
                   onMaximize={() => windowManager.toggleMaximize(panel.id)}
                   onClose={() => windowManager.closePanel(panel.id)}
+                  onPopOut={() => windowManager.popOutPanel(panel.id)}
                   onResizeStart={(e, dir) => windowManager.startResize(e, panel.id, dir)}
                   onActivate={() => windowManager.setActivePanel(panel.id)}
                 >
