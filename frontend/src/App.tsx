@@ -9,6 +9,7 @@ import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
+import DatabaseManagerDialog, { type DatabaseEntry } from './components/DatabaseManagerDialog';
 import ConfirmDialog from './components/ConfirmDialog';
 import FloatingWindow from './components/windowing/FloatingWindow';
 import WindowTaskbar from './components/windowing/WindowTaskbar';
@@ -41,6 +42,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [online, setOnline] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
+  const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   let isWindowClosing = false;
 
@@ -405,18 +407,9 @@ function App() {
     setFilter({ canId: '', timeStart: '', timeEnd: '' });
   };
 
-  const handleLoadDbc = async () => {
+  const handleLoadDbc = async (path: string) => {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        filters: [
-          { name: 'DBC Files', extensions: ['dbc'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
-      });
-      if (!selected || typeof selected !== 'string') return;
-
-      const result: string = await invoke('load_dbc', { path: selected });
+      const result: string = await invoke('load_dbc', { path });
       console.log(result);
 
       const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
@@ -424,6 +417,31 @@ function App() {
     } catch (e) {
       console.error('Failed to load DBC:', e);
       setError(String(e));
+    }
+  };
+
+  const handleOpenDatabaseManager = () => {
+    setShowDatabaseManager(true);
+  };
+
+  const handleDatabaseManagerConfirm = async (entries: DatabaseEntry[]) => {
+    setShowDatabaseManager(false);
+
+    const dbcPaths = entries
+      .filter((e) => e.type === 'dbc')
+      .map((e) => e.path);
+
+    const ldfPaths = entries
+      .filter((e) => e.type === 'ldf')
+      .map((e) => e.path);
+
+    if (dbcPaths.length > 0) {
+      await handleLoadDbc(dbcPaths[0]);
+    }
+
+    // LDF import — not yet implemented on backend, skip for now
+    if (ldfPaths.length > 0) {
+      console.log('LDF files selected (not yet implemented):', ldfPaths);
     }
   };
 
@@ -540,9 +558,7 @@ function App() {
           onStart={() => handlePlaybackControl('play')}
           onStop={() => handlePlaybackControl('stop')}
           onOpenChannelConfig={() => {}}
-          onImportDbc={handleLoadDbc}
-          onImportLdf={() => {}}
-          onImportArxml={() => {}}
+          onOpenDatabaseManager={handleOpenDatabaseManager}
           onOpenResourceManager={() => windowManager.togglePanel('resource-manager')}
           onOpenSendPanel={() => windowManager.togglePanel('message-send')}
           onOpenMonitorPanel={() => windowManager.togglePanel('frame-monitor')}
@@ -730,6 +746,13 @@ function App() {
         <NewProjectDialog
           onConfirm={handleConfirmNewProject}
           onCancel={() => setShowNewProjectDialog(false)}
+        />
+      )}
+      {showDatabaseManager() && (
+        <DatabaseManagerDialog
+          initialPaths={project()?.dbcPaths ?? []}
+          onConfirm={handleDatabaseManagerConfirm}
+          onCancel={() => setShowDatabaseManager(false)}
         />
       )}
       {showUnsavedDialog() && (

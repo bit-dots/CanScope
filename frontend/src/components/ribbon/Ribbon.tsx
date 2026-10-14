@@ -108,6 +108,14 @@ const IconEcu: Component = () => (
   </svg>
 );
 
+const IconDatabase: Component = () => (
+  <svg viewBox="0 0 24 24">
+    <ellipse cx="12" cy="6" rx="8" ry="3" />
+    <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
+    <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
+  </svg>
+);
+
 const IconResource: Component = () => (
   <svg viewBox="0 0 24 24">
     <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2l-1-2H8L7 7H5a2 2 0 0 0-2 2z" />
@@ -148,9 +156,7 @@ export interface RibbonProps {
   onStart: () => void;
   onStop: () => void;
   onOpenChannelConfig: () => void;
-  onImportDbc: () => void;
-  onImportLdf: () => void;
-  onImportArxml: () => void;
+  onOpenDatabaseManager: () => void;
   onOpenResourceManager: () => void;
   onOpenSendPanel: () => void;
   onOpenMonitorPanel: () => void;
@@ -214,11 +220,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
           <div class="ribbon__groups">
             <RibbonGroup label="项目资源">
               <RibbonButton icon={<IconResource />} label="资源管理器" onClick={props.onOpenResourceManager} />
-            </RibbonGroup>
-            <RibbonGroup label="数据库">
-              <RibbonButton icon={<IconImport />} label="DBC 导入" onClick={props.onImportDbc} />
-              <RibbonButton icon={<IconImport />} label="LDF 导入" onClick={props.onImportLdf} />
-              <RibbonButton icon={<IconImport />} label="ARXML 导入" onClick={props.onImportArxml} />
+              <RibbonButton icon={<IconDatabase />} label="数据库" onClick={props.onOpenDatabaseManager} />
             </RibbonGroup>
           </div>
         )}
