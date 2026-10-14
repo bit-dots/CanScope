@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
-import { Info, Search, Trash2, Pause, Play, Clock, Activity } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -88,8 +88,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             title="查看报文属性"
             aria-label="查看报文属性"
           >
-            <Info size={14} />
-            <span>属性</span>
+            <SlidersHorizontal size={14} />
           </button>
 
           {/* 查找 */}
@@ -99,7 +98,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             aria-label="查找报文"
           >
             <Search size={14} />
-            <span>查找</span>
           </button>
 
           {/* 清空 */}
@@ -108,8 +106,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             title="清空报文列表"
             aria-label="清空报文列表"
           >
-            <Trash2 size={14} />
-            <span>清空</span>
+            <Eraser size={14} />
           </button>
 
           {/* 暂停 */}
@@ -121,7 +118,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             aria-label={isPaused() ? '继续输出' : '暂停输出'}
           >
             {isPaused() ? <Play size={14} /> : <Pause size={14} />}
-            <span>{isPaused() ? '继续' : '暂停'}</span>
           </button>
 
           {/* 时间显示格式 */}
@@ -132,8 +128,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             title={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
             aria-label={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
           >
-            <Clock size={14} />
-            <span>{isRelativeTime() ? '相对' : '绝对'}</span>
+            <ListClock size={14} />
           </button>
         </div>
 

@@ -156,9 +156,10 @@ select:focus-visible,
 .frame-table__tool-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--bg-primary);
