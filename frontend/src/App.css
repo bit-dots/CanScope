@@ -349,33 +349,11 @@ select:focus-visible,
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  pointer-events: none;
-}
-
-.frame-table__empty-icon {
-  display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: var(--bg-secondary);
   color: var(--text-secondary);
-  opacity: 0.6;
-}
-
-.frame-table__empty-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.frame-table__empty-desc {
-  font-size: 11px;
-  color: var(--text-secondary);
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 /* 状态栏 */

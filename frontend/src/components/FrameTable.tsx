@@ -208,11 +208,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         {/* 空状态 */}
         <Show when={props.totalFrameCount === 0}>
           <div class="frame-table__empty">
-            <div class="frame-table__empty-icon">
-              <Activity size={40} stroke-width={1.2} />
-            </div>
-            <span class="frame-table__empty-title">暂无报文数据</span>
-            <span class="frame-table__empty-desc">请加载数据文件并启动播放</span>
+            <Activity size={40} stroke-width={1.2} />
           </div>
         </Show>
       </div>
