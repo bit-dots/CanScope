@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity } from 'lucide-solid';
@@ -6,6 +6,7 @@ import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity } f
 interface FrameTableProps {
   frames: FrameInfo[];
   totalFrameCount: number;
+  hasDbc?: boolean;
 }
 
 const ROW_HEIGHT = 28;
@@ -143,15 +144,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         <table class="frame-table__table">
           <thead class="frame-table__thead">
             <tr>
-              <th class="frame-table__th frame-table__th--idx">#</th>
               <th class="frame-table__th frame-table__th--time">
                 时间 ({isRelativeTime() ? '相对' : '绝对'} s)
               </th>
-              <th class="frame-table__th frame-table__th--canid">CAN ID</th>
-              <th class="frame-table__th frame-table__th--type">Type</th>
-              <th class="frame-table__th frame-table__th--dlc">DLC</th>
-              <th class="frame-table__th frame-table__th--data">Data</th>
-              <th class="frame-table__th frame-table__th--signals">Signals</th>
+              <th class="frame-table__th frame-table__th--channel">通道</th>
+              <th class="frame-table__th frame-table__th--canid">ID</th>
+              {props.hasDbc && <th class="frame-table__th frame-table__th--name">名称</th>}
+              <th class="frame-table__th frame-table__th--type">类型</th>
+              <th class="frame-table__th frame-table__th--direction">方向</th>
+              <th class="frame-table__th frame-table__th--dlc">长度</th>
+              <th class="frame-table__th frame-table__th--data">数据</th>
             </tr>
           </thead>
           <tbody>
@@ -171,39 +173,25 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   style={{ height: `${ROW_HEIGHT}px` }}
                   onClick={() => handleRowClick(idx)}
                 >
-                  <td class="frame-table__td frame-table__td--idx">{idx + 1}</td>
                   <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame)}</td>
+                  <td class="frame-table__td frame-table__td--channel">CH{frame.bus_id + 1}</td>
                   <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                   </td>
+                  {props.hasDbc && (
+                    <td class="frame-table__td frame-table__td--name">{(frame as any).message_name ?? ''}</td>
+                  )}
                   <td class="frame-table__td frame-table__td--type">
                     <span class={`frame-table__type-badge frame-table__type-badge--${typeClass}`}>
                       {typeLabel}
                     </span>
                   </td>
+                  <td class="frame-table__td frame-table__td--direction">
+                    <span class="frame-table__direction-badge">RX</span>
+                  </td>
                   <td class="frame-table__td frame-table__td--dlc">{frame.dlc}</td>
                   <td class="frame-table__td frame-table__td--data">
                     {formatDataHex(frame.data, frame.dlc)}
-                  </td>
-                  <td class="frame-table__td frame-table__td--signals">
-                    <Show
-                      when={frame.signals && frame.signals.length > 0}
-                      fallback={<span class="frame-table__no-signal">-</span>}
-                    >
-                      <div class="frame-table__signal-list">
-                        <For each={frame.signals}>
-                          {(signal) => (
-                            <span class="frame-table__signal-badge">
-                              {signal.name}
-                              <span class="frame-table__signal-value">
-                                {signal.label ?? signal.physical_value.toFixed(2)}
-                                {signal.unit ? ` ${signal.unit}` : ''}
-                              </span>
-                            </span>
-                          )}
-                        </For>
-                      </div>
-                    </Show>
                   </td>
                 </tr>
               );

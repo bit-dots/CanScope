@@ -665,6 +665,7 @@ function App() {
                       <FrameTable
                         frames={filteredFrames()}
                         totalFrameCount={frames().length}
+                        hasDbc={dbcTree() !== null}
                       />
                     );
                   case 'chart':

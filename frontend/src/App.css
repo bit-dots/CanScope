@@ -101,7 +101,7 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   overflow: hidden;
 }
 
@@ -247,14 +247,6 @@ select:focus-visible,
 }
 
 /* 列宽 */
-.frame-table__th--idx,
-.frame-table__td--idx {
-  width: 44px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  text-align: center;
-}
-
 .frame-table__th--time,
 .frame-table__td--time {
   width: 110px;
@@ -262,27 +254,38 @@ select:focus-visible,
   font-size: 11px;
 }
 
+.frame-table__th--channel,
+.frame-table__td--channel {
+  width: 48px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
 .frame-table__th--canid,
 .frame-table__td--canid {
-  width: 80px;
+  width: 72px;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   color: var(--accent);
 }
 
-.frame-table__td--canid {
-  cursor: pointer;
-}
-
-.frame-table__td--canid:hover {
-  text-decoration: underline;
-  color: var(--accent-hover);
+.frame-table__th--name,
+.frame-table__td--name {
+  width: 120px;
+  font-size: 11px;
+  color: var(--text-primary);
 }
 
 .frame-table__th--type,
 .frame-table__td--type {
-  width: 52px;
+  width: 48px;
+}
+
+.frame-table__th--direction,
+.frame-table__td--direction {
+  width: 42px;
 }
 
 .frame-table__th--dlc,
@@ -294,15 +297,9 @@ select:focus-visible,
 
 .frame-table__th--data,
 .frame-table__td--data {
-  width: 200px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.03em;
-}
-
-.frame-table__th--signals,
-.frame-table__td--signals {
-  overflow: hidden;
 }
 
 /* 帧类型 Badge */
@@ -332,38 +329,18 @@ select:focus-visible,
   color: var(--accent);
 }
 
-/* 信号 Badge */
-.frame-table__no-signal {
-  color: var(--text-secondary);
-  opacity: 0.4;
-}
-
-.frame-table__signal-list {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  overflow: hidden;
-}
-
-.frame-table__signal-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+/* 方向 Badge */
+.frame-table__direction-badge {
+  display: inline-block;
   padding: 0 5px;
-  height: 18px;
-  background: color-mix(in srgb, var(--text-secondary) 8%, transparent);
-  border-radius: 3px;
-  white-space: nowrap;
-  font-size: 10.5px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.frame-table__signal-value {
-  color: var(--text-primary);
+  border-radius: 2px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--text-secondary) 10%, transparent);
+  color: var(--text-secondary);
 }
 
 /* 空状态 */
