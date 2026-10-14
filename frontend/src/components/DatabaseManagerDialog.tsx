@@ -1,4 +1,5 @@
-import { Component, createSignal, For, Show, onCleanup } from 'solid-js';
+import { Component, createSignal, For, Show, onCleanup, createEffect } from 'solid-js';
+import { PlusCircle, Link, CircleHelp, X, Database, File } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -56,6 +57,14 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
   const closeHelp = () => setShowHelp(false);
   const toggleHelp = () => setShowHelp((v) => !v);
 
+  createEffect(() => {
+    if (showHelp()) {
+      document.addEventListener('click', handleHelpOutsideClick);
+    } else {
+      document.removeEventListener('click', handleHelpOutsideClick);
+    }
+  });
+
   onCleanup(() => {
     document.removeEventListener('click', handleHelpOutsideClick);
   });
@@ -64,11 +73,6 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
     if (helpRef && !helpRef.contains(e.target as Node)) {
       closeHelp();
     }
-  };
-
-  const setupHelpClickOutside = () => {
-    setTimeout(() => document.addEventListener('click', handleHelpOutsideClick), 0);
-    setShowHelp(true);
   };
 
   const handleImport = async () => {
@@ -141,17 +145,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
               aria-label="帮助"
               title="关于此窗口"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
+              <CircleHelp size={14} />
             </button>
             <button class="dm-titlebar-close" onClick={props.onCancel} aria-label="关闭">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <X size={14} />
             </button>
           </div>
 
@@ -178,18 +175,11 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
         {/* Icon Toolbar */}
         <div class="dm-toolbar">
           <ToolbarIcon title="导入数据库文件" onClick={handleImport}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="16" />
-              <line x1="8" y1="12" x2="16" y2="12" />
-            </svg>
+            <PlusCircle size={16} />
           </ToolbarIcon>
           <div class="dm-toolbar-sep" />
           <ToolbarIcon title="通道绑定" onClick={() => {}} disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
+            <Link size={16} />
           </ToolbarIcon>
           <Show when={hasEntries()}>
             <div class="dm-toolbar-sep" />
@@ -206,11 +196,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
               when={hasEntries()}
               fallback={
                 <div class="dm-section-empty">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="32" height="32">
-                    <ellipse cx="12" cy="6" rx="8" ry="3" />
-                    <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
-                    <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
-                  </svg>
+                  <Database size={32} strokeWidth={1.2} />
                   <p>暂无文件，点击工具栏 <span class="dm-inline-kbd">⊕</span> 导入</p>
                 </div>
               }
@@ -228,17 +214,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
                       <div class="dm-files-row">
                         <span class="dm-files-cell dm-files-cell--name">
                           <span class="dm-files-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <polyline points="14 2 14 8 20 8" />
-                              <Show
-                                when={entry.type === 'dbc'}
-                                fallback={<polyline points="10 13 8 13" />}
-                              >
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                              </Show>
-                            </svg>
+                            <File size={16} />
                           </span>
                           {entry.name}
                         </span>
@@ -252,10 +228,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
                         </span>
                         <span class="dm-files-cell dm-files-cell--action">
                           <button class="dm-files-remove" onClick={() => handleRemove(entry.id)} title="移除">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
+                            <X size={14} />
                           </button>
                         </span>
                       </div>

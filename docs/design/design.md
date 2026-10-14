@@ -249,15 +249,48 @@ select:focus-visible,
 
 ---
 
-## 6. 图标规范
+## 6. 图标规范 (Icons)
+
+### 强制要求
 
 | 规则 | 说明 |
 |------|------|
-| **禁止 emoji** | 所有 UI 图标必须使用 SVG |
-| **推荐图标集** | [Lucide](https://lucide.dev)（`npm i lucide-solid`） |
-| **尺寸** | `w-4 h-4` (16px) / `w-5 h-5` (20px) |
-| **颜色** | 继承父级文字色 `stroke="currentColor"` |
-| **无障碍** | 交互式图标按钮必须设置 `aria-label` |
+| **强制使用 Lucide** | 所有 UI 图标必须来自 [Lucide](https://lucide.dev) 图标库，通过 `lucide-solid` 包引入 |
+| **禁止手写 SVG** | 禁止在组件中内联手写 `<svg>` 标签。如 Lucide 中不存在所需图标，优先考虑使用语义相近的替代，确实无法替代时才允许手写 |
+| **禁止 emoji** | 禁止使用 emoji 作为 UI 图标 |
+| **尺寸** | 16px (`size={16}`) 用于按钮内图标，20px (`size={20}`) 用于独立展示 |
+| **颜色** | 继承父级文字色，通过 CSS `color` 控制，图标组件不做颜色设置 |
+| **无障碍** | 交互式图标按钮必须设置 `aria-label`；纯装饰图标设置 `aria-hidden="true"` |
+
+### 导入方式
+
+```tsx
+import { Database, FilePlus, Link, CircleHelp, X } from 'lucide-solid';
+```
+
+### 使用示例
+
+```tsx
+// 按钮内图标
+<button aria-label="导入">
+  <FilePlus size={16} />
+</button>
+
+// 独立展示
+<Database size={20} class="text-text-secondary" />
+```
+
+### 项目中已使用的 Lucide 图标
+
+| 图标 | Lucide 名称 | 使用位置 |
+|------|-----------|---------|
+| ⊕ (加号圆圈) | `PlusCircle` | 数据库管理 - 导入按钮 |
+| 🔗 (链接) | `Link` | 数据库管理 - 通道绑定 |
+| ? (帮助) | `CircleHelp` | 数据库管理 - 帮助按钮 |
+| ✕ (关闭) | `X` | 标题栏关闭按钮 |
+| 📄 (文件) | `File` | 数据库管理 - 文件图标 |
+| 🗄 (数据库) | `Database` | Ribbon - 数据库按钮 |
+| 📁 (资源管理器) | `FolderOpen` | Ribbon - 资源管理器按钮 |
 
 ---
 
@@ -267,7 +300,7 @@ select:focus-visible,
 |----|------|:--:|
 | 框架 | SolidJS | 1.x |
 | CSS | Tailwind CSS | 4.x |
-| 图标 | Lucide Solid（推荐） | — |
+| 图标 | Lucide Solid（必须） | — |
 | 图表 | uPlot | — |
 | 桌面壳 | Tauri | 2.x |
 
