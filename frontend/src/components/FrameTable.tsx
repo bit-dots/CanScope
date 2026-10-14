@@ -1,6 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import type { FrameInfo, FilterConfig } from '../types';
 import { formatHex, formatDataHex } from '../types';
+import { X, ArrowDownToLine, Activity, Search } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -9,7 +10,7 @@ interface FrameTableProps {
   totalFrameCount: number;
 }
 
-const ROW_HEIGHT = 24;
+const ROW_HEIGHT = 28;
 const OVERSCAN = 20;
 
 type FrameType = 'ALL' | 'STD' | 'EXT' | 'FD';
@@ -125,11 +126,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   class="frame-table__canid-clear"
                   onClick={handleClearFilter}
                   title="清除过滤"
+                  aria-label="清除过滤"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <X size={12} />
                 </button>
               )}
             </div>
@@ -169,11 +168,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             classList={{ 'frame-table__tool-btn--active': autoScroll() }}
             onClick={() => setAutoScroll(!autoScroll())}
             title={autoScroll() ? '自动滚动：开' : '自动滚动：关'}
+            aria-label={autoScroll() ? '关闭自动滚动' : '开启自动滚动'}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="12 5 12 19" />
-              <polyline points="19 12 12 19 5 12" />
-            </svg>
+            <ArrowDownToLine size={14} />
             <span>自动滚动</span>
           </button>
 
@@ -183,11 +180,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               class="frame-table__tool-btn"
               onClick={() => setSelectedRow(null)}
               title="清除选中"
+              aria-label="清除选中"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <X size={14} />
             </button>
           )}
         </div>
@@ -280,9 +275,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         <Show when={props.totalFrameCount === 0}>
           <div class="frame-table__empty">
             <div class="frame-table__empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
+              <Activity size={40} stroke-width={1.2} />
             </div>
             <span class="frame-table__empty-title">暂无报文数据</span>
             <span class="frame-table__empty-desc">请加载数据文件并启动播放</span>
@@ -293,10 +286,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         <Show when={props.totalFrameCount > 0 && filteredFrames().length === 0}>
           <div class="frame-table__empty">
             <div class="frame-table__empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Search size={40} stroke-width={1.2} />
             </div>
             <span class="frame-table__empty-title">无匹配报文</span>
             <span class="frame-table__empty-desc">当前过滤条件下未找到任何报文</span>

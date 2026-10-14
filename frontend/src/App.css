@@ -110,7 +110,7 @@ select:focus-visible,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 34px;
+  min-height: 40px;
   padding: 0 10px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -328,12 +328,12 @@ select:focus-visible,
 }
 
 .frame-table__th {
-  padding: 4px 8px;
+  padding: 6px 10px;
   text-align: left;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   white-space: nowrap;
   user-select: none;
   color: var(--text-secondary);
@@ -347,7 +347,7 @@ select:focus-visible,
 }
 
 .frame-table__row--even {
-  background: rgba(26, 26, 46, 0.35);
+  background: color-mix(in srgb, var(--bg-secondary) 35%, transparent);
 }
 
 .frame-table__row:hover {
@@ -365,14 +365,13 @@ select:focus-visible,
 
 /* 数据单元格 */
 .frame-table__td {
-  padding: 2px 8px;
-  font-size: 12px;
+  padding: 4px 10px;
+  font-size: 13px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
-  line-height: 20px;
 }
 
 /* 列宽 */
@@ -452,13 +451,13 @@ select:focus-visible,
 }
 
 .frame-table__type-badge--ext {
-  background: color-mix(in srgb, #60A5FA 16%, transparent);
-  color: #93C5FD;
+  background: color-mix(in srgb, var(--accent-hover) 16%, transparent);
+  color: var(--accent-hover);
 }
 
 .frame-table__type-badge--fd {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: #93BBFD;
+  color: var(--accent);
 }
 
 /* 信号 Badge */
