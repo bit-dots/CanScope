@@ -163,7 +163,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
               <div class="dm-help-popover-body">
                 <strong>在此统一管理工程加载的数据库文件。</strong>
                 <ul>
-                  <li>点击工具栏 <span class="dm-inline-kbd">⊕</span> 导入 DBC 或 LDF 文件</li>
+                  <li>点击工具栏 <PlusCircle class="dm-inline-icon" size={12} /> 导入 DBC 或 LDF 文件</li>
                   <li>在列表中确认后，点击"确定"将一次性加载所有 DBC</li>
                   <li>LDF / ARXML 文件的后端支持尚未实现，导入后暂不解析</li>
                 </ul>
@@ -197,7 +197,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
               fallback={
                 <div class="dm-section-empty">
                   <Database size={32} strokeWidth={1.2} />
-                  <p>暂无文件，点击工具栏 <span class="dm-inline-kbd">⊕</span> 导入</p>
+                  <p>暂无文件，点击工具栏 <PlusCircle class="dm-inline-icon" size={12} /> 导入</p>
                 </div>
               }
             >
