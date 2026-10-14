@@ -1,27 +1,49 @@
-import { Component, createSignal, onMount, onCleanup } from 'solid-js';
-import type { FrameInfo } from '../types';
-import { formatHex, formatDataHex, formatSignal } from '../types';
+import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import type { FrameInfo, FilterConfig } from '../types';
+import { formatHex, formatDataHex } from '../types';
 
 interface FrameTableProps {
   frames: FrameInfo[];
+  filter: FilterConfig;
+  onFilterChange: (filter: FilterConfig) => void;
+  totalFrameCount: number;
 }
 
 const ROW_HEIGHT = 24;
 const OVERSCAN = 20;
+
+type FrameType = 'ALL' | 'STD' | 'EXT' | 'FD';
 
 const FrameTable: Component<FrameTableProps> = (props) => {
   let containerRef!: HTMLDivElement;
   let resizeObserver: ResizeObserver | undefined;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewHeight, setViewHeight] = createSignal(0);
+  const [autoScroll, setAutoScroll] = createSignal(true);
+  const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
+  const [typeFilter, setTypeFilter] = createSignal<FrameType>('ALL');
+  const [canIdInput, setCanIdInput] = createSignal(props.filter.canId);
 
-  const totalHeight = () => props.frames.length * ROW_HEIGHT;
+  const filteredFrames = () => {
+    let result = props.frames;
+    const tf = typeFilter();
+    if (tf !== 'ALL') {
+      result = result.filter(f => {
+        if (tf === 'FD') return f.is_fd;
+        if (tf === 'EXT') return f.is_extended && !f.is_fd;
+        return !f.is_extended && !f.is_fd;
+      });
+    }
+    return result;
+  };
+
+  const totalHeight = () => filteredFrames().length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
   const endIndex = () => Math.min(
-    props.frames.length,
+    filteredFrames().length,
     Math.ceil((scrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
   );
-  const visibleFrames = () => props.frames.slice(startIndex(), endIndex());
+  const visibleFrames = () => filteredFrames().slice(startIndex(), endIndex());
 
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);
@@ -41,89 +63,246 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     resizeObserver?.disconnect();
   });
 
-  return (
-    <div
-      ref={containerRef}
-      class="frame-table"
-      onScroll={handleScroll}
-      style={{
-        overflow: 'auto',
-        height: '100%',
-        position: 'relative',
-      }}
-    >
-      <table style={{ width: '100%', 'border-collapse': 'collapse', 'table-layout': 'fixed' }}>
-        <thead style={{
-          position: 'sticky',
-          top: 0,
-          'z-index': 1,
-          background: 'var(--bg-secondary)',
-        }}>
-          <tr>
-            <th style={{ width: '40px' }}>#</th>
-            <th style={{ width: '100px' }}>时间 (s)</th>
-            <th style={{ width: '80px' }}>CAN ID</th>
-            <th style={{ width: '55px' }}>Type</th>
-            <th style={{ width: '45px' }}>DLC</th>
-            <th style={{ width: '200px' }}>Data</th>
-            <th>Signals</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
-          {visibleFrames().map((frame, i) => {
-            const idx = startIndex() + i;
-            return (
-              <tr
-                style={{ height: `${ROW_HEIGHT}px`, background: idx % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)' }}
-              >
-                <td>{idx + 1}</td>
-                <td>{frame.timestamp.toFixed(6)}</td>
-                <td style={{ 'font-family': 'var(--font-mono)', color: 'var(--accent)' }}>
-                  {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
-                </td>
-                <td>
-                  {frame.is_fd ? 'FD' : frame.is_extended ? 'EXT' : 'STD'}
-                </td>
-                <td>{frame.dlc}</td>
-                <td style={{ 'font-family': 'var(--font-mono)', 'font-size': '11px' }}>
-                  {formatDataHex(frame.data, frame.dlc)}
-                </td>
-                <td style={{ 'font-size': '11px', color: 'var(--text-primary)' }}>
-                  {frame.signals && frame.signals.length > 0
-                    ? frame.signals.map(s => formatSignal(s)).join(', ')
-                    : <span style="color: var(--text-secondary)">—</span>
-                  }
-                </td>
-              </tr>
-            );
-          })}
-          <tr style={{ height: `${Math.max(0, totalHeight() - endIndex() * ROW_HEIGHT)}px` }} />
-        </tbody>
-      </table>
+  const handleCanIdFilter = () => {
+    const val = canIdInput().trim();
+    if (val === props.filter.canId) return;
+    props.onFilterChange({ ...props.filter, canId: val });
+  };
 
-      {props.frames.length === 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          display: 'flex',
-          'flex-direction': 'column',
-          'align-items': 'center',
-          gap: '10px',
-          color: 'var(--text-secondary)',
-          'font-size': '12px',
-        }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-          <span style={{ color: 'var(--text-primary)', 'font-weight': '500' }}>
-            暂无报文数据
-          </span>
-          <span>请加载数据文件并启动播放</span>
+  const handleCanIdKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCanIdFilter();
+    }
+  };
+
+  const handleClearFilter = () => {
+    setCanIdInput('');
+    props.onFilterChange({ ...props.filter, canId: '' });
+  };
+
+  const handleTypeFilter = (type: FrameType) => {
+    setTypeFilter(type);
+    setSelectedRow(null);
+  };
+
+  const handleRowClick = (idx: number) => {
+    setSelectedRow(prev => prev === idx ? null : idx);
+  };
+
+  const handleClickCanId = (canId: number, isExtended: boolean) => {
+    const hex = formatHex(canId, isExtended ? 8 : 3);
+    setCanIdInput(hex);
+    props.onFilterChange({ ...props.filter, canId: hex });
+  };
+
+  const typeButtons: { type: FrameType; label: string }[] = [
+    { type: 'ALL', label: '全部' },
+    { type: 'STD', label: 'STD' },
+    { type: 'EXT', label: 'EXT' },
+    { type: 'FD', label: 'FD' },
+  ];
+
+  return (
+    <div class="frame-table">
+      {/* ---- 工具栏 ---- */}
+      <div class="frame-table__toolbar">
+        <div class="frame-table__toolbar-left">
+          {/* CAN ID 快速过滤 */}
+          <div class="frame-table__toolbar-group">
+            <label class="frame-table__toolbar-label">CAN ID</label>
+            <div class="frame-table__canid-input-wrap">
+              <input
+                type="text"
+                class="frame-table__canid-input"
+                placeholder="0x..."
+                value={canIdInput()}
+                onInput={(e) => setCanIdInput(e.currentTarget.value)}
+                onKeyDown={handleCanIdKeyDown}
+                spellcheck={false}
+              />
+              {canIdInput() && (
+                <button
+                  class="frame-table__canid-clear"
+                  onClick={handleClearFilter}
+                  title="清除过滤"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 帧类型过滤 */}
+          <div class="frame-table__toolbar-group">
+            <label class="frame-table__toolbar-label">类型</label>
+            <div class="frame-table__type-buttons">
+              <For each={typeButtons}>
+                {(btn) => (
+                  <button
+                    class="frame-table__type-btn"
+                    classList={{ 'frame-table__type-btn--active': typeFilter() === btn.type }}
+                    onClick={() => handleTypeFilter(btn.type)}
+                  >
+                    {btn.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
         </div>
-      )}
+
+        <div class="frame-table__toolbar-right">
+          {/* 报文计数 */}
+          <span class="frame-table__frame-count">
+            <span class="frame-table__frame-count-current">{filteredFrames().length.toLocaleString()}</span>
+            <span class="frame-table__frame-count-sep">/</span>
+            <span>{props.totalFrameCount.toLocaleString()}</span>
+            <span class="frame-table__frame-count-label"> 帧</span>
+          </span>
+
+          {/* 自动滚动 */}
+          <button
+            class="frame-table__tool-btn"
+            classList={{ 'frame-table__tool-btn--active': autoScroll() }}
+            onClick={() => setAutoScroll(!autoScroll())}
+            title={autoScroll() ? '自动滚动：开' : '自动滚动：关'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="12 5 12 19" />
+              <polyline points="19 12 12 19 5 12" />
+            </svg>
+            <span>自动滚动</span>
+          </button>
+
+          {/* 清除选中 */}
+          {selectedRow() !== null && (
+            <button
+              class="frame-table__tool-btn"
+              onClick={() => setSelectedRow(null)}
+              title="清除选中"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---- 内容区：报文表格 ---- */}
+      <div
+        ref={containerRef}
+        class="frame-table__body"
+        onScroll={handleScroll}
+      >
+        <table class="frame-table__table">
+          <thead class="frame-table__thead">
+            <tr>
+              <th class="frame-table__th frame-table__th--idx">#</th>
+              <th class="frame-table__th frame-table__th--time">时间 (s)</th>
+              <th class="frame-table__th frame-table__th--canid">CAN ID</th>
+              <th class="frame-table__th frame-table__th--type">Type</th>
+              <th class="frame-table__th frame-table__th--dlc">DLC</th>
+              <th class="frame-table__th frame-table__th--data">Data</th>
+              <th class="frame-table__th frame-table__th--signals">Signals</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
+            {visibleFrames().map((frame, i) => {
+              const idx = startIndex() + i;
+              const isSelected = selectedRow() === idx;
+              const typeLabel = frame.is_fd ? 'FD' : frame.is_extended ? 'EXT' : 'STD';
+              const typeClass = frame.is_fd ? 'fd' : frame.is_extended ? 'ext' : 'std';
+              return (
+                <tr
+                  class="frame-table__row"
+                  classList={{
+                    'frame-table__row--selected': isSelected,
+                    'frame-table__row--even': idx % 2 === 0,
+                  }}
+                  style={{ height: `${ROW_HEIGHT}px` }}
+                  onClick={() => handleRowClick(idx)}
+                >
+                  <td class="frame-table__td frame-table__td--idx">{idx + 1}</td>
+                  <td class="frame-table__td frame-table__td--time">{frame.timestamp.toFixed(6)}</td>
+                  <td
+                    class="frame-table__td frame-table__td--canid"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClickCanId(frame.can_id, frame.is_extended);
+                    }}
+                    title="点击过滤此 CAN ID"
+                  >
+                    {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
+                  </td>
+                  <td class="frame-table__td frame-table__td--type">
+                    <span class={`frame-table__type-badge frame-table__type-badge--${typeClass}`}>
+                      {typeLabel}
+                    </span>
+                  </td>
+                  <td class="frame-table__td frame-table__td--dlc">{frame.dlc}</td>
+                  <td class="frame-table__td frame-table__td--data">
+                    {formatDataHex(frame.data, frame.dlc)}
+                  </td>
+                  <td class="frame-table__td frame-table__td--signals">
+                    <Show
+                      when={frame.signals && frame.signals.length > 0}
+                      fallback={<span class="frame-table__no-signal">-</span>}
+                    >
+                      <div class="frame-table__signal-list">
+                        <For each={frame.signals}>
+                          {(signal) => (
+                            <span class="frame-table__signal-badge">
+                              {signal.name}
+                              <span class="frame-table__signal-value">
+                                {signal.label ?? signal.physical_value.toFixed(2)}
+                                {signal.unit ? ` ${signal.unit}` : ''}
+                              </span>
+                            </span>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr style={{ height: `${Math.max(0, totalHeight() - endIndex() * ROW_HEIGHT)}px` }} />
+          </tbody>
+        </table>
+
+        {/* 空状态 */}
+        <Show when={props.totalFrameCount === 0}>
+          <div class="frame-table__empty">
+            <div class="frame-table__empty-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </div>
+            <span class="frame-table__empty-title">暂无报文数据</span>
+            <span class="frame-table__empty-desc">请加载数据文件并启动播放</span>
+          </div>
+        </Show>
+
+        {/* 过滤后无结果 */}
+        <Show when={props.totalFrameCount > 0 && filteredFrames().length === 0}>
+          <div class="frame-table__empty">
+            <div class="frame-table__empty-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <span class="frame-table__empty-title">无匹配报文</span>
+            <span class="frame-table__empty-desc">当前过滤条件下未找到任何报文</span>
+          </div>
+        </Show>
+      </div>
     </div>
   );
 };

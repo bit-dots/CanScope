@@ -660,7 +660,14 @@ function App() {
                       </div>
                     );
                   case 'frame-monitor':
-                    return <FrameTable frames={filteredFrames()} />;
+                    return (
+                      <FrameTable
+                        frames={filteredFrames()}
+                        filter={filter()}
+                        onFilterChange={setFilter}
+                        totalFrameCount={frames().length}
+                      />
+                    );
                   case 'chart':
                     return (
                       <SignalChart
