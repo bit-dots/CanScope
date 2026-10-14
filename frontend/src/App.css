@@ -842,21 +842,14 @@ select:focus-visible,
 
 .dm-help-popover-body li {
   margin: 0;
+  white-space: nowrap;
 }
 
-.dm-help-popover-body .dm-inline-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 10px;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  margin: 0 2px;
+.dm-help-popover-body .dm-inline-icon {
+  display: inline;
   vertical-align: middle;
+  margin: 0 1px;
+  color: var(--accent);
 }
 
 /* ── Icon Toolbar ──────────────────────── */
@@ -962,23 +955,12 @@ select:focus-visible,
   font-size: 12px;
 }
 
-.dm-section-empty svg {
-  opacity: 0.3;
+.dm-section-empty p {
+  white-space: nowrap;
 }
 
-.dm-inline-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  margin: 0 2px;
-  vertical-align: middle;
+.dm-section-empty svg {
+  opacity: 0.3;
 }
 
 /* Section: placeholder */
