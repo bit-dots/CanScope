@@ -75,6 +75,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const count = () => displayedFrames().length;
+  const errorCount = () => props.frames.filter((f) => (f as any).is_error).length;
+  const hasError = () => errorCount() > 0;
 
   return (
     <div class="frame-table">
@@ -231,6 +233,24 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             <span class="frame-table__empty-desc">请加载数据文件并启动播放</span>
           </div>
         </Show>
+      </div>
+
+      {/* ---- 状态栏 ---- */}
+      <div class="frame-table__statusbar">
+        <div class="frame-table__statusbar-left">
+          {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
+        </div>
+        <div class="frame-table__statusbar-right">
+          <span class="frame-table__statusbar-item" title="接收帧数">
+            <span>RX: {displayedFrames().length.toLocaleString()}</span>
+          </span>
+          <span class="frame-table__statusbar-item" title="发送帧数">
+            <span>TX: 0</span>
+          </span>
+          <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="错误帧数">
+            <span>Err: {errorCount().toLocaleString()}</span>
+          </span>
+        </div>
       </div>
     </div>
   );

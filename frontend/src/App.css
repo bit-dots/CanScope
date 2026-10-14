@@ -430,6 +430,49 @@ select:focus-visible,
   color: var(--text-secondary);
 }
 
+/* 状态栏 */
+.frame-table__statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  padding: 0 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.frame-table__statusbar-left,
+.frame-table__statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.frame-table__statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+.frame-table__statusbar-item--error {
+  color: var(--text-secondary);
+}
+
+.frame-table__statusbar-item--error-active {
+  color: color-mix(in srgb, #e07070 40%, var(--text-secondary));
+}
+
+.frame-table__statusbar-label {
+  font-size: 10.5px;
+  color: var(--accent);
+  user-select: none;
+}
+
 .split-layout-h {
   display: flex;
   height: 100%;
