@@ -267,7 +267,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const ft = filterTime().trim().toLowerCase();
     const fc = filterChannel().trim().toLowerCase();
     const fi = filterId().trim().toLowerCase();
-    const fy = filterType().trim().toLowerCase();
+    const fy = filterType();
     const fd = filterDlc().trim();
     const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
     const fn = filterName().trim().toLowerCase();
@@ -281,8 +281,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
         }
         if (fy) {
-          const typeStr = getFrameTypeLabel(frame).toLowerCase();
-          if (!typeStr.includes(fy)) return false;
+          const typeStr = getFrameTypeLabel(frame);
+          if (typeStr !== fy) return false;
         }
         if (fd && frame.dlc.toString() !== fd) return false;
         if (fx) {
@@ -326,7 +326,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const getFrameTypeLabel = (frame: FrameInfo) => {
     const isBrs = (frame as any).is_brs as boolean | undefined;
-    return frame.is_fd ? (isBrs ? 'CAN FD' : 'CAN FD') : 'CAN';
+    return frame.is_fd ? (isBrs ? 'CAN FD(加速)' : 'CAN FD') : 'CAN';
+  };
+
+  const frameTypeOptions = () => {
+    const types = new Set<string>();
+    for (const f of props.frames) {
+      types.add(getFrameTypeLabel(f));
+    }
+    return [...types].sort();
   };
 
   const searchMatchIndices = (): number[] => {
@@ -870,6 +878,23 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     data: { get: filterData, set: setFilterData },
                     name: { get: filterName, set: setFilterName },
                   };
+                  if (col.key === 'type') {
+                    const s = filterType;
+                    return (
+                      <th class="frame-table__th frame-table__th--filter">
+                        <select
+                          class="frame-table__filter-select"
+                          value={s()}
+                          onChange={(e) => setFilterType(e.currentTarget.value)}
+                        >
+                          <option value="">全部</option>
+                          {frameTypeOptions().map((t) => (
+                            <option value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </th>
+                    );
+                  }
                   const s = signals[col.key];
                   return (
                     <th class="frame-table__th frame-table__th--filter">
