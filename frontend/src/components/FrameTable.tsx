@@ -1,7 +1,7 @@
-import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -19,7 +19,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [viewHeight, setViewHeight] = createSignal(0);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
   const [isPaused, setIsPaused] = createSignal(false);
-  const [isRelativeTime, setIsRelativeTime] = createSignal(false);
+  const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
+  const [isTimeMenuOpen, setIsTimeMenuOpen] = createSignal(false);
+  let timeMenuRef!: HTMLDivElement;
+  let timeBtnRef!: HTMLDivElement;
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
@@ -38,12 +41,58 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setIsPaused(!isPaused());
   };
 
-  const formatTimestamp = (frame: FrameInfo) => {
-    if (isRelativeTime() && props.frames.length > 0) {
-      return (frame.timestamp - props.frames[0].timestamp).toFixed(6);
+  const timeFormatOptions = [
+    { value: 'absolute' as const, label: '绝对时间 (时:分:秒.毫秒)' },
+    { value: 'relative-to-start' as const, label: '相对于测量起始时间 (秒)' },
+    { value: 'relative-to-prev' as const, label: '相对于上一帧的时间 (秒)' },
+  ];
+
+  const formatTimestamp = (frame: FrameInfo, index: number) => {
+    switch (timeFormat()) {
+      case 'relative-to-start':
+        if (props.frames.length > 0) {
+          return (frame.timestamp - props.frames[0].timestamp).toFixed(6);
+        }
+        return frame.timestamp.toFixed(6);
+      case 'relative-to-prev': {
+        if (index > 0) {
+          const prev = displayedFrames()[index - 1];
+          return (frame.timestamp - prev.timestamp).toFixed(6);
+        }
+        return '0.000000';
+      }
+      case 'absolute':
+      default: {
+        const totalSeconds = frame.timestamp;
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${seconds.toFixed(3).padStart(6, '0')}`;
+      }
     }
-    return frame.timestamp.toFixed(6);
   };
+
+  const handleTimeMenuToggle = () => {
+    setIsTimeMenuOpen(!isTimeMenuOpen());
+  };
+
+  const handleTimeFormatSelect = (format: 'absolute' | 'relative-to-start' | 'relative-to-prev') => {
+    setTimeFormat(format);
+    setIsTimeMenuOpen(false);
+  };
+
+  const closeTimeMenu = (e: MouseEvent) => {
+    if (timeMenuRef && !timeMenuRef.contains(e.target as Node) && !timeBtnRef.contains(e.target as Node)) {
+      setIsTimeMenuOpen(false);
+      document.removeEventListener('click', closeTimeMenu);
+    }
+  };
+
+  createEffect(on(isTimeMenuOpen, (open) => {
+    if (open) {
+      setTimeout(() => document.addEventListener('click', closeTimeMenu), 0);
+    }
+  }));
 
   const totalHeight = () => displayedFrames().length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
@@ -123,15 +172,38 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </button>
 
           {/* 时间显示格式 */}
-          <button
-            class="frame-table__tool-btn"
-            classList={{ 'frame-table__tool-btn--active': isRelativeTime() }}
-            onClick={() => setIsRelativeTime(!isRelativeTime())}
-            title={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
-            aria-label={isRelativeTime() ? '切换到绝对时间' : '切换到相对时间'}
+          <div
+            ref={timeBtnRef}
+            class="frame-table__tool-btn-group"
+            classList={{ 'frame-table__tool-btn-group--open': isTimeMenuOpen() }}
+            onClick={handleTimeMenuToggle}
+            title="时间显示格式"
+            aria-label="时间显示格式"
+            role="button"
+            tabindex="0"
           >
             <ListClock size={14} />
-          </button>
+            {isTimeMenuOpen() ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+          </div>
+
+          {/* 时间格式下拉菜单 */}
+          <Show when={isTimeMenuOpen()}>
+            <div ref={timeMenuRef} class="frame-table__time-menu" role="menu">
+              {timeFormatOptions.map((opt) => (
+                <button
+                  class="frame-table__time-menu-item"
+                  classList={{ 'frame-table__time-menu-item--selected': timeFormat() === opt.value }}
+                  role="menuitem"
+                  onClick={() => handleTimeFormatSelect(opt.value)}
+                >
+                  <span class="frame-table__time-menu-check">
+                    {timeFormat() === opt.value && <Check size={12} />}
+                  </span>
+                  <span class="frame-table__time-menu-label">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </Show>
         </div>
       </div>
 
@@ -178,7 +250,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   style={{ height: `${ROW_HEIGHT}px` }}
                   onClick={() => handleRowClick(idx)}
                 >
-                  <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame)}</td>
+                  <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame, idx)}</td>
                   <td class="frame-table__td frame-table__td--channel">CH{frame.bus_id + 1}</td>
                   <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
