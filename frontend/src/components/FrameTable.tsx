@@ -260,10 +260,40 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const displayedFrames = () => {
-    if (isPaused()) {
-      return props.frames.slice(0, pausedCount());
-    }
-    return props.frames;
+    let frames = isPaused()
+      ? props.frames.slice(0, pausedCount())
+      : props.frames;
+
+    const ft = filterTime().trim().toLowerCase();
+    const fc = filterChannel().trim().toLowerCase();
+    const fi = filterId().trim().toLowerCase();
+    const fy = filterType().trim().toLowerCase();
+    const fd = filterDlc().trim();
+    const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
+    const fn = filterName().trim().toLowerCase();
+
+    frames = frames.filter((frame) => {
+        if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
+        if (fc && !(frame.channel ?? '').toLowerCase().includes(fc)) return false;
+        if (fi) {
+          const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
+          const decId = frame.can_id.toString();
+          if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
+        }
+        if (fy) {
+          const typeStr = getFrameTypeLabel(frame).toLowerCase();
+          if (!typeStr.includes(fy)) return false;
+        }
+        if (fd && frame.dlc.toString() !== fd) return false;
+        if (fx) {
+          const dataStr = formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase();
+          if (!dataStr.includes(fx)) return false;
+        }
+        if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
+        return true;
+    });
+
+    return frames;
   };
 
   // ---- 搜索 ----
@@ -273,6 +303,31 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isCaseSensitive, setIsCaseSensitive] = createSignal(false);
   const [isWholeWord, setIsWholeWord] = createSignal(false);
   let searchInputRef: HTMLInputElement | undefined;
+
+  // ---- 列筛选 ----
+  const [showFilters, setShowFilters] = createSignal(false);
+  const [filterTime, setFilterTime] = createSignal('');
+  const [filterChannel, setFilterChannel] = createSignal('');
+  const [filterId, setFilterId] = createSignal('');
+  const [filterType, setFilterType] = createSignal('');
+  const [filterDlc, setFilterDlc] = createSignal('');
+  const [filterData, setFilterData] = createSignal('');
+  const [filterName, setFilterName] = createSignal('');
+
+  const clearAllFilters = () => {
+    setFilterTime('');
+    setFilterChannel('');
+    setFilterId('');
+    setFilterType('');
+    setFilterDlc('');
+    setFilterData('');
+    setFilterName('');
+  };
+
+  const getFrameTypeLabel = (frame: FrameInfo) => {
+    const isBrs = (frame as any).is_brs as boolean | undefined;
+    return frame.is_fd ? (isBrs ? 'CAN FD' : 'CAN FD') : 'CAN';
+  };
 
   const searchMatchIndices = (): number[] => {
     const raw = searchQuery().trim().replace(/\s/g, '');
@@ -778,8 +833,20 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </colgroup>
           <thead class="frame-table__thead">
             <tr>
-              {visibleColumns().map((col) => (
+              {visibleColumns().map((col, ci) => (
                 <th class={`frame-table__th frame-table__th--${col.key}`}>
+                  {ci === 0 && (
+                    <span
+                      class="frame-table__filter-toggle"
+                      onClick={() => setShowFilters((v) => !v)}
+                      title={showFilters() ? '关闭筛选' : '打开筛选'}
+                    >
+                      {showFilters()
+                        ? <ChevronDown size={11} />
+                        : <ChevronRight size={11} />
+                      }
+                    </span>
+                  )}
                   {col.label}
                   <div
                     class="frame-table__col-resizer"
@@ -789,6 +856,34 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 </th>
               ))}
             </tr>
+            {showFilters() && (
+              <tr class="frame-table__filter-row">
+                {visibleColumns().map((col) => {
+                  const signals: Record<string, { get: () => string; set: (v: string) => void }> = {
+                    time: { get: filterTime, set: setFilterTime },
+                    channel: { get: filterChannel, set: setFilterChannel },
+                    id: { get: filterId, set: setFilterId },
+                    type: { get: filterType, set: setFilterType },
+                    dlc: { get: filterDlc, set: setFilterDlc },
+                    data: { get: filterData, set: setFilterData },
+                    name: { get: filterName, set: setFilterName },
+                  };
+                  const s = signals[col.key];
+                  return (
+                    <th class="frame-table__th frame-table__th--filter">
+                      <input
+                        class="frame-table__filter-input"
+                        type="text"
+                        value={s?.get() ?? ''}
+                        onInput={(e) => s?.set(e.currentTarget.value)}
+                        placeholder=""
+                        spellcheck={false}
+                      />
+                    </th>
+                  );
+                })}
+              </tr>
+            )}
           </thead>
           <tbody>
             <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
