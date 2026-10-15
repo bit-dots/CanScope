@@ -828,19 +828,6 @@ pub fn run() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_theme(Some(tauri::Theme::Dark));
-                if let Ok(Some(monitor)) = window.current_monitor() {
-                    let size = monitor.size();
-                    let scale = monitor.scale_factor();
-                    let screen_w = (size.width as f64 / scale) as u32;
-                    let screen_h = (size.height as f64 / scale) as u32;
-                    let max_h = (screen_h as f64 * 0.85) as u32;
-                    let max_w = (screen_w as f64 * 0.92) as u32;
-                    let desired_w = 1280.min(max_w);
-                    let desired_h = 800.min(max_h);
-                    if desired_h < 800 || desired_w < 1280 {
-                        let _ = window.set_size(tauri::PhysicalSize::new(desired_w, desired_h));
-                    }
-                }
             }
             Ok(())
         })

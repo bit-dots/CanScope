@@ -20,8 +20,8 @@
     "windows": [
       {
         "title": "CanScope",
-        "width": 1300,
-        "height": 800,
+        "width": 1250,
+        "height": 750,
         "minWidth": 900,
         "minHeight": 600,
         "center": true
