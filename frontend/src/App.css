@@ -162,8 +162,11 @@ select:focus-visible,
 }
 
 /* 时间格式按钮组 */
-.frame-table__tool-btn-group {
+.frame-table__time-control {
   position: relative;
+}
+
+.frame-table__tool-btn-group {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -173,6 +176,9 @@ select:focus-visible,
   border-radius: 3px;
   background: transparent;
   color: var(--text-secondary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
   cursor: pointer;
   user-select: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -194,7 +200,7 @@ select:focus-visible,
 .frame-table__time-menu {
   position: absolute;
   top: calc(100% + 4px);
-  left: 10px;
+  left: 0;
   z-index: 1000;
   min-width: 220px;
   padding: 4px;

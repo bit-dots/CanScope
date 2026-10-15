@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check } from 'lucide-solid';
@@ -21,8 +21,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isPaused, setIsPaused] = createSignal(false);
   const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
   const [isTimeMenuOpen, setIsTimeMenuOpen] = createSignal(false);
+  const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
   let timeMenuRef!: HTMLDivElement;
-  let timeBtnRef!: HTMLDivElement;
+  let timeBtnRef!: HTMLButtonElement;
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
@@ -73,7 +74,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const handleTimeMenuToggle = () => {
-    setIsTimeMenuOpen(!isTimeMenuOpen());
+    const willOpen = !isTimeMenuOpen();
+    if (willOpen && timeBtnRef) {
+      const rect = timeBtnRef.getBoundingClientRect();
+      setMenuPos({ left: rect.left, top: rect.bottom + 4 });
+    }
+    setIsTimeMenuOpen(willOpen);
   };
 
   const handleTimeFormatSelect = (format: 'absolute' | 'relative-to-start' | 'relative-to-prev') => {
@@ -82,17 +88,17 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const closeTimeMenu = (e: MouseEvent) => {
-    if (timeMenuRef && !timeMenuRef.contains(e.target as Node) && !timeBtnRef.contains(e.target as Node)) {
-      setIsTimeMenuOpen(false);
-      document.removeEventListener('click', closeTimeMenu);
-    }
+    if (timeBtnRef.contains(e.target as Node) || (timeMenuRef && timeMenuRef.contains(e.target as Node))) return;
+    setIsTimeMenuOpen(false);
   };
 
-  createEffect(on(isTimeMenuOpen, (open) => {
-    if (open) {
-      setTimeout(() => document.addEventListener('click', closeTimeMenu), 0);
-    }
-  }));
+  onMount(() => {
+    document.addEventListener('click', closeTimeMenu);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('click', closeTimeMenu);
+  });
 
   const totalHeight = () => displayedFrames().length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
@@ -172,38 +178,42 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </button>
 
           {/* 时间显示格式 */}
-          <div
-            ref={timeBtnRef}
-            class="frame-table__tool-btn-group"
-            classList={{ 'frame-table__tool-btn-group--open': isTimeMenuOpen() }}
-            onClick={handleTimeMenuToggle}
-            title="时间显示格式"
-            aria-label="时间显示格式"
-            role="button"
-            tabindex="0"
-          >
-            <ListClock size={14} />
-            {isTimeMenuOpen() ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-          </div>
+          <div class="frame-table__time-control">
+            <button
+              ref={timeBtnRef}
+              class="frame-table__tool-btn-group"
+              classList={{ 'frame-table__tool-btn-group--open': isTimeMenuOpen() }}
+              onClick={handleTimeMenuToggle}
+              title="时间显示格式"
+              aria-label="时间显示格式"
+            >
+              <ListClock size={14} />
+              {isTimeMenuOpen() ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            </button>
 
-          {/* 时间格式下拉菜单 */}
-          <Show when={isTimeMenuOpen()}>
-            <div ref={timeMenuRef} class="frame-table__time-menu" role="menu">
-              {timeFormatOptions.map((opt) => (
-                <button
-                  class="frame-table__time-menu-item"
-                  classList={{ 'frame-table__time-menu-item--selected': timeFormat() === opt.value }}
-                  role="menuitem"
-                  onClick={() => handleTimeFormatSelect(opt.value)}
-                >
-                  <span class="frame-table__time-menu-check">
-                    {timeFormat() === opt.value && <Check size={12} />}
-                  </span>
-                  <span class="frame-table__time-menu-label">{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          </Show>
+            {/* 时间格式下拉菜单 */}
+          <div
+            ref={timeMenuRef}
+            class="frame-table__time-menu"
+            classList={{ 'frame-table__time-menu--open': isTimeMenuOpen() }}
+            role="menu"
+            style={{ left: `${menuPos().left}px`, top: `${menuPos().top}px` }}
+          >
+            {timeFormatOptions.map((opt) => (
+              <button
+                class="frame-table__time-menu-item"
+                classList={{ 'frame-table__time-menu-item--selected': timeFormat() === opt.value }}
+                role="menuitem"
+                onClick={() => handleTimeFormatSelect(opt.value)}
+              >
+                <span class="frame-table__time-menu-check">
+                  {timeFormat() === opt.value && <Check size={12} />}
+                </span>
+                <span class="frame-table__time-menu-label">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+          </div>
         </div>
       </div>
 
