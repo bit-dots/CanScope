@@ -485,6 +485,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        const activeEl = document.activeElement;
+        const root = containerRef?.closest('.frame-table');
+        const isFocusInside = root?.contains(activeEl) ?? false;
+        const isBody = activeEl === document.body;
+        if (!isFocusInside && !isBody) return;
+
         e.preventDefault();
         openSearch();
       }
