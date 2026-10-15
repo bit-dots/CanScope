@@ -513,19 +513,12 @@ select:focus-visible,
 .frame-table__filter-input {
   width: 100%;
   height: 100%;
-  padding: 0 8px;
   border: none;
+  padding: 0 4px;
   background: color-mix(in srgb, var(--bg-tertiary) 22%, transparent);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 10px;
-  outline: none;
-  transition: background 0.15s;
-}
-
-.frame-table__filter-input:focus {
-  background: color-mix(in srgb, var(--bg-tertiary) 38%, transparent);
-  outline: none;
 }
 
 .frame-table__th:last-child {
