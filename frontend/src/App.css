@@ -315,10 +315,15 @@ select:focus-visible,
   font-weight: 600;
   background: var(--bg-secondary);
   border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
   white-space: nowrap;
   user-select: none;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
+}
+
+.frame-table__th:last-child {
+  border-right: none;
 }
 
 .frame-table__col-resizer {
@@ -366,10 +371,15 @@ select:focus-visible,
   padding: 4px 10px;
   font-size: 13px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
+}
+
+.frame-table__td:last-child {
+  border-right: none;
 }
 
 /* 列宽由 colgroup 动态控制，CSS 仅保留字体/颜色/大小 */
