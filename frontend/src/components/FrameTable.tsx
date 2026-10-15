@@ -679,7 +679,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 ref={searchInputRef}
                 class="frame-table__search-input"
                 type="text"
-                placeholder="搜索 CAN ID / 数据..."
+                placeholder=""
                 spellcheck={false}
                 value={searchQuery()}
                 onInput={handleSearchInputChange}
