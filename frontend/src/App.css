@@ -517,6 +517,7 @@ select:focus-visible,
   border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
   background: var(--bg-secondary);
+  text-align: center;
 }
 
 .frame-table__th--icon .frame-table__filter-toggle {
