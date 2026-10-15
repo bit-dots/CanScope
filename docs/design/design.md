@@ -195,6 +195,8 @@ font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospa
 - 数据行：1px 底部边框
 - Hover：`--bg-tertiary` 背景高亮
 - 表头固定：`position: sticky; top: 0; z-index: 10`
+- **表头字体**：使用系统字体栈 `--font-sans`（IBM Plex Sans）。中文在等宽字体中渲染不佳，表头文字通常为中文标签，严禁对表头使用 `--font-mono`
+- **数据格字体**：使用等宽字体 `--font-mono`（JetBrains Mono），确保十六进制数据、数字对齐
 
 ### 4.4 输入框 (Inputs)
 

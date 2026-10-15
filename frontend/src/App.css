@@ -355,14 +355,25 @@ select:focus-visible,
 }
 
 /* 列宽 */
-.frame-table__th--time,
+/* --- 时间列 --- */
+.frame-table__th--time {
+  width: 110px;
+  font-size: 11px;
+}
+
 .frame-table__td--time {
   width: 110px;
   font-family: var(--font-mono);
   font-size: 11px;
 }
 
-.frame-table__th--channel,
+/* --- 通道列 --- */
+.frame-table__th--channel {
+  width: 48px;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
 .frame-table__td--channel {
   width: 48px;
   font-family: var(--font-mono);
@@ -370,7 +381,13 @@ select:focus-visible,
   color: var(--text-secondary);
 }
 
-.frame-table__th--canid,
+/* --- ID 列 --- */
+.frame-table__th--canid {
+  width: 72px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .frame-table__td--canid {
   width: 72px;
   font-family: var(--font-mono);
@@ -378,6 +395,7 @@ select:focus-visible,
   font-weight: 500;
 }
 
+/* --- 名称列（已使用 --font-sans，无需变化） --- */
 .frame-table__th--name,
 .frame-table__td--name {
   width: 120px;
@@ -385,24 +403,45 @@ select:focus-visible,
   color: var(--text-primary);
 }
 
+/* --- 类型列 --- */
 .frame-table__th--type,
 .frame-table__td--type {
   width: 48px;
 }
 
+.frame-table__th--type {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* --- 方向列 --- */
 .frame-table__th--direction,
 .frame-table__td--direction {
   width: 42px;
 }
 
-.frame-table__th--dlc,
+.frame-table__th--direction {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* --- 长度列 --- */
+.frame-table__th--dlc {
+  width: 40px;
+  font-size: 11px;
+}
+
 .frame-table__td--dlc {
   width: 40px;
   font-family: var(--font-mono);
   font-size: 11px;
 }
 
-.frame-table__th--data,
+/* --- 数据列（th 用系统字体，td 保持等宽） --- */
+.frame-table__th--data {
+  font-size: 10.5px;
+}
+
 .frame-table__td--data {
   font-family: var(--font-mono);
   font-size: 10.5px;
