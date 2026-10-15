@@ -3,7 +3,7 @@ import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -85,6 +85,176 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const visibleColumns = () => COLUMNS.filter((c) => c.key !== 'name' || props.hasDbc);
+
+  // ---- 属性面板 ----
+  interface TreeNode {
+    id: string;
+    label: string;
+    value?: string;
+    badgeClass?: string;
+    children?: TreeNode[];
+  }
+
+  const [isPropertiesOpen, setIsPropertiesOpen] = createSignal(false);
+  const [propertiesWidth, setPropertiesWidth] = createSignal(280);
+  const [propertiesSplitPct, setPropertiesSplitPct] = createSignal(50);
+  const [expandedNodes, setExpandedNodes] = createSignal(new Set<string>(['basic', 'dbc', 'signals']));
+
+  const toggleNode = (nodeId: string) => {
+    const next = new Set(expandedNodes());
+    if (next.has(nodeId)) {
+      next.delete(nodeId);
+    } else {
+      next.add(nodeId);
+    }
+    setExpandedNodes(next);
+  };
+
+  const toggleProperties = () => setIsPropertiesOpen(!isPropertiesOpen());
+
+  const propertyTree = (): TreeNode[] => {
+    const idx = selectedRow();
+    if (idx === null) return [];
+    const frame = displayedFrames()[idx];
+    if (!frame) return [];
+
+    const isBrs = (frame as any).is_brs as boolean | undefined;
+    const typeLabel = frame.is_fd
+      ? (isBrs ? 'CAN FD BRS' : 'CAN FD')
+      : 'CAN';
+    const typeBadge = frame.is_fd
+      ? (isBrs ? 'canfd-brs' : 'canfd')
+      : 'can';
+
+    const nodes: TreeNode[] = [];
+
+    const basicNode: TreeNode = {
+      id: 'basic',
+      label: '基本信息',
+      children: [
+        { id: 'ts',    label: '时间戳', value: formatTimestamp(frame, idx) },
+        { id: 'bus',   label: '通道',   value: `CH${frame.bus_id + 1}` },
+        { id: 'canid', label: 'CAN ID', value: formatHex(frame.can_id, frame.is_extended ? 8 : 3) },
+        { id: 'fmt',   label: '帧格式', value: frame.is_extended ? '扩展帧' : '标准帧' },
+        { id: 'type',  label: '帧类型', value: typeLabel, badgeClass: `frame-table__type-badge--${typeBadge}` },
+        { id: 'dir',   label: '方向',   value: 'RX' },
+        { id: 'dlc',   label: 'DLC',    value: String(frame.dlc) },
+        { id: 'len',   label: '数据长度', value: `${frame.data.length} bytes` },
+      ],
+    };
+    nodes.push(basicNode);
+
+    const msgName = (frame as any).message_name as string | undefined;
+    if (msgName) {
+      const dbcNode: TreeNode = {
+        id: 'dbc',
+        label: 'DBC 信息',
+        children: [
+          { id: 'msg', label: '报文名称', value: msgName },
+        ],
+      };
+      nodes.push(dbcNode);
+    }
+
+    if (frame.signals && frame.signals.length > 0) {
+      const sigNode: TreeNode = {
+        id: 'signals',
+        label: '信号值',
+        children: frame.signals.map((s) => ({
+          id: `sig-${s.name}`,
+          label: s.name,
+          value: s.unit ? `${s.physical_value} ${s.unit}` : `${s.physical_value}`,
+        })),
+      };
+      nodes.push(sigNode);
+    }
+
+    return nodes;
+  };
+
+  const renderTree = (nodes: TreeNode[], depth: number = 0): any => {
+    const expanded = expandedNodes();
+    return nodes.map((node) => {
+      const hasChildren = node.children && node.children.length > 0;
+      return (
+        <>
+          <div
+            class="property-tree__node"
+            classList={{ 'property-tree__node--parent': hasChildren }}
+            style={{ 'padding-left': `${12 + depth * 14}px` }}
+            onClick={() => hasChildren && toggleNode(node.id)}
+          >
+            {hasChildren && (
+              <span
+                class="property-tree__toggle"
+                classList={{ 'property-tree__toggle--open': expanded.has(node.id) }}
+              >
+                <ChevronRight size={11} />
+              </span>
+            )}
+            <span class="property-tree__label">{node.label}</span>
+            {node.value && (
+              <span
+                class="property-tree__value"
+                classList={{
+                  'property-tree__value--badge': !!node.badgeClass,
+                  ...(node.badgeClass ? { [node.badgeClass]: true } : {}),
+                }}
+              >
+                {node.value}
+              </span>
+            )}
+          </div>
+          {hasChildren && expanded.has(node.id) && renderTree(node.children!, depth + 1)}
+        </>
+      );
+    });
+  };
+
+  // 属性面板水平拖拽
+  const handlePropertiesResizeStart = (e: MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = propertiesWidth();
+    const onMove = (e: MouseEvent) => {
+      const w = Math.max(200, Math.min(500, startWidth + (e.clientX - startX)));
+      setPropertiesWidth(w);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  // 属性面板内上下分割拖拽
+  const handleVerticalResizeStart = (e: MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const panelEl = (e.currentTarget as HTMLElement).parentElement;
+    const totalHeight = panelEl?.clientHeight ?? 400;
+    const startPct = propertiesSplitPct();
+    const onMove = (e: MouseEvent) => {
+      const delta = e.clientY - startY;
+      const newPct = Math.max(30, Math.min(80, startPct + (delta / totalHeight) * 100));
+      setPropertiesSplitPct(newPct);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   const displayedFrames = () => {
     if (isPaused()) {
@@ -209,9 +379,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           {/* 属性 */}
           <button
             class="frame-table__tool-btn"
-            disabled={selectedRow() === null}
+            classList={{ 'frame-table__tool-btn--active': isPropertiesOpen() }}
             title="查看报文属性"
             aria-label="查看报文属性"
+            onClick={toggleProperties}
           >
             <SlidersHorizontal size={14} />
           </button>
@@ -287,12 +458,69 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         </div>
       </div>
 
-      {/* ---- 内容区：报文表格 ---- */}
-      <div
-        ref={containerRef}
-        class="frame-table__body"
-        onScroll={handleScroll}
-      >
+      {/* ---- 内容区：报文表格 + 属性面板 ---- */}
+      <div class="split-layout-h" style={{ flex: 1, 'min-height': '0' }}>
+        <Show when={isPropertiesOpen()}>
+          <div class="property-panel" style={{ width: `${propertiesWidth()}px` }}>
+            <div class="property-panel__header">
+              <span class="property-panel__title">报文属性</span>
+              <button
+                class="property-panel__close"
+                title="关闭属性面板"
+                aria-label="关闭属性面板"
+                onClick={toggleProperties}
+              >
+                <X size={12} />
+              </button>
+            </div>
+
+            {/* 上半部分：属性树 */}
+            <div
+              class="property-panel__upper"
+              style={{ 'flex-basis': `${propertiesSplitPct()}%` }}
+            >
+              <Show
+                when={selectedRow() !== null}
+                fallback={
+                  <div class="property-panel__empty" style={{ height: '100%' }}>
+                    未选中报文
+                  </div>
+                }
+              >
+                {renderTree(propertyTree())}
+              </Show>
+            </div>
+
+            {/* 上下分割拖拽条 */}
+            <div class="panel-resizer-v" onMouseDown={handleVerticalResizeStart} />
+
+            {/* 下半部分：数据 hex */}
+            <div class="property-panel__lower">
+              <Show
+                when={selectedRow() !== null}
+                fallback={<div class="property-panel__empty">未选中报文</div>}
+              >
+                <div class="property-data__hex">
+                  {(() => {
+                    const idx = selectedRow()!;
+                    const frame = displayedFrames()[idx];
+                    return frame ? formatDataHex(frame.data, frame.dlc) : '';
+                  })()}
+                </div>
+              </Show>
+            </div>
+          </div>
+
+          {/* 属性面板水平拖拽条 */}
+          <div class="panel-resizer-h" onMouseDown={handlePropertiesResizeStart} />
+        </Show>
+
+        <div class="frame-panel">
+          <div
+            ref={containerRef}
+            class="frame-table__body"
+            onScroll={handleScroll}
+          >
         <table class="frame-table__table">
           <colgroup>
             {visibleColumns().map((col) => {
@@ -369,15 +597,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             <Activity size={40} stroke-width={1.2} />
           </div>
         </Show>
-      </div>
+          </div>
 
-      {/* ---- 状态栏 ---- */}
-      <div class="frame-table__statusbar">
-        <div class="frame-table__statusbar-left">
-          {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
-        </div>
-        <div class="frame-table__statusbar-right">
-          <span class="frame-table__statusbar-item" title="接收帧数">
+          {/* ---- 状态栏 ---- */}
+          <div class="frame-table__statusbar">
+            <div class="frame-table__statusbar-left">
+              {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
+            </div>
+            <div class="frame-table__statusbar-right">
+              <span class="frame-table__statusbar-item" title="接收帧数">
             <span>RX: {displayedFrames().length.toLocaleString()}</span>
           </span>
           <span class="frame-table__statusbar-item" title="发送帧数">
@@ -386,6 +614,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="错误帧数">
             <span>Err: {errorCount().toLocaleString()}</span>
           </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
