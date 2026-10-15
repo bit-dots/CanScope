@@ -525,6 +525,7 @@ select:focus-visible,
 }
 
 .frame-table__filter-row .frame-table__th--filter {
+  height: 24px;
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-primary));
