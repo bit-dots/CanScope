@@ -826,6 +826,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           >
         <table class="frame-table__table">
           <colgroup>
+            <col style={{ width: '22px' }} />
             {visibleColumns().map((col) => {
               const w = columnWidths[col.key];
               return <col style={{ width: w > 0 ? `${w}px` : undefined }} />;
@@ -833,20 +834,20 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </colgroup>
           <thead class="frame-table__thead">
             <tr>
-              {visibleColumns().map((col, ci) => (
+              <th class="frame-table__th frame-table__th--icon">
+                <span
+                  class="frame-table__filter-toggle"
+                  onClick={() => setShowFilters((v) => !v)}
+                  title={showFilters() ? '关闭筛选' : '打开筛选'}
+                >
+                  {showFilters()
+                    ? <ChevronDown size={11} />
+                    : <ChevronRight size={11} />
+                  }
+                </span>
+              </th>
+              {visibleColumns().map((col) => (
                 <th class={`frame-table__th frame-table__th--${col.key}`}>
-                  {ci === 0 && (
-                    <span
-                      class="frame-table__filter-toggle"
-                      onClick={() => setShowFilters((v) => !v)}
-                      title={showFilters() ? '关闭筛选' : '打开筛选'}
-                    >
-                      {showFilters()
-                        ? <ChevronDown size={11} />
-                        : <ChevronRight size={11} />
-                      }
-                    </span>
-                  )}
                   {col.label}
                   <div
                     class="frame-table__col-resizer"
@@ -858,6 +859,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             </tr>
             {showFilters() && (
               <tr class="frame-table__filter-row">
+                <th class="frame-table__th frame-table__th--icon" />
                 {visibleColumns().map((col) => {
                   const signals: Record<string, { get: () => string; set: (v: string) => void }> = {
                     time: { get: filterTime, set: setFilterTime },
@@ -909,6 +911,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   style={{ height: `${ROW_HEIGHT}px` }}
                   onClick={() => handleRowClick(idx)}
                 >
+                  <td class="frame-table__td frame-table__td--icon" />
                   <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame, idx)}</td>
                   <td class="frame-table__td frame-table__td--channel">CH{frame.bus_id + 1}</td>
                   <td class="frame-table__td frame-table__td--canid">

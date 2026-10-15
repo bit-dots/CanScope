@@ -504,6 +504,25 @@ select:focus-visible,
   color: var(--text-primary);
 }
 
+/* 图标列 — 固定宽度，不可调 */
+.frame-table__th--icon,
+.frame-table__td--icon {
+  width: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  padding: 0;
+}
+
+.frame-table__th--icon {
+  border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.frame-table__th--icon .frame-table__filter-toggle {
+  margin-right: 0;
+}
+
 .frame-table__filter-row .frame-table__th--filter {
   padding: 0;
   border-bottom: 1px solid var(--border);
