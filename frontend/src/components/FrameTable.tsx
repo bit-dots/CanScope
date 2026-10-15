@@ -263,6 +263,130 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     return props.frames;
   };
 
+  // ---- 搜索 ----
+  const [isSearchOpen, setIsSearchOpen] = createSignal(false);
+  const [searchQuery, setSearchQuery] = createSignal('');
+  const [searchCurrentIndex, setSearchCurrentIndex] = createSignal(0);
+  let searchInputRef: HTMLInputElement | undefined;
+
+  const searchMatchIndices = (): number[] => {
+    const q = searchQuery().trim().replace(/\s/g, '').toLowerCase();
+    const frames = displayedFrames();
+    if (!q || frames.length === 0) return [];
+
+    const indices: number[] = [];
+    let idMatch: ((frame: FrameInfo) => boolean) | null = null;
+
+    if (q.startsWith('0x')) {
+      const hexPart = q.slice(2);
+      if (hexPart.length > 0) {
+        idMatch = (f: FrameInfo) =>
+          formatHex(f.can_id, f.is_extended ? 8 : 3).toLowerCase() === hexPart;
+      }
+    } else if (/^\d+$/.test(q)) {
+      idMatch = (f: FrameInfo) => f.can_id.toString() === q;
+    }
+
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+
+      if (idMatch ? idMatch(frame) : false) {
+        indices.push(i);
+        continue;
+      }
+
+      if (!idMatch) {
+        const dataStr = formatDataHex(frame.data, frame.dlc)
+          .toLowerCase()
+          .replace(/\s/g, '');
+        if (dataStr.includes(q)) {
+          indices.push(i);
+        }
+      }
+    }
+
+    return indices;
+  };
+
+  const searchMatchSet = () => {
+    const matches = searchMatchIndices();
+    if (matches.length === 0) return new Set<number>();
+    return new Set(matches);
+  };
+
+  const searchCurrentFrameIndex = (): number | null => {
+    const matches = searchMatchIndices();
+    if (matches.length === 0) return null;
+    const i = searchCurrentIndex();
+    if (i < 0 || i >= matches.length) return null;
+    return matches[i];
+  };
+
+  const handleScrollToMatch = (frameIndex: number) => {
+    const targetY = frameIndex * ROW_HEIGHT;
+    const viewH = containerRef?.clientHeight ?? 600;
+    containerRef && (containerRef.scrollTop = Math.max(0, targetY - viewH / 2 + ROW_HEIGHT / 2));
+  };
+
+  const openSearch = () => {
+    if (isSearchOpen()) {
+      searchInputRef?.focus();
+      return;
+    }
+    setIsSearchOpen(true);
+    setSearchQuery('');
+    setSearchCurrentIndex(0);
+    queueMicrotask(() => searchInputRef?.focus());
+  };
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    setSearchCurrentIndex(0);
+  };
+
+  const searchNext = () => {
+    const matches = searchMatchIndices();
+    if (matches.length === 0) return;
+    const next = (searchCurrentIndex() + 1) % matches.length;
+    setSearchCurrentIndex(next);
+    handleScrollToMatch(matches[next]);
+  };
+
+  const searchPrev = () => {
+    const matches = searchMatchIndices();
+    if (matches.length === 0) return;
+    const prev = (searchCurrentIndex() - 1 + matches.length) % matches.length;
+    setSearchCurrentIndex(prev);
+    handleScrollToMatch(matches[prev]);
+  };
+
+  const handleSearchInputKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSearch();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        searchPrev();
+      } else {
+        searchNext();
+      }
+    }
+  };
+
+  const handleSearchInputChange = () => {
+    const raw = searchInputRef?.value ?? '';
+    setSearchQuery(raw);
+    setSearchCurrentIndex(0);
+    if (raw.trim()) {
+      const matches = searchMatchIndices();
+      if (matches.length > 0) {
+        handleScrollToMatch(matches[0]);
+      }
+    }
+  };
+
   const handlePauseToggle = () => {
     if (!isPaused()) {
       setPausedCount(props.frames.length);
@@ -358,10 +482,21 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       e.stopPropagation();
       handleTimeMenuToggle();
     });
-  });
 
-  onCleanup(() => {
-    resizeObserver?.disconnect();
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        openSearch();
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKeyDown);
+
+    onCleanup(() => {
+      resizeObserver?.disconnect();
+      pauseBtnRef.removeEventListener('click', handlePauseToggle);
+      timeBtnRef.removeEventListener('mousedown', handleTimeMenuToggle);
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    });
   });
 
   const handleRowClick = (idx: number) => {
@@ -390,8 +525,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           {/* 查找 */}
           <button
             class="frame-table__tool-btn"
-            title="查找报文"
+            classList={{ 'frame-table__tool-btn--active': isSearchOpen() }}
+            title="查找报文 (Ctrl+F)"
             aria-label="查找报文"
+            onClick={openSearch}
           >
             <Search size={14} />
           </button>
@@ -516,6 +653,53 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         </Show>
 
         <div class="frame-panel">
+          <Show when={isSearchOpen()}>
+            <div class="frame-table__search-bar">
+              <input
+                ref={searchInputRef}
+                class="frame-table__search-input"
+                type="text"
+                placeholder="搜索 CAN ID / 数据..."
+                spellcheck={false}
+                value={searchQuery()}
+                onInput={handleSearchInputChange}
+                onKeyDown={handleSearchInputKeyDown}
+              />
+              <Show
+                when={searchMatchIndices().length > 0}
+                fallback={
+                  searchQuery().trim()
+                    ? <span class="frame-table__search-no-hit">无匹配</span>
+                    : null
+                }
+              >
+                <span class="frame-table__search-info">
+                  {searchCurrentIndex() + 1}/{searchMatchIndices().length}
+                </span>
+                <button
+                  class="frame-table__search-nav"
+                  title="上一个 (Shift+Enter)"
+                  onClick={searchPrev}
+                >
+                  <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+                <button
+                  class="frame-table__search-nav"
+                  title="下一个 (Enter)"
+                  onClick={searchNext}
+                >
+                  <ChevronRight size={12} />
+                </button>
+              </Show>
+              <button
+                class="frame-table__search-close"
+                title="关闭搜索 (Esc)"
+                onClick={closeSearch}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </Show>
           <div
             ref={containerRef}
             class="frame-table__body"
@@ -560,6 +744,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   classList={{
                     'frame-table__row--selected': isSelected,
                     'frame-table__row--even': idx % 2 === 0,
+                    'frame-table__row--search-hit': isSearchOpen() && !isSelected && searchMatchSet().has(idx),
+                    'frame-table__row--search-current': isSearchOpen() && searchCurrentFrameIndex() === idx,
                   }}
                   style={{ height: `${ROW_HEIGHT}px` }}
                   onClick={() => handleRowClick(idx)}

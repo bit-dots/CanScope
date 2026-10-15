@@ -161,6 +161,117 @@ select:focus-visible,
   cursor: not-allowed;
 }
 
+/* 搜索栏 */
+.frame-table__search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.frame-table__search-input {
+  width: 180px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+
+.frame-table__search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.frame-table__search-input:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.frame-table__search-info {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.frame-table__search-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.frame-table__search-nav:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.frame-table__search-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.frame-table__search-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.frame-table__search-no-hit {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.frame-table__search-shortcut {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  user-select: none;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  line-height: 16px;
+}
+
+/* 搜索结果行高亮 */
+.frame-table__row--search-hit {
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.frame-table__row--search-current {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--warning) 60%, transparent);
+  outline-offset: -1px;
+}
+
 /* 时间格式按钮组 */
 .frame-table__time-control {
   position: relative;
