@@ -1,4 +1,4 @@
-import { Component, JSX, createSignal } from 'solid-js';
+import { Component, JSX, createSignal, onMount } from 'solid-js';
 import {
   PanelWindowState,
   SnapState,
@@ -36,6 +36,25 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
     panel.window.snapState !== 'maximized';
 
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number } | null>(null);
+
+  let minBtnRef!: HTMLButtonElement;
+  let maxBtnRef!: HTMLButtonElement;
+  let closeBtnRef!: HTMLButtonElement;
+
+  onMount(() => {
+    minBtnRef.addEventListener('click', (e) => {
+      e.stopPropagation();
+      props.onMinimize();
+    });
+    maxBtnRef.addEventListener('click', (e) => {
+      e.stopPropagation();
+      props.onMaximize();
+    });
+    closeBtnRef.addEventListener('click', (e) => {
+      e.stopPropagation();
+      props.onClose();
+    });
+  });
 
   const openContextMenu = (e: MouseEvent) => {
     e.preventDefault();
@@ -113,11 +132,8 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
         </span>
         <div class="floating-window__controls">
           <button
+            ref={minBtnRef}
             class="floating-window__btn floating-window__btn--minimize"
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onMinimize();
-            }}
             title="最小化"
             aria-label="最小化"
           >
@@ -126,11 +142,8 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
             </svg>
           </button>
           <button
+            ref={maxBtnRef}
             class="floating-window__btn floating-window__btn--maximize"
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onMaximize();
-            }}
             title={isMaximized() ? '还原' : '最大化'}
             aria-label={isMaximized() ? '还原' : '最大化'}
           >
@@ -170,11 +183,8 @@ const FloatingWindow: Component<FloatingWindowProps> = (props) => {
             )}
           </button>
           <button
+            ref={closeBtnRef}
             class="floating-window__btn floating-window__btn--close"
-            onClick={(e) => {
-              e.stopPropagation();
-              props.onClose();
-            }}
             title="关闭"
             aria-label="关闭"
           >

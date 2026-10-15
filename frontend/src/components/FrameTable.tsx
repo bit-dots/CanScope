@@ -1,4 +1,5 @@
 import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check } from 'lucide-solid';
@@ -15,6 +16,9 @@ const OVERSCAN = 20;
 const FrameTable: Component<FrameTableProps> = (props) => {
   let containerRef!: HTMLDivElement;
   let resizeObserver: ResizeObserver | undefined;
+  let timeMenuRef!: HTMLDivElement;
+  let timeBtnRef!: HTMLButtonElement;
+  let pauseBtnRef!: HTMLButtonElement;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewHeight, setViewHeight] = createSignal(0);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
@@ -22,8 +26,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
   const [isTimeMenuOpen, setIsTimeMenuOpen] = createSignal(false);
   const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
-  let timeMenuRef!: HTMLDivElement;
-  let timeBtnRef!: HTMLButtonElement;
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
@@ -88,7 +90,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const closeTimeMenu = (e: MouseEvent) => {
-    if (timeBtnRef.contains(e.target as Node) || (timeMenuRef && timeMenuRef.contains(e.target as Node))) return;
+    if (timeBtnRef && timeBtnRef.contains(e.target as Node)) return;
+    if (timeMenuRef && timeMenuRef.contains(e.target as Node)) return;
     setIsTimeMenuOpen(false);
   };
 
@@ -120,6 +123,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       }
     });
     resizeObserver.observe(containerRef);
+
+    pauseBtnRef.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handlePauseToggle();
+    });
+    timeBtnRef.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      handleTimeMenuToggle();
+    });
   });
 
   onCleanup(() => {
@@ -168,9 +180,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
           {/* 暂停 */}
           <button
+            ref={pauseBtnRef}
             class="frame-table__tool-btn"
             classList={{ 'frame-table__tool-btn--active': isPaused() }}
-            onClick={handlePauseToggle}
             title={isPaused() ? '继续输出' : '暂停输出'}
             aria-label={isPaused() ? '继续输出' : '暂停输出'}
           >
@@ -178,27 +190,29 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </button>
 
           {/* 时间显示格式 */}
-          <div class="frame-table__time-control">
-            <button
-              ref={timeBtnRef}
-              class="frame-table__tool-btn-group"
-              classList={{ 'frame-table__tool-btn-group--open': isTimeMenuOpen() }}
-              onClick={handleTimeMenuToggle}
-              title="时间显示格式"
-              aria-label="时间显示格式"
-            >
-              <ListClock size={14} />
-              {isTimeMenuOpen() ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-            </button>
+          <button
+            ref={timeBtnRef}
+            class="frame-table__tool-btn"
+            title="时间显示格式"
+            aria-label="时间显示格式"
+          >
+            <ListClock size={14} />
+            {isTimeMenuOpen() ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
 
             {/* 时间格式下拉菜单 */}
-          <div
-            ref={timeMenuRef}
-            class="frame-table__time-menu"
-            classList={{ 'frame-table__time-menu--open': isTimeMenuOpen() }}
-            role="menu"
-            style={{ left: `${menuPos().left}px`, top: `${menuPos().top}px` }}
-          >
+          <Portal>
+            <div
+              ref={timeMenuRef}
+              class="frame-table__time-menu"
+              classList={{ 'frame-table__time-menu--open': isTimeMenuOpen() }}
+              role="menu"
+              style={{
+                left: `${menuPos().left}px`,
+                top: `${menuPos().top}px`,
+                display: isTimeMenuOpen() ? 'flex' : 'none',
+              }}
+            >
             {timeFormatOptions.map((opt) => (
               <button
                 class="frame-table__time-menu-item"
@@ -213,7 +227,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               </button>
             ))}
           </div>
-          </div>
+          </Portal>
         </div>
       </div>
 

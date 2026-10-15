@@ -85,6 +85,13 @@ export function useWindowManager(
   }
 
   function bringToFront(id: string) {
+    const p = state.panels[id];
+    if (!p) return;
+    const sorted = Object.values(state.panels)
+      .filter((panel) => panel.visible)
+      .sort((a, b) => a['zIndex'] - b['zIndex']);
+    const topPanel = sorted[sorted.length - 1];
+    if (topPanel && topPanel['id'] === id) return;
     setState('panels', id, 'zIndex', state.nextZIndex);
     setState('nextZIndex', v => v + 1);
   }
@@ -173,6 +180,9 @@ export function useWindowManager(
 
   // Drag handling
   function startDrag(e: MouseEvent, panelId: string) {
+    const target = e.target as HTMLElement;
+    if (target.closest('button, .floating-window__controls')) return;
+
     e.preventDefault();
     const p = state.panels[panelId];
     if (!p || p.window.minimized || p.window.snapState === 'maximized') return;

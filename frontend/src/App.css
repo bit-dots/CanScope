@@ -198,9 +198,7 @@ select:focus-visible,
 
 /* 时间格式下拉菜单 */
 .frame-table__time-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed;
   z-index: 1000;
   min-width: 220px;
   padding: 4px;
@@ -208,11 +206,15 @@ select:focus-visible,
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.08);
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 1px;
-  animation: time-menu-in 0.12s ease-out;
   transform-origin: top left;
+}
+
+.frame-table__time-menu--open {
+  display: flex;
+  animation: time-menu-in 0.12s ease-out;
 }
 
 @keyframes time-menu-in {
