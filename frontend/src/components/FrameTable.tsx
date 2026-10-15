@@ -733,7 +733,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 title="全字匹配"
                 onClick={() => setIsWholeWord((v) => !v)}
               >
-                W
+                ab
               </button>
 
               <button
