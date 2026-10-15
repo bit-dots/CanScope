@@ -267,24 +267,27 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
   const [searchCurrentIndex, setSearchCurrentIndex] = createSignal(0);
+  const [isCaseSensitive, setIsCaseSensitive] = createSignal(false);
+  const [isWholeWord, setIsWholeWord] = createSignal(false);
   let searchInputRef: HTMLInputElement | undefined;
 
   const searchMatchIndices = (): number[] => {
-    const q = searchQuery().trim().replace(/\s/g, '').toLowerCase();
+    const raw = searchQuery().trim().replace(/\s/g, '');
+    const q = isCaseSensitive() ? raw : raw.toLowerCase();
     const frames = displayedFrames();
-    if (!q || frames.length === 0) return [];
+    if (!raw || frames.length === 0) return [];
 
     const indices: number[] = [];
     let idMatch: ((frame: FrameInfo) => boolean) | null = null;
 
-    if (q.startsWith('0x')) {
-      const hexPart = q.slice(2);
+    if (raw.startsWith('0x')) {
+      const hexPart = raw.slice(2);
       if (hexPart.length > 0) {
         idMatch = (f: FrameInfo) =>
-          formatHex(f.can_id, f.is_extended ? 8 : 3).toLowerCase() === hexPart;
+          formatHex(f.can_id, f.is_extended ? 8 : 3).toLowerCase() === hexPart.toLowerCase();
       }
-    } else if (/^\d+$/.test(q)) {
-      idMatch = (f: FrameInfo) => f.can_id.toString() === q;
+    } else if (/^\d+$/.test(raw)) {
+      idMatch = (f: FrameInfo) => f.can_id.toString() === raw;
     }
 
     for (let i = 0; i < frames.length; i++) {
@@ -296,11 +299,18 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       }
 
       if (!idMatch) {
-        const dataStr = formatDataHex(frame.data, frame.dlc)
-          .toLowerCase()
-          .replace(/\s/g, '');
-        if (dataStr.includes(q)) {
-          indices.push(i);
+        let dataStr = formatDataHex(frame.data, frame.dlc).replace(/\s/g, '');
+        if (!isCaseSensitive()) dataStr = dataStr.toLowerCase();
+
+        if (isWholeWord()) {
+          const bytes = dataStr.match(/.{1,2}/g) ?? [];
+          if (bytes.includes(q)) {
+            indices.push(i);
+          }
+        } else {
+          if (dataStr.includes(q)) {
+            indices.push(i);
+          }
         }
       }
     }
@@ -336,6 +346,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setIsSearchOpen(true);
     setSearchQuery('');
     setSearchCurrentIndex(0);
+    setIsCaseSensitive(false);
+    setIsWholeWord(false);
     queueMicrotask(() => searchInputRef?.focus());
   };
 
@@ -343,6 +355,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setIsSearchOpen(false);
     setSearchQuery('');
     setSearchCurrentIndex(0);
+    setIsCaseSensitive(false);
+    setIsWholeWord(false);
   };
 
   const searchNext = () => {
@@ -671,32 +685,57 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 onInput={handleSearchInputChange}
                 onKeyDown={handleSearchInputKeyDown}
               />
-              <Show
-                when={searchMatchIndices().length > 0}
-                fallback={
-                  searchQuery().trim()
-                    ? <span class="frame-table__search-no-hit">无匹配</span>
-                    : null
-                }
-              >
-                <span class="frame-table__search-info">
-                  {searchCurrentIndex() + 1}/{searchMatchIndices().length}
-                </span>
-                <button
-                  class="frame-table__search-nav"
-                  title="上一个 (Shift+Enter)"
-                  onClick={searchPrev}
+
+              {/* 结果文字 */}
+              <Show when={searchQuery().trim().length > 0}>
+                <Show
+                  when={searchMatchIndices().length > 0}
+                  fallback={<span class="frame-table__search-no-hit">无结果</span>}
                 >
-                  <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} />
-                </button>
-                <button
-                  class="frame-table__search-nav"
-                  title="下一个 (Enter)"
-                  onClick={searchNext}
-                >
-                  <ChevronRight size={12} />
-                </button>
+                  <span class="frame-table__search-info">
+                    第{searchCurrentIndex() + 1}项，共{searchMatchIndices().length}项
+                  </span>
+                </Show>
               </Show>
+
+              {/* 导航 */}
+              <button
+                class="frame-table__search-nav"
+                title="上一个 (Shift+Enter)"
+                disabled={searchMatchIndices().length === 0}
+                onClick={searchPrev}
+              >
+                <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+              <button
+                class="frame-table__search-nav"
+                title="下一个 (Enter)"
+                disabled={searchMatchIndices().length === 0}
+                onClick={searchNext}
+              >
+                <ChevronRight size={12} />
+              </button>
+
+              {/* Toggle: 区分大小写 */}
+              <button
+                class="frame-table__search-toggle"
+                classList={{ 'frame-table__search-toggle--active': isCaseSensitive() }}
+                title="区分大小写"
+                onClick={() => setIsCaseSensitive((v) => !v)}
+              >
+                Aa
+              </button>
+
+              {/* Toggle: 全字匹配 */}
+              <button
+                class="frame-table__search-toggle"
+                classList={{ 'frame-table__search-toggle--active': isWholeWord() }}
+                title="全字匹配"
+                onClick={() => setIsWholeWord((v) => !v)}
+              >
+                W
+              </button>
+
               <button
                 class="frame-table__search-close"
                 title="关闭搜索 (Esc)"
