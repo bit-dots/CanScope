@@ -892,6 +892,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                             <option value={t}>{t}</option>
                           ))}
                         </select>
+                        <ChevronDown size={10} class="frame-table__filter-select-chevron" />
                       </th>
                     );
                   }
