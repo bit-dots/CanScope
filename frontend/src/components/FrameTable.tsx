@@ -1,4 +1,5 @@
 import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex } from '../types';
@@ -12,6 +13,24 @@ interface FrameTableProps {
 
 const ROW_HEIGHT = 28;
 const OVERSCAN = 20;
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  defaultWidth: number;
+  minWidth: number;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'time',      label: '时间', defaultWidth: 110, minWidth: 60 },
+  { key: 'channel',   label: '通道', defaultWidth: 48,  minWidth: 40 },
+  { key: 'canid',     label: 'ID',   defaultWidth: 72,  minWidth: 50 },
+  { key: 'name',      label: '名称', defaultWidth: 120, minWidth: 60 },
+  { key: 'type',      label: '类型', defaultWidth: 48,  minWidth: 40 },
+  { key: 'direction', label: '方向', defaultWidth: 42,  minWidth: 36 },
+  { key: 'dlc',       label: '长度', defaultWidth: 40,  minWidth: 36 },
+  { key: 'data',      label: '数据', defaultWidth: 0,   minWidth: 80 },
+];
 
 const FrameTable: Component<FrameTableProps> = (props) => {
   let containerRef!: HTMLDivElement;
@@ -29,6 +48,43 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
+
+  // ---- 列宽状态 ----
+  const initWidths: Record<string, number> = {};
+  for (const col of COLUMNS) initWidths[col.key] = col.defaultWidth;
+  const [columnWidths, setColumnWidths] = createStore<Record<string, number>>(initWidths);
+  const [activeResizer, setActiveResizer] = createSignal<string | null>(null);
+
+  const getColConfig = (key: string) => COLUMNS.find((c) => c.key === key)!;
+
+  const handleResizeStart = (colKey: string, e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = columnWidths[colKey] || getColConfig(colKey).minWidth;
+    setActiveResizer(colKey);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const minW = getColConfig(colKey).minWidth;
+      const newWidth = Math.max(minW, startWidth + (e.clientX - startX));
+      setColumnWidths(colKey, newWidth);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setActiveResizer(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const visibleColumns = () => COLUMNS.filter((c) => c.key !== 'name' || props.hasDbc);
 
   const displayedFrames = () => {
     if (isPaused()) {
@@ -238,18 +294,24 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         onScroll={handleScroll}
       >
         <table class="frame-table__table">
+          <colgroup>
+            {visibleColumns().map((col) => {
+              const w = columnWidths[col.key];
+              return <col style={{ width: w > 0 ? `${w}px` : undefined }} />;
+            })}
+          </colgroup>
           <thead class="frame-table__thead">
             <tr>
-              <th class="frame-table__th frame-table__th--time">
-                时间
-              </th>
-              <th class="frame-table__th frame-table__th--channel">通道</th>
-              <th class="frame-table__th frame-table__th--canid">ID</th>
-              {props.hasDbc && <th class="frame-table__th frame-table__th--name">名称</th>}
-              <th class="frame-table__th frame-table__th--type">类型</th>
-              <th class="frame-table__th frame-table__th--direction">方向</th>
-              <th class="frame-table__th frame-table__th--dlc">长度</th>
-              <th class="frame-table__th frame-table__th--data">数据</th>
+              {visibleColumns().map((col) => (
+                <th class={`frame-table__th frame-table__th--${col.key}`}>
+                  {col.label}
+                  <div
+                    class="frame-table__col-resizer"
+                    classList={{ 'frame-table__col-resizer--active': activeResizer() === col.key }}
+                    onMouseDown={(e) => handleResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
