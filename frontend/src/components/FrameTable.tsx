@@ -330,7 +330,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const openSearch = () => {
     if (isSearchOpen()) {
-      searchInputRef?.focus();
+      closeSearch();
       return;
     }
     setIsSearchOpen(true);
