@@ -666,6 +666,7 @@ function App() {
                         frames={filteredFrames()}
                         totalFrameCount={frames().length}
                         hasDbc={dbcTree() !== null}
+                        onClear={() => setFrames([])}
                       />
                     );
                   case 'chart':

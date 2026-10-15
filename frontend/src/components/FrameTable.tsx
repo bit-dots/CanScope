@@ -9,6 +9,7 @@ interface FrameTableProps {
   frames: FrameInfo[];
   totalFrameCount: number;
   hasDbc?: boolean;
+  onClear?: () => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -42,6 +43,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [viewHeight, setViewHeight] = createSignal(0);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
   const [isPaused, setIsPaused] = createSignal(false);
+  const [clearConfirm, setClearConfirm] = createSignal(false);
+  let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
   const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
   const [isTimeMenuOpen, setIsTimeMenuOpen] = createSignal(false);
   const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
@@ -408,6 +411,19 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setIsPaused(!isPaused());
   };
 
+  const handleClearClick = () => {
+    if (clearConfirm()) {
+      props.onClear?.();
+      setSelectedRow(null);
+      setIsPaused(false);
+      setClearConfirm(false);
+      if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
+      return;
+    }
+    setClearConfirm(true);
+    clearConfirmTimer = setTimeout(() => setClearConfirm(false), 2000);
+  };
+
   const timeFormatOptions = [
     { value: 'absolute' as const, label: '绝对时间 (时:分:秒.毫秒)' },
     { value: 'relative-to-start' as const, label: '相对于测量起始时间 (秒)' },
@@ -516,6 +532,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       pauseBtnRef.removeEventListener('click', handlePauseToggle);
       timeBtnRef.removeEventListener('mousedown', handleTimeMenuToggle);
       document.removeEventListener('keydown', handleGlobalKeyDown);
+      if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
     });
   });
 
@@ -556,10 +573,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           {/* 清空 */}
           <button
             class="frame-table__tool-btn"
-            title="清空报文列表"
-            aria-label="清空报文列表"
+            classList={{ 'frame-table__tool-btn--danger': clearConfirm() }}
+            title={clearConfirm() ? '再次点击确认清空' : '清空报文列表'}
+            aria-label={clearConfirm() ? '再次点击确认清空' : '清空报文列表'}
+            onClick={handleClearClick}
           >
-            <Eraser size={14} />
+            {clearConfirm() ? <Check size={14} /> : <Eraser size={14} />}
           </button>
 
           {/* 暂停 */}

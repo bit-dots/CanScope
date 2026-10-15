@@ -156,6 +156,18 @@ select:focus-visible,
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
+.frame-table__tool-btn--danger {
+  background: color-mix(in srgb, var(--error) 22%, var(--bg-primary));
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border));
+  animation: pulse-danger 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-danger {
+  from { background: color-mix(in srgb, var(--error) 16%, var(--bg-primary)); }
+  to { background: color-mix(in srgb, var(--error) 28%, var(--bg-primary)); }
+}
+
 .frame-table__tool-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
