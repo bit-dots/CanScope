@@ -699,6 +699,13 @@ select:focus-visible,
   background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary)) !important;
 }
 
+.frame-table__row--multi-selected {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary)) !important;
+}
+.frame-table__row--multi-selected:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary)) !important;
+}
+
 /* 数据单元格 */
 .frame-table__td {
   padding: 4px 10px;
@@ -1008,6 +1015,24 @@ select:focus-visible,
   font-weight: 600;
   color: var(--text-primary);
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.property-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .property-panel__close {

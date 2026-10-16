@@ -49,6 +49,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewHeight, setViewHeight] = createSignal(0);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
+  const [selectedRows, setSelectedRows] = createSignal<Set<number>>(new Set<number>());
   const [isPaused, setIsPaused] = createSignal(false);
   const [clearConfirm, setClearConfirm] = createSignal(false);
   let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
@@ -57,8 +58,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     | { kind: 'frame'; displayIdx: number; frame: FrameInfo }
     | { kind: 'signal'; parentDisplayIdx: number; signal: DecodedSignalInfo };
 
-  const [expandedFrames, setExpandedFrames] = createSignal<Set<number>>(new Set());
-  const [markedFrames, setMarkedFrames] = createSignal<Set<number>>(new Set());
+  const [expandedFrames, setExpandedFrames] = createSignal<Set<number>>(new Set<number>());
+  const [markedFrames, setMarkedFrames] = createSignal<Set<number>>(new Set<number>());
 
   const toggleFrameExpand = (displayIdx: number) => {
     const next = new Set(expandedFrames());
@@ -385,7 +386,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
     frames = frames.filter((frame) => {
         if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
-        if (fc && !(frame.channel ?? '').toLowerCase().includes(fc)) return false;
+        if (fc && !(`CH${frame.bus_id + 1}`).toLowerCase().includes(fc)) return false;
         if (fi) {
           const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
           const decId = frame.can_id.toString();
@@ -462,16 +463,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   let typeFilterMenuRef!: HTMLDivElement;
   let typeFilterThRef!: HTMLTableCellElement;
 
-  const clearAllFilters = () => {
-    setFilterTime('');
-    setFilterChannel('');
-    setFilterId('');
-    setFilterType('');
-    setFilterDlc('');
-    setFilterData('');
-    setFilterName('');
-  };
-
   const handleTypeFilterToggle = (e: MouseEvent) => {
     e.stopPropagation();
     const willOpen = !isTypeFilterOpen();
@@ -538,14 +529,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     ];
   };
 
-  const handleRowContextMenu = (e: MouseEvent, idx: number) => {
-    e.preventDefault();
-    const frame = displayedFrames()[idx];
-    if (!frame) return;
-    setSelectedRow(idx);
-    setContextMenuState({ x: e.clientX, y: e.clientY, frame });
-  };
-
   const getFrameTypeLabel = (frame: FrameInfo) => {
     const isBrs = (frame as any).is_brs as boolean | undefined;
     return frame.is_fd ? (isBrs ? 'CAN FD(加速)' : 'CAN FD') : 'CAN';
@@ -591,7 +574,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         if (!isCaseSensitive()) dataStr = dataStr.toLowerCase();
 
         if (isWholeWord()) {
-          const bytes = dataStr.match(/.{1,2}/g) ?? [];
+          const bytes: string[] = dataStr.match(/.{1,2}/g) ?? [];
           if (bytes.includes(q)) {
             indices.push(i);
           }
@@ -701,6 +684,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (clearConfirm()) {
       props.onClear?.();
       setSelectedRow(null);
+      setSelectedRows(new Set<number>());
       setIsPaused(false);
       setClearConfirm(false);
       if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
@@ -828,8 +812,41 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     });
   });
 
-  const handleRowClick = (idx: number) => {
-    setSelectedRow(prev => prev === idx ? null : idx);
+  const handleRowClick = (idx: number, e?: MouseEvent) => {
+    const ctrl = e?.ctrlKey || e?.metaKey;
+    const shift = e?.shiftKey;
+
+    if (ctrl) {
+      const next = new Set(selectedRows());
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      setSelectedRows(next);
+      setSelectedRow(idx);
+    } else if (shift && selectedRow() !== null) {
+      const anchor = selectedRow()!;
+      const lo = Math.min(anchor, idx);
+      const hi = Math.max(anchor, idx);
+      const next = new Set<number>();
+      for (let i = lo; i <= hi; i++) next.add(i);
+      setSelectedRows(next);
+    } else {
+      setSelectedRow(idx);
+      setSelectedRows(new Set([idx]));
+    }
+  };
+
+  const handleRowContextMenu = (e: MouseEvent, idx: number) => {
+    e.preventDefault();
+    const frame = displayedFrames()[idx];
+    if (!frame) return;
+    if (!selectedRows().has(idx)) {
+      setSelectedRow(idx);
+      setSelectedRows(new Set([idx]));
+    }
+    setContextMenuState({ x: e.clientX, y: e.clientY, frame });
   };
 
   const errorCount = () => props.frames.filter((f) => (f as any).is_error).length;
@@ -994,7 +1011,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         <Show when={isPropertiesOpen()}>
           <div class="property-panel" style={{ width: `${propertiesWidth()}px` }}>
             <div class="property-panel__header">
-              <span class="property-panel__title">报文属性</span>
+              <span class="property-panel__title">
+                报文属性
+                <Show when={selectedRows().size > 1}>
+                  <span class="property-panel__badge">{selectedRows().size}</span>
+                </Show>
+              </span>
               <button
                 class="property-panel__close"
                 title="关闭属性面板"
@@ -1207,14 +1229,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </thead>
           <tbody>
             <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
-            {visibleRows().map((row, i) => {
-              const flatIdx = startIndex() + i;
+            {visibleRows().map((row, _i) => {
               if (row.kind === 'signal') {
                 return (
                   <tr
                     class="frame-table__row frame-table__sub-row"
                     style={{ height: `${ROW_HEIGHT}px` }}
-                    onClick={() => handleRowClick(row.parentDisplayIdx)}
+                    onClick={(e) => handleRowClick(row.parentDisplayIdx, e)}
                   >
                     <td
                       colspan={1 + visibleColumns().length}
@@ -1233,6 +1254,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               const frame = row.frame;
               const idx = row.displayIdx;
               const isSelected = selectedRow() === idx;
+              const isInMultiSelect = selectedRows().has(idx);
               const isBrs = (frame as any).is_brs as boolean | undefined;
               const typeLabel = frame.is_fd
                 ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
@@ -1246,12 +1268,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   class="frame-table__row"
                   classList={{
                     'frame-table__row--selected': isSelected,
+                    'frame-table__row--multi-selected': isInMultiSelect && !isSelected,
                     'frame-table__row--even': idx % 2 === 0,
                     'frame-table__row--search-hit': isSearchOpen() && !isSelected && searchMatchSet().has(idx),
                     'frame-table__row--search-current': isSearchOpen() && searchCurrentFrameIndex() === idx,
                   }}
                   style={{ height: `${ROW_HEIGHT}px` }}
-                  onClick={() => handleRowClick(idx)}
+                  onClick={(e) => handleRowClick(idx, e)}
                   onContextMenu={(e) => handleRowContextMenu(e, idx)}
                 >
                   <td class="frame-table__td frame-table__td--icon">
