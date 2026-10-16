@@ -571,6 +571,88 @@ select:focus-visible,
   transform: translateY(-50%);
   color: var(--text-tertiary);
   pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.frame-table__filter-select-chevron--open {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* 类型筛选触发器 */
+.frame-table__th--filter-selectable {
+  cursor: pointer;
+  position: relative;
+}
+
+.frame-table__filter-select-trigger {
+  display: block;
+  width: 100%;
+  padding-right: 14px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 类型筛选下拉菜单 */
+.frame-table__type-filter-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 120px;
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+  transform-origin: top left;
+}
+
+.frame-table__type-filter-menu--open {
+  display: flex;
+  animation: type-filter-menu-in 0.12s ease-out;
+}
+
+@keyframes type-filter-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.frame-table__type-filter-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+  line-height: 1.4;
+}
+
+.frame-table__type-filter-menu-item:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.frame-table__type-filter-menu-item--selected {
+  color: var(--accent);
 }
 
 .frame-table__th:last-child {

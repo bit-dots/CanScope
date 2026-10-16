@@ -314,6 +314,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [filterData, setFilterData] = createSignal('');
   const [filterName, setFilterName] = createSignal('');
 
+  const [isTypeFilterOpen, setIsTypeFilterOpen] = createSignal(false);
+  const [typeFilterMenuPos, setTypeFilterMenuPos] = createSignal({ left: 0, top: 0 });
+  let typeFilterMenuRef!: HTMLDivElement;
+  let typeFilterThRef!: HTMLTableCellElement;
+
   const clearAllFilters = () => {
     setFilterTime('');
     setFilterChannel('');
@@ -322,6 +327,27 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setFilterDlc('');
     setFilterData('');
     setFilterName('');
+  };
+
+  const handleTypeFilterToggle = (e: MouseEvent) => {
+    e.stopPropagation();
+    const willOpen = !isTypeFilterOpen();
+    if (willOpen && typeFilterThRef) {
+      const rect = typeFilterThRef.getBoundingClientRect();
+      setTypeFilterMenuPos({ left: rect.left, top: rect.bottom + 2 });
+    }
+    setIsTypeFilterOpen(willOpen);
+  };
+
+  const handleTypeFilterSelect = (type: string) => {
+    setFilterType(type);
+    setIsTypeFilterOpen(false);
+  };
+
+  const closeTypeFilterMenu = (e: MouseEvent) => {
+    if (typeFilterThRef && typeFilterThRef.contains(e.target as Node)) return;
+    if (typeFilterMenuRef && typeFilterMenuRef.contains(e.target as Node)) return;
+    setIsTypeFilterOpen(false);
   };
 
   const getFrameTypeLabel = (frame: FrameInfo) => {
@@ -540,10 +566,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   onMount(() => {
     document.addEventListener('click', closeTimeMenu);
+    document.addEventListener('click', closeTypeFilterMenu);
   });
 
   onCleanup(() => {
     document.removeEventListener('click', closeTimeMenu);
+    document.removeEventListener('click', closeTypeFilterMenu);
   });
 
   const totalHeight = () => displayedFrames().length * ROW_HEIGHT;
@@ -693,6 +721,48 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               </button>
             ))}
           </div>
+          </Portal>
+
+          {/* 类型筛选下拉菜单 */}
+          <Portal>
+            <div
+              ref={typeFilterMenuRef}
+              class="frame-table__type-filter-menu"
+              classList={{ 'frame-table__type-filter-menu--open': isTypeFilterOpen() }}
+              role="listbox"
+              style={{
+                left: `${typeFilterMenuPos().left}px`,
+                top: `${typeFilterMenuPos().top}px`,
+                display: isTypeFilterOpen() ? 'flex' : 'none',
+              }}
+            >
+              <button
+                class="frame-table__type-filter-menu-item"
+                classList={{ 'frame-table__type-filter-menu-item--selected': filterType() === '' }}
+                role="option"
+                aria-selected={filterType() === ''}
+                onClick={() => handleTypeFilterSelect('')}
+              >
+                <span class="frame-table__time-menu-check">
+                  {filterType() === '' && <Check size={12} />}
+                </span>
+                <span class="frame-table__time-menu-label">全部</span>
+              </button>
+              {frameTypeOptions().map((t) => (
+                <button
+                  class="frame-table__type-filter-menu-item"
+                  classList={{ 'frame-table__type-filter-menu-item--selected': filterType() === t }}
+                  role="option"
+                  aria-selected={filterType() === t}
+                  onClick={() => handleTypeFilterSelect(t)}
+                >
+                  <span class="frame-table__time-menu-check">
+                    {filterType() === t && <Check size={12} />}
+                  </span>
+                  <span class="frame-table__time-menu-label">{t}</span>
+                </button>
+              ))}
+            </div>
           </Portal>
         </div>
       </div>
@@ -879,20 +949,20 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     name: { get: filterName, set: setFilterName },
                   };
                   if (col.key === 'type') {
-                    const s = filterType;
                     return (
-                      <th class="frame-table__th frame-table__th--filter">
-                        <select
-                          class="frame-table__filter-select"
-                          value={s()}
-                          onChange={(e) => setFilterType(e.currentTarget.value)}
-                        >
-                          <option value="">全部</option>
-                          {frameTypeOptions().map((t) => (
-                            <option value={t}>{t}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={10} class="frame-table__filter-select-chevron" />
+                      <th
+                        ref={typeFilterThRef}
+                        class="frame-table__th frame-table__th--filter frame-table__th--filter-selectable"
+                        onClick={handleTypeFilterToggle}
+                      >
+                        <span class="frame-table__filter-select-trigger">
+                          {filterType() || '全部'}
+                        </span>
+                        <ChevronDown
+                          size={10}
+                          class="frame-table__filter-select-chevron"
+                          classList={{ 'frame-table__filter-select-chevron--open': isTypeFilterOpen() }}
+                        />
                       </th>
                     );
                   }
