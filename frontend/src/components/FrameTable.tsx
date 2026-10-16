@@ -1300,7 +1300,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                       onClick={(e: MouseEvent) => { e.stopPropagation(); toggleMarkFrame(idx); }}
                       title={markedFrames().has(idx) ? '取消标记' : '标记'}
                     >
-                      <Star size={13} />
+                      <Star size={13} fill={markedFrames().has(idx) ? 'currentColor' : 'none'} />
                     </span>
                   </td>
                   <td class="frame-table__td frame-table__td--time">
