@@ -1,5 +1,5 @@
 import { Component, createSignal, For } from 'solid-js';
-import { Database, FolderOpen } from 'lucide-solid';
+import { Database, FilePlay, FolderOpen } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
 import Backstage from './Backstage';
@@ -76,13 +76,6 @@ const IconRecord: Component = () => (
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" />
     <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const IconPlayback: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <polygon points="3 5 3 19 16 12" />
-    <line x1="19" y1="6" x2="19" y2="18" />
   </svg>
 );
 
@@ -230,7 +223,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
               <RibbonButton icon={<IconRecord />} label="记录器" onClick={props.onOpenRecorder} />
               <RibbonButton icon={<IconRecord />} label="开始记录" onClick={props.onStartRecord} />
               <RibbonButton icon={<IconStop />} label="停止记录" onClick={props.onStopRecord} />
-              <RibbonButton icon={<IconPlayback />} label="数据回放" onClick={props.onOpenPlayback} />
+              <RibbonButton icon={<FilePlay size={16} />} label="数据回放" onClick={props.onOpenPlayback} />
             </RibbonGroup>
           </div>
         )}
