@@ -16,7 +16,6 @@ import { useWindowManager } from './components/windowing/useWindowManager';
 import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import type {
-  OpenResult,
   PlaybackState,
   FrameInfo,
   PlaylistInfo,
@@ -99,43 +98,7 @@ function App() {
 
   onCleanup(() => stopPolling());
 
-  const loadFileData = async () => {
-    stopPolling();
-    setLoading(true);
-    setError(null);
-    setDbcTree(null);
-    setSelectedCanId(null);
-    setChartSignals([]);
-
-    try {
-      const result: OpenResult = await invoke('open_file', { path: '' });
-      if (result.metadata) {
-        setMetadata(result.metadata);
-        setFrames(result.frames);
-      }
-      setPlaybackState('stopped');
-    } catch (e) {
-      const msg = String(e);
-      setError(msg);
-      console.error('Failed to open file:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   onMount(async () => {
-    try {
-      const state: string = await invoke('get_playback_state');
-      if (state !== 'stopped') {
-        const progress: number | null = await invoke('get_progress');
-        if (progress !== null) {
-          loadFileData();
-        }
-      }
-    } catch {
-      // No active project on startup is normal
-    }
-
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const appWindow = getCurrentWindow();
     appWindow.setTheme('dark').catch((e) => console.error('setTheme failed:', e));
@@ -239,9 +202,9 @@ function App() {
       setProject(proj);
 
       if (proj.canLogPath) {
-        const result: OpenResult = await invoke('open_file', { path: proj.canLogPath });
-        setMetadata(result.metadata);
-        setFrames(result.frames);
+        await invoke('playlist_add', { path: proj.canLogPath });
+        const info: PlaylistInfo | null = await invoke('playlist_get_files');
+        if (info) setMetadata(info);
         setPlaybackState('stopped');
       }
 

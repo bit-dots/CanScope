@@ -44,11 +44,6 @@ export interface FrameInfo {
   signals: DecodedSignalInfo[] | null;
 }
 
-export interface OpenResult {
-  metadata: PlaylistInfo;
-  frames: FrameInfo[];
-}
-
 export type PlaybackState = 'stopped' | 'playing' | 'paused';
 
 export function formatHex(value: number, digits: number): string {

@@ -215,67 +215,6 @@ struct PlaylistInfo {
     enabled_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct OpenResult {
-    metadata: PlaylistInfo,
-    frames: Vec<FrameInfo>,
-}
-
-#[tauri::command]
-fn open_file(
-    path: String,
-    state: State<AppState>,
-) -> Result<OpenResult, String> {
-    let path_buf = PathBuf::from(&path);
-    let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
-
-    let meta = reader.metadata().clone();
-    let total = meta.total_frames.unwrap_or(0);
-
-    let file_name = path_buf
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default();
-
-    let engine = PlaybackEngine::new(reader);
-
-    let entry = PlaylistEntry {
-        engine,
-        file_name: file_name.clone(),
-        file_path: path.clone(),
-        enabled: true,
-        global_start_offset: 0.0,
-        global_end_offset: None,
-    };
-
-    let mut playlist = PlaylistEngine::new();
-    playlist.add_entry(entry);
-
-    // Read initial batch
-    let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
-    if let Some(ref dbc) = *dbc_guard {
-        playlist.set_dbc(dbc.clone());
-    }
-    drop(dbc_guard);
-
-    playlist.play();
-    let batch_size = total.min(500) as usize;
-    let batch = playlist.next_batch(batch_size).map_err(|e| e.to_string())?;
-    playlist.stop();
-
-    let frames: Vec<FrameInfo> = batch.iter().map(frame_to_info).collect();
-
-    let playlist_info = build_playlist_info(&playlist);
-
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    *engine_guard = Some(playlist);
-
-    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
-    *file_path = Some(path_buf);
-
-    Ok(OpenResult { metadata: playlist_info, frames })
-}
-
 fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
     let files: Vec<PlaylistFileInfo> = playlist
         .entries()
@@ -1045,7 +984,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            open_file,
             load_dbc,
             get_dbc_info,
             get_batch,
