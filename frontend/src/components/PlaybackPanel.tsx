@@ -1,6 +1,6 @@
 import { Component, createSignal, createEffect, onCleanup, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Plus, SkipBack, Play, Pause, Square, SkipForward, Repeat, Gauge, X } from 'lucide-solid';
+import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X } from 'lucide-solid';
 import type { PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -17,8 +17,6 @@ interface PlaybackPanelProps {
   onSeek: (timestamp: number) => void;
   onRefreshPlaylist: () => void;
 }
-
-const SPEED_OPTIONS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8, 16, 32];
 
 function formatDuration(seconds: number | null): string {
   if (seconds === null || seconds === undefined) return '--';
@@ -106,6 +104,10 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     }
   };
 
+  const handleAddFolder = async () => {
+    // TODO: 添加文件夹（批量导入 CAN 日志）
+  };
+
   const handleRemoveFile = async (index: number) => {
     try {
       await invoke('playlist_remove', { index });
@@ -113,6 +115,23 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     } catch (e) {
       console.error('Failed to remove file:', e);
     }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await invoke('playlist_clear');
+      props.onRefreshPlaylist();
+    } catch (e) {
+      console.error('Failed to clear playlist:', e);
+    }
+  };
+
+  const handleRemoveSelected = async () => {
+    // TODO: 选中文件后移除
+  };
+
+  const handleSettings = () => {
+    // TODO: 打开回放设置
   };
 
   const handleToggleFile = async (index: number, enabled: boolean) => {
@@ -157,106 +176,110 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     <div class="playback-panel">
       {/* ---- 工具栏 ---- */}
       <div class="playback-panel__toolbar">
-        <div class="playback-panel__toolbar-left">
-          {/* 添加文件 */}
-          <button
-            class="playback-panel__tool-btn"
-            title="添加文件"
-            aria-label="添加文件"
-            onClick={handleAddFile}
-          >
-            <Plus size={14} />
-          </button>
-
-          <div class="playback-panel__tool-sep" />
-
-          {/* 后退一帧 */}
-          <button
-            class="playback-panel__tool-btn"
-            title="后退一帧"
-            aria-label="后退一帧"
-            disabled={props.playbackState === 'stopped'}
-            onClick={props.onStepBack}
-          >
-            <SkipBack size={14} />
-          </button>
-
-          {/* 播放 / 暂停 */}
-          <Show
-            when={props.playbackState === 'playing'}
-            fallback={
-              <button
-                class="playback-panel__tool-btn"
-                classList={{ 'playback-panel__tool-btn--accent': true }}
-                title="播放"
-                aria-label="播放"
-                onClick={() => props.onPlaybackControl('play')}
-              >
-                <Play size={14} />
-              </button>
-            }
-          >
+        {/* 播放控制 */}
+        <Show
+          when={props.playbackState === 'playing'}
+          fallback={
             <button
               class="playback-panel__tool-btn"
-              classList={{ 'playback-panel__tool-btn--active': true }}
-              title="暂停"
-              aria-label="暂停"
-              onClick={() => props.onPlaybackControl('pause')}
+              classList={{ 'playback-panel__tool-btn--accent': true }}
+              title="播放"
+              aria-label="播放"
+              onClick={() => props.onPlaybackControl('play')}
             >
-              <Pause size={14} />
+              <Play size={14} />
             </button>
-          </Show>
-
-          {/* 停止 */}
+          }
+        >
           <button
             class="playback-panel__tool-btn"
-            title="停止"
-            aria-label="停止"
-            disabled={props.playbackState === 'stopped'}
-            onClick={() => props.onPlaybackControl('stop')}
+            classList={{ 'playback-panel__tool-btn--active': true }}
+            title="暂停"
+            aria-label="暂停"
+            onClick={() => props.onPlaybackControl('pause')}
           >
-            <Square size={14} />
+            <Pause size={14} />
           </button>
+        </Show>
 
-          {/* 前进一帧 */}
-          <button
-            class="playback-panel__tool-btn"
-            title="前进一帧"
-            aria-label="前进一帧"
-            disabled={props.playbackState === 'stopped'}
-            onClick={props.onStepForward}
-          >
-            <SkipForward size={14} />
-          </button>
-        </div>
+        <button
+          class="playback-panel__tool-btn"
+          title="停止"
+          aria-label="停止"
+          disabled={props.playbackState === 'stopped'}
+          onClick={() => props.onPlaybackControl('stop')}
+        >
+          <Square size={14} />
+        </button>
 
-        <div class="playback-panel__toolbar-right">
-          {/* 速度选择 */}
-          <div class="playback-panel__speed-ctrl">
-            <Gauge size={12} />
-            <select
-              class="playback-panel__speed-select"
-              value={props.speed}
-              onChange={(e) => props.onSetSpeed(parseFloat(e.currentTarget.value))}
-              title="播放速度"
-            >
-              <For each={SPEED_OPTIONS}>
-                {(opt) => <option value={opt}>{opt}x</option>}
-              </For>
-            </select>
-          </div>
+        <button
+          class="playback-panel__tool-btn"
+          title={`播放速度: ${props.speed}x`}
+          aria-label="播放速度"
+          onClick={() => props.onSetSpeed(props.speed >= 32 ? 0.1 : props.speed * 2)}
+        >
+          <Gauge size={14} />
+        </button>
 
-          {/* 循环播放 */}
-          <button
-            class="playback-panel__tool-btn"
-            classList={{ 'playback-panel__tool-btn--active': props.loopEnabled }}
-            title={props.loopEnabled ? '循环播放: 开' : '循环播放: 关'}
-            aria-label={props.loopEnabled ? '关闭循环播放' : '开启循环播放'}
-            onClick={() => props.onSetLoop(!props.loopEnabled)}
-          >
-            <Repeat size={14} />
-          </button>
-        </div>
+        <button
+          class="playback-panel__tool-btn"
+          classList={{ 'playback-panel__tool-btn--active': props.loopEnabled }}
+          title={props.loopEnabled ? '循环播放: 开' : '循环播放: 关'}
+          aria-label="循环播放"
+          onClick={() => props.onSetLoop(!props.loopEnabled)}
+        >
+          <Repeat size={14} />
+        </button>
+
+        <div class="playback-panel__tool-sep" />
+
+        {/* 文件管理 */}
+        <button
+          class="playback-panel__tool-btn"
+          title="添加文件"
+          aria-label="添加文件"
+          onClick={handleAddFile}
+        >
+          <FilePlus size={14} />
+        </button>
+        <button
+          class="playback-panel__tool-btn"
+          title="添加文件夹"
+          aria-label="添加文件夹"
+          onClick={handleAddFolder}
+        >
+          <FolderPlus size={14} />
+        </button>
+        <button
+          class="playback-panel__tool-btn"
+          title="移除选中文件"
+          aria-label="移除选中文件"
+          disabled={files().length === 0}
+          onClick={handleRemoveSelected}
+        >
+          <FileXCorner size={14} />
+        </button>
+        <button
+          class="playback-panel__tool-btn"
+          title="清空列表"
+          aria-label="清空列表"
+          disabled={files().length === 0}
+          onClick={handleClearAll}
+        >
+          <Trash2 size={14} />
+        </button>
+
+        <div class="playback-panel__tool-sep" />
+
+        {/* 设置 */}
+        <button
+          class="playback-panel__tool-btn"
+          title="回放设置"
+          aria-label="回放设置"
+          onClick={handleSettings}
+        >
+          <Settings size={14} />
+        </button>
       </div>
 
       {/* ---- 文件列表 ---- */}
@@ -265,7 +288,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           <div class="playback-panel__file-list-empty">
             暂无回放文件
             <br />
-            点击工具栏 <Plus size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
+            点击工具栏 <FilePlus size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
           </div>
         </Show>
         <For each={files()}>

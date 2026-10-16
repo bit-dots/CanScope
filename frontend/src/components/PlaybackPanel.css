@@ -16,19 +16,11 @@
 .playback-panel__toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   min-height: 40px;
   padding: 0 10px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 10px;
-}
-
-.playback-panel__toolbar-left,
-.playback-panel__toolbar-right {
-  display: flex;
-  align-items: center;
   gap: 6px;
 }
 
@@ -82,47 +74,6 @@
   background: var(--border);
   margin: 0 2px;
   flex-shrink: 0;
-}
-
-/* 速度控件 */
-.playback-panel__speed-ctrl {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 4px 0 6px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--text-secondary);
-  transition: border-color 0.15s;
-}
-
-.playback-panel__speed-ctrl:hover {
-  border-color: var(--border);
-}
-
-.playback-panel__speed-select {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  padding: 0;
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.playback-panel__speed-select:hover,
-.playback-panel__speed-select:focus {
-  color: var(--text-primary);
-}
-
-.playback-panel__speed-select option {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
 }
 
 /* ---- 文件列表 ---- */
