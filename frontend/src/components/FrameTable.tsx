@@ -2,14 +2,17 @@ import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
-import { formatHex, formatDataHex } from '../types';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X } from 'lucide-solid';
+import { formatHex, formatDataHex, formatSignal } from '../types';
+import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info } from 'lucide-solid';
 
 interface FrameTableProps {
   frames: FrameInfo[];
   totalFrameCount: number;
   hasDbc?: boolean;
   onClear?: () => void;
+  onSelectMessage?: (canId: number) => void;
+  onFilterByCanId?: (canId: number) => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -348,6 +351,59 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (typeFilterThRef && typeFilterThRef.contains(e.target as Node)) return;
     if (typeFilterMenuRef && typeFilterMenuRef.contains(e.target as Node)) return;
     setIsTypeFilterOpen(false);
+  };
+
+  // ---- 右键上下文菜单 ----
+  const [contextMenuState, setContextMenuState] = createSignal<{
+    x: number; y: number; frame: FrameInfo;
+  } | null>(null);
+
+  const formatRowText = (frame: FrameInfo): string => {
+    const isBrs = (frame as any).is_brs as boolean | undefined;
+    const typeLabel = frame.is_fd
+      ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
+      : 'CAN';
+    return `CH${frame.bus_id + 1}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\tRX\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
+  };
+
+  const formatDataBinary = (frame: FrameInfo): string => {
+    return frame.data.slice(0, frame.dlc).map(b => b.toString(2).padStart(8, '0')).join(' ');
+  };
+
+  const contextMenuItems = (): ContextMenuItem[] => {
+    const ctx = contextMenuState();
+    if (!ctx) return [];
+    const frame = ctx.frame;
+    const canIdHex = formatHex(frame.can_id, frame.is_extended ? 8 : 3);
+    const hasSignals = frame.signals && frame.signals.length > 0;
+
+    return [
+      { id: 'copy-row', label: '复制行', icon: <Copy size={13} />, action: () => navigator.clipboard.writeText(formatRowText(frame)) },
+      { id: 'sep1', label: '', separator: true },
+      { id: 'copy-canid', label: `复制 CAN ID`, icon: <Hash size={13} />, action: () => navigator.clipboard.writeText(`0x${canIdHex}`) },
+      { id: 'copy-data', label: '复制数据 (Hex)', icon: <FileCode size={13} />, action: () => navigator.clipboard.writeText(formatDataHex(frame.data, frame.dlc)) },
+      { id: 'copy-binary', label: '复制数据 (Binary)', icon: <Binary size={13} />, action: () => navigator.clipboard.writeText(formatDataBinary(frame)) },
+      {
+        id: 'copy-signals', label: '复制信号值', icon: <Activity size={13} />,
+        disabled: !hasSignals,
+        action: () => {
+          if (frame.signals) navigator.clipboard.writeText(frame.signals.map(s => formatSignal(s)).join(', '));
+        },
+      },
+      { id: 'sep2', label: '', separator: true },
+      { id: 'add-chart', label: '添加到信号曲线', icon: <LineChart size={13} />, action: () => props.onSelectMessage?.(frame.can_id) },
+      { id: 'filter-id', label: `按此 CAN ID 过滤`, icon: <Filter size={13} />, action: () => props.onFilterByCanId?.(frame.can_id) },
+      { id: 'sep3', label: '', separator: true },
+      { id: 'view-prop', label: '查看报文属性', icon: <Info size={13} />, action: () => { setIsPropertiesOpen(true); } },
+    ];
+  };
+
+  const handleRowContextMenu = (e: MouseEvent, idx: number) => {
+    e.preventDefault();
+    const frame = displayedFrames()[idx];
+    if (!frame) return;
+    setSelectedRow(idx);
+    setContextMenuState({ x: e.clientX, y: e.clientY, frame });
   };
 
   const getFrameTypeLabel = (frame: FrameInfo) => {
@@ -1006,6 +1062,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   }}
                   style={{ height: `${ROW_HEIGHT}px` }}
                   onClick={() => handleRowClick(idx)}
+                  onContextMenu={(e) => handleRowContextMenu(e, idx)}
                 >
                   <td class="frame-table__td frame-table__td--icon" />
                   <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame, idx)}</td>
@@ -1062,6 +1119,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </div>
         </div>
       </div>
+
+      {/* 右键上下文菜单 */}
+      <Show when={contextMenuState() !== null}>
+        <ContextMenu
+          x={contextMenuState()!.x}
+          y={contextMenuState()!.y}
+          items={contextMenuItems()}
+          onClose={() => setContextMenuState(null)}
+        />
+      </Show>
     </div>
   );
 };
