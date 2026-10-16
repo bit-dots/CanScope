@@ -252,7 +252,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         { id: 'canid', label: 'CAN ID', value: formatHex(frame.can_id, frame.is_extended ? 8 : 3) },
         { id: 'fmt',   label: '帧格式', value: frame.is_extended ? '扩展帧' : '标准帧' },
         { id: 'type',  label: '帧类型', value: typeLabel, badgeClass: `frame-table__type-badge--${typeBadge}` },
-        { id: 'dir',   label: '方向',   value: 'RX' },
+        { id: 'dir',   label: '方向',   value: getDirection(frame) },
         { id: 'dlc',   label: 'DLC',    value: String(frame.dlc) },
         { id: 'len',   label: '数据长度', value: `${frame.data.length} bytes` },
       ],
@@ -494,7 +494,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const typeLabel = frame.is_fd
       ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
       : 'CAN';
-    return `CH${frame.bus_id + 1}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\tRX\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
+    return `CH${frame.bus_id + 1}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\t${getDirection(frame)}\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
   };
 
   const formatDataBinary = (frame: FrameInfo): string => {
@@ -533,6 +533,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const isBrs = (frame as any).is_brs as boolean | undefined;
     return frame.is_fd ? (isBrs ? 'CAN FD(加速)' : 'CAN FD') : 'CAN';
   };
+
+  const getDirection = (frame: FrameInfo): 'RX' | 'TX' => frame.is_tx ? 'TX' : 'RX';
 
   const frameTypeOptions = () => {
     const types = new Set<string>();
@@ -1309,7 +1311,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     </span>
                   </td>
                   <td class="frame-table__td frame-table__td--direction">
-                    <span class="frame-table__direction-badge">RX</span>
+                    <span class={`frame-table__direction-badge${frame.is_tx ? ' frame-table__direction-badge--tx' : ''}`}>{getDirection(frame)}</span>
                   </td>
                   <td class="frame-table__td frame-table__td--dlc">{frame.dlc}</td>
                   <td class="frame-table__td frame-table__td--data">
@@ -1352,10 +1354,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             </div>
             <div class="frame-table__statusbar-right">
               <span class="frame-table__statusbar-item" title="接收帧数">
-            <span>RX: {displayedFrames().length.toLocaleString()}</span>
+            <span>RX: {displayedFrames().filter(f => !f.is_tx).length.toLocaleString()}</span>
           </span>
           <span class="frame-table__statusbar-item" title="发送帧数">
-            <span>TX: 0</span>
+            <span>TX: {displayedFrames().filter(f => f.is_tx).length.toLocaleString()}</span>
           </span>
           <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="错误帧数">
             <span>Err: {errorCount().toLocaleString()}</span>

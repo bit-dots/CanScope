@@ -195,6 +195,7 @@ struct FrameInfo {
     can_id: u32,
     is_extended: bool,
     is_fd: bool,
+    is_tx: bool,
     dlc: u8,
     #[serde(with = "serde_bytes")]
     data: [u8; 64],
@@ -264,6 +265,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         can_id: f.can_id,
         is_extended: f.is_extended,
         is_fd: f.is_fd,
+        is_tx: f.is_tx,
         dlc: f.dlc,
         data: f.data,
         signals: f.signals.as_ref().map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),

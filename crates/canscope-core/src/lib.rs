@@ -26,6 +26,9 @@ pub struct CanFrame {
     /// 是否为 CAN FD 帧
     pub is_fd: bool,
 
+    /// 是否为发送帧（false = RX, true = TX）
+    pub is_tx: bool,
+
     /// 数据长度码（CAN 2.0: 0-8, CAN FD: 0-64）
     pub dlc: u8,
 

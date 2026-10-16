@@ -929,6 +929,11 @@ select:focus-visible,
   color: var(--text-secondary);
 }
 
+.frame-table__direction-badge--tx {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
 /* 空状态 */
 .frame-table__empty {
   position: absolute;

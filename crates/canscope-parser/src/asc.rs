@@ -113,7 +113,8 @@ impl AscReader {
             (id, is_ext)
         };
 
-        let _direction = parts[3];
+        let direction = parts[3];
+        let is_tx = direction.eq_ignore_ascii_case("Tx");
 
         let (is_remote, is_fd) = match parts[4] {
             "d" => (false, false),
@@ -146,6 +147,7 @@ impl AscReader {
             is_extended,
             is_remote,
             is_fd,
+            is_tx,
             dlc,
             data,
         })
