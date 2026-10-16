@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use canscope_core::CanFrameStream;
 use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
 use canscope_parser::asc::AscReader;
-use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState};
+use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 
@@ -75,22 +75,12 @@ struct RecentProjectEntry {
 }
 
 struct AppState {
-    engine: Mutex<Option<PlaybackEngine<AscReader>>>,
+    engine: Mutex<Option<PlaylistEngine<AscReader>>>,
     dbc: Mutex<Option<Dbc>>,
     file_path: Mutex<Option<PathBuf>>,
     project: Mutex<Option<ProjectConfig>>,
     project_path: Mutex<Option<PathBuf>>,
     dirty: Mutex<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FileMetadata {
-    file_name: String,
-    total_frames: u64,
-    duration: Option<f64>,
-    bus_count: u8,
-    start_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,8 +193,31 @@ struct FrameInfo {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistFileInfo {
+    index: usize,
+    file_name: String,
+    file_path: String,
+    enabled: bool,
+    duration: Option<f64>,
+    total_frames: Option<u64>,
+    start_time: Option<String>,
+    bus_count: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistInfo {
+    files: Vec<PlaylistFileInfo>,
+    total_duration: Option<f64>,
+    total_frames: Option<u64>,
+    file_count: usize,
+    enabled_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct OpenResult {
-    metadata: FileMetadata,
+    metadata: PlaylistInfo,
     frames: Vec<FrameInfo>,
 }
 
@@ -216,7 +229,7 @@ fn open_file(
     let path_buf = PathBuf::from(&path);
     let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
 
-    let meta = reader.metadata();
+    let meta = reader.metadata().clone();
     let total = meta.total_frames.unwrap_or(0);
 
     let file_name = path_buf
@@ -224,38 +237,77 @@ fn open_file(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let metadata = FileMetadata {
-        file_name,
-        total_frames: total,
-        duration: meta.duration,
-        bus_count: meta.bus_count,
-        start_time: meta.start_time.clone(),
-    };
-
     let engine = PlaybackEngine::new(reader);
 
+    let entry = PlaylistEntry {
+        engine,
+        file_name: file_name.clone(),
+        file_path: path.clone(),
+        enabled: true,
+        global_start_offset: 0.0,
+        global_end_offset: None,
+    };
+
+    let mut playlist = PlaylistEngine::new();
+    playlist.add_entry(entry);
+
+    // Read initial batch
+    let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    if let Some(ref dbc) = *dbc_guard {
+        playlist.set_dbc(dbc.clone());
+    }
+    drop(dbc_guard);
+
+    playlist.play();
+    let batch_size = total.min(500) as usize;
+    let batch = playlist.next_batch(batch_size).map_err(|e| e.to_string())?;
+    playlist.stop();
+
+    let frames: Vec<FrameInfo> = batch.iter().map(frame_to_info).collect();
+
+    let playlist_info = build_playlist_info(&playlist);
+
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    *engine_guard = Some(engine);
+    *engine_guard = Some(playlist);
 
     let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
     *file_path = Some(path_buf);
 
-    drop(file_path);
+    Ok(OpenResult { metadata: playlist_info, frames })
+}
 
-    let mut frames = Vec::new();
+fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
+    let files: Vec<PlaylistFileInfo> = playlist
+        .entries()
+        .iter()
+        .enumerate()
+        .map(|(i, e)| PlaylistFileInfo {
+            index: i,
+            file_name: e.file_name.clone(),
+            file_path: e.file_path.clone(),
+            enabled: e.enabled,
+            duration: e.engine.metadata().duration,
+            total_frames: e.engine.total_frames(),
+            start_time: e.engine.metadata().start_time.clone(),
+            bus_count: e.engine.metadata().bus_count,
+        })
+        .collect();
 
-    if let Some(ref mut engine) = *engine_guard {
-        let batch_size = total.min(500) as usize;
-        let batch = engine.next_batch(batch_size).map_err(|e| e.to_string())?;
-        for f in &batch {
-            frames.push(frame_to_info(f));
-        }
-        let _ = engine.seek_to(0.0);
+    let enabled_count = files.iter().filter(|f| f.enabled).count();
+
+    PlaylistInfo {
+        file_count: files.len(),
+        enabled_count,
+        files,
+        total_duration: playlist.total_duration(),
+        total_frames: playlist.total_frames(),
     }
+}
 
-    drop(engine_guard);
-
-    Ok(OpenResult { metadata, frames })
+fn build_playlist_info_from_state(
+    engine_guard: &std::sync::MutexGuard<'_, Option<PlaylistEngine<AscReader>>>,
+) -> Option<PlaylistInfo> {
+    engine_guard.as_ref().map(|p| build_playlist_info(p))
 }
 
 fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
@@ -289,23 +341,18 @@ fn load_dbc(
 
 #[tauri::command]
 fn get_batch(state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
-    let mut frames = Vec::new();
-
-    if let Some(ref mut engine) = *engine_guard {
+    if let Some(ref mut playlist) = *engine_guard {
         if let Some(ref dbc) = *dbc_guard {
-            engine.set_dbc(dbc.clone());
+            playlist.set_dbc(dbc.clone());
         }
-
-        let batch = engine.next_batch(100).map_err(|e| e.to_string())?;
-        for f in &batch {
-            frames.push(frame_to_info(f));
-        }
+        let batch = playlist.next_batch(100).map_err(|e| e.to_string())?;
+        Ok(batch.iter().map(frame_to_info).collect())
+    } else {
+        Ok(Vec::new())
     }
-
-    Ok(frames)
 }
 
 #[tauri::command]
@@ -315,19 +362,18 @@ fn playback_control(
 ) -> Result<String, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
-    if let Some(ref mut engine) = *engine_guard {
+    if let Some(ref mut playlist) = *engine_guard {
         match action.as_str() {
             "play" => {
-                engine.play();
+                playlist.play();
                 Ok("playing".into())
             }
             "pause" => {
-                engine.pause();
+                playlist.pause();
                 Ok("paused".into())
             }
             "stop" => {
-                engine.stop();
-                let _ = engine.seek_to(0.0);
+                playlist.stop();
                 Ok("stopped".into())
             }
             _ => Err(format!("Unknown action: {}", action)),
@@ -340,8 +386,8 @@ fn playback_control(
 #[tauri::command]
 fn get_playback_state(state: State<AppState>) -> Result<String, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref engine) = *engine_guard {
-        match engine.state() {
+    if let Some(ref playlist) = *engine_guard {
+        match playlist.state() {
             PlaybackState::Stopped => Ok("stopped".into()),
             PlaybackState::Playing => Ok("playing".into()),
             PlaybackState::Paused => Ok("paused".into()),
@@ -357,8 +403,8 @@ fn seek_to(
     state: State<AppState>,
 ) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref mut engine) = *engine_guard {
-        engine.seek_to(timestamp).map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.seek_to(timestamp).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -366,8 +412,8 @@ fn seek_to(
 #[tauri::command]
 fn get_progress(state: State<AppState>) -> Result<Option<f64>, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref engine) = *engine_guard {
-        Ok(engine.progress())
+    if let Some(ref playlist) = *engine_guard {
+        Ok(playlist.progress())
     } else {
         Ok(None)
     }
@@ -379,9 +425,9 @@ fn set_speed(
     state: State<AppState>,
 ) -> Result<f64, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref mut engine) = *engine_guard {
-        engine.set_speed(speed);
-        Ok(engine.speed())
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.set_speed(speed);
+        Ok(playlist.speed())
     } else {
         Err("No file loaded".into())
     }
@@ -390,11 +436,163 @@ fn set_speed(
 #[tauri::command]
 fn get_speed(state: State<AppState>) -> Result<f64, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref engine) = *engine_guard {
-        Ok(engine.speed())
+    if let Some(ref playlist) = *engine_guard {
+        Ok(playlist.speed())
     } else {
         Ok(1.0)
     }
+}
+
+#[tauri::command]
+fn set_loop(
+    enabled: bool,
+    state: State<AppState>,
+) -> Result<bool, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.set_loop(enabled);
+        Ok(playlist.loop_enabled())
+    } else {
+        Err("No file loaded".into())
+    }
+}
+
+#[tauri::command]
+fn get_loop(state: State<AppState>) -> Result<bool, String> {
+    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref playlist) = *engine_guard {
+        Ok(playlist.loop_enabled())
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn step_forward(state: State<AppState>) -> Result<Option<FrameInfo>, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        match playlist.step_forward().map_err(|e| e.to_string())? {
+            Some(frame) => Ok(Some(frame_to_info(&frame))),
+            None => Ok(None),
+        }
+    } else {
+        Err("No file loaded".into())
+    }
+}
+
+#[tauri::command]
+fn step_back(state: State<AppState>) -> Result<Option<FrameInfo>, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        match playlist.step_back().map_err(|e| e.to_string())? {
+            Some(frame) => Ok(Some(frame_to_info(&frame))),
+            None => Ok(None),
+        }
+    } else {
+        Err("No file loaded".into())
+    }
+}
+
+#[tauri::command]
+fn playlist_add(
+    path: String,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let path_buf = PathBuf::from(&path);
+    let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
+
+    let file_name = path_buf
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let engine = PlaybackEngine::new(reader);
+
+    let entry = PlaylistEntry {
+        engine,
+        file_name,
+        file_path: path.clone(),
+        enabled: true,
+        global_start_offset: 0.0,
+        global_end_offset: None,
+    };
+
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        let was_playing = playlist.state() == PlaybackState::Playing;
+        playlist.add_entry(entry);
+        if was_playing {
+            playlist.play();
+        }
+        Ok(build_playlist_info(playlist))
+    } else {
+        // Create new playlist with single file
+        let mut playlist = PlaylistEngine::new();
+        playlist.add_entry(entry);
+        let info = build_playlist_info(&playlist);
+
+        let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+        *file_path = Some(path_buf);
+
+        *engine_guard = Some(playlist);
+        Ok(info)
+    }
+}
+
+#[tauri::command]
+fn playlist_remove(
+    index: usize,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.remove_entry(index);
+        Ok(build_playlist_info(playlist))
+    } else {
+        Err("No playlist active".into())
+    }
+}
+
+#[tauri::command]
+fn playlist_toggle(
+    index: usize,
+    enabled: bool,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.toggle_entry(index, enabled);
+        Ok(build_playlist_info(playlist))
+    } else {
+        Err("No playlist active".into())
+    }
+}
+
+#[tauri::command]
+fn playlist_reorder(
+    from: usize,
+    to: usize,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.reorder(from, to);
+        Ok(build_playlist_info(playlist))
+    } else {
+        Err("No playlist active".into())
+    }
+}
+
+#[tauri::command]
+fn playlist_get_files(state: State<AppState>) -> Result<Option<PlaylistInfo>, String> {
+    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    Ok(build_playlist_info_from_state(&engine_guard))
+}
+
+#[tauri::command]
+fn playlist_get_info(state: State<AppState>) -> Result<Option<PlaylistInfo>, String> {
+    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    Ok(build_playlist_info_from_state(&engine_guard))
 }
 
 fn now_iso() -> String {
@@ -679,13 +877,26 @@ fn open_project(
 
         let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
 
-        let mut engine = PlaybackEngine::new(reader);
+        let entry = PlaylistEntry {
+            engine: PlaybackEngine::new(reader),
+            file_name: log_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            file_path: can_log_path.clone(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+        };
+
+        let mut playlist = PlaylistEngine::new();
+        playlist.add_entry(entry);
         if project.last_position > 0.0 {
-            let _ = engine.seek_to(project.last_position);
+            let _ = playlist.seek_to(project.last_position);
         }
 
         let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-        *engine_guard = Some(engine);
+        *engine_guard = Some(playlist);
 
         let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
         *file_path = Some(log_path);
@@ -844,6 +1055,16 @@ pub fn run() {
             get_progress,
             set_speed,
             get_speed,
+            set_loop,
+            get_loop,
+            step_forward,
+            step_back,
+            playlist_add,
+            playlist_remove,
+            playlist_toggle,
+            playlist_reorder,
+            playlist_get_files,
+            playlist_get_info,
             create_project,
             open_project,
             save_project,

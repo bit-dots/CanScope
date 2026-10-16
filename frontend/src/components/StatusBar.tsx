@@ -1,10 +1,10 @@
-import { Component } from 'solid-js';
-import type { FileMetadata, PlaybackState } from '../types';
+import { Component, createMemo } from 'solid-js';
+import type { PlaylistInfo, PlaybackState } from '../types';
 import './StatusBar.css';
 
 interface StatusBarProps {
   sourceLoaded: boolean;
-  metadata: FileMetadata | null;
+  metadata: PlaylistInfo | null;
   frameCount: number;
   totalFrameCount: number;
   playbackState: PlaybackState;
@@ -17,7 +17,16 @@ const stateLabel: Record<PlaybackState, string> = {
 };
 
 const StatusBar: Component<StatusBarProps> = (props) => {
-  const fileName = () => props.metadata?.fileName ?? '';
+  const displayName = createMemo(() => {
+    const info = props.metadata;
+    if (!info) return '';
+    if (info.files.length === 1) return info.files[0].fileName;
+    return info.files.filter(f => f.enabled).map(f => f.fileName).join(', ');
+  });
+
+  const totalFramesDisplay = createMemo(() => {
+    return props.metadata?.totalFrames ?? props.totalFrameCount;
+  });
 
   const stateClass = () => {
     switch (props.playbackState) {
@@ -43,7 +52,7 @@ const StatusBar: Component<StatusBarProps> = (props) => {
           'status-bar__file--loaded': props.sourceLoaded,
         }}>
           {props.sourceLoaded
-            ? `${fileName()}  |  ${props.frameCount} / ${props.totalFrameCount} 帧`
+            ? `${displayName()}  |  ${props.frameCount} / ${totalFramesDisplay()} 帧`
             : '未加载文件'}
         </span>
 

@@ -6,6 +6,25 @@ export interface FileMetadata {
   startTime: string | null;
 }
 
+export interface PlaylistFileInfo {
+  index: number;
+  fileName: string;
+  filePath: string;
+  enabled: boolean;
+  duration: number | null;
+  totalFrames: number | null;
+  startTime: string | null;
+  busCount: number;
+}
+
+export interface PlaylistInfo {
+  files: PlaylistFileInfo[];
+  totalDuration: number | null;
+  totalFrames: number | null;
+  fileCount: number;
+  enabledCount: number;
+}
+
 export interface DecodedSignalInfo {
   name: string;
   physical_value: number;
@@ -26,7 +45,7 @@ export interface FrameInfo {
 }
 
 export interface OpenResult {
-  metadata: FileMetadata;
+  metadata: PlaylistInfo;
   frames: FrameInfo[];
 }
 

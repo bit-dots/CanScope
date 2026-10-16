@@ -16,11 +16,12 @@ import FloatingWindow from './components/windowing/FloatingWindow';
 import WindowTaskbar from './components/windowing/WindowTaskbar';
 import { useWindowManager } from './components/windowing/useWindowManager';
 import ResourceManager from './components/ResourceManager';
+import PlaybackPanel from './components/PlaybackPanel';
 import type {
   OpenResult,
   PlaybackState,
   FrameInfo,
-  FileMetadata,
+  PlaylistInfo,
   FilterConfig,
   DbcTreeInfo,
   ChartSignal,
@@ -31,7 +32,7 @@ import './App.css';
 
 function App() {
   const [project, setProject] = createSignal<ProjectInfo | null>(null);
-  const [metadata, setMetadata] = createSignal<FileMetadata | null>(null);
+  const [metadata, setMetadata] = createSignal<PlaylistInfo | null>(null);
   const [frames, setFrames] = createSignal<FrameInfo[]>([]);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [loading, setLoading] = createSignal(false);
@@ -41,6 +42,7 @@ function App() {
   const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [speed, setSpeed] = createSignal(1);
+  const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [online, setOnline] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
@@ -56,6 +58,7 @@ function App() {
     { id: 'message-send', title: '报文发送', defaultVisible: false, defaultPosition: { x: 200, y: 100, width: 400, height: 350 } },
     { id: 'statistics', title: '统计信息', defaultVisible: false, defaultPosition: { x: 250, y: 120, width: 450, height: 380 } },
     { id: 'log', title: '日志', defaultVisible: false, defaultPosition: { x: 150, y: 80, width: 500, height: 300 } },
+    { id: 'playback', title: '数据回放', defaultVisible: false, defaultPosition: { x: 300, y: 50, width: 700, height: 500 } },
   ];
 
   const [workspaceEl, setWorkspaceEl] = createSignal<HTMLElement | null>(null);
@@ -545,8 +548,69 @@ function App() {
     onCleanup(() => window.removeEventListener('resize', syncRmHeight));
   });
 
-  // Phase 1: setSpeed kept for future Ribbon speed control
-  void setSpeed;
+  const handleSetSpeed = async (newSpeed: number) => {
+    try {
+      const actual: number = await invoke('set_speed', { speed: newSpeed });
+      setSpeed(actual);
+    } catch (e) {
+      console.error('set_speed failed:', e);
+    }
+  };
+
+  const handleSetLoop = async (enabled: boolean) => {
+    try {
+      const actual: boolean = await invoke('set_loop', { enabled });
+      setLoopEnabled(actual);
+    } catch (e) {
+      console.error('set_loop failed:', e);
+    }
+  };
+
+  const handleStepForward = async () => {
+    try {
+      const frame: FrameInfo | null = await invoke('step_forward');
+      if (frame) {
+        setFrames(prev => {
+          const lastTs = prev.length > 0 ? prev[prev.length - 1].timestamp : 0;
+          if (frame.timestamp > lastTs) {
+            return [...prev, frame];
+          }
+          return [...prev, frame];
+        });
+      }
+    } catch (e) {
+      console.error('step_forward failed:', e);
+    }
+  };
+
+  const handleStepBack = async () => {
+    try {
+      const frame: FrameInfo | null = await invoke('step_back');
+      if (frame) {
+        setFrames(prev => {
+          // Replace frames from this timestamp onwards
+          const idx = prev.findIndex(f => f.timestamp >= frame.timestamp);
+          if (idx >= 0) {
+            return [...prev.slice(0, idx), frame];
+          }
+          return [frame];
+        });
+      }
+    } catch (e) {
+      console.error('step_back failed:', e);
+    }
+  };
+
+  const handleRefreshPlaylist = async () => {
+    try {
+      const info: PlaylistInfo | null = await invoke('playlist_get_files');
+      if (info) {
+        setMetadata(info);
+      }
+    } catch (e) {
+      console.error('playlist_get_files failed:', e);
+    }
+  };
 
   return (
     <div class="app-layout">
@@ -567,7 +631,7 @@ function App() {
           onOpenRecorder={() => {}}
           onStartRecord={() => {}}
           onStopRecord={() => {}}
-          onOpenPlayback={() => {}}
+          onOpenPlayback={() => windowManager.togglePanel('playback')}
           onOpenUds={() => {}}
           onOpenObd={() => {}}
           onOpenEcuFlash={() => {}}
@@ -586,7 +650,7 @@ function App() {
             visible={hasSource()}
           />
           <Timeline
-            duration={metadata()?.duration ?? null}
+            duration={metadata()?.totalDuration ?? null}
             currentTime={currentTime()}
             onSeek={handleSeek}
             disabled={!hasSource()}
@@ -703,6 +767,22 @@ function App() {
                           日志 — 功能开发中
                         </div>
                       </div>
+                    );
+                  case 'playback':
+                    return (
+                      <PlaybackPanel
+                        playlistInfo={metadata()}
+                        playbackState={playbackState()}
+                        speed={speed()}
+                        loopEnabled={loopEnabled()}
+                        onPlaybackControl={handlePlaybackControl}
+                        onSetSpeed={handleSetSpeed}
+                        onSetLoop={handleSetLoop}
+                        onStepForward={handleStepForward}
+                        onStepBack={handleStepBack}
+                        onSeek={handleSeek}
+                        onRefreshPlaylist={handleRefreshPlaylist}
+                      />
                     );
                   default:
                     return null;
