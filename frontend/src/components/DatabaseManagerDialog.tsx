@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show, onCleanup, createEffect } from 'solid-js';
+import { Component, createSignal, For, Show, onCleanup, createEffect, type JSX } from 'solid-js';
 import { PlusCircle, Link, CircleHelp, X, Database, File } from 'lucide-solid';
 
 export interface DatabaseEntry {
@@ -28,7 +28,7 @@ const getFileName = (path: string): string => {
 let idCounter = 0;
 const nextId = () => `db-${++idCounter}`;
 
-const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: boolean }> = (props) => (
+const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: boolean; children?: JSX.Element }> = (props) => (
   <button
     class="dm-toolbar-btn"
     onClick={props.onClick}
@@ -41,7 +41,7 @@ const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: bo
 );
 
 const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => {
-  const [entries, setEntries] = createSignal<DatabaseEntry[]>(() =>
+  const [entries, setEntries] = createSignal<DatabaseEntry[]>(
     props.initialPaths.map((p) => ({
       id: nextId(),
       name: getFileName(p),

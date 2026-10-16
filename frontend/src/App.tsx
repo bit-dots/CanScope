@@ -40,7 +40,7 @@ function App() {
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
-  const [online, setOnline] = createSignal(false);
+  const [online] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
@@ -577,11 +577,10 @@ function App() {
     <div class="app-layout">
       {project() && (
         <Ribbon
-          project={project()}
-          error={error()}
-          hasSource={hasSource()}
+          projectLoaded={project() !== null}
           playbackState={playbackState()}
           online={online()}
+          onToggleOnline={() => {}}
           onStart={() => handlePlaybackControl('play')}
           onStop={() => handlePlaybackControl('stop')}
           onOpenChannelConfig={() => {}}
