@@ -666,6 +666,7 @@ function App() {
                         frames={filteredFrames()}
                         totalFrameCount={frames().length}
                         hasDbc={dbcTree() !== null}
+                        projectName={project()?.name ?? '未命名'}
                         onClear={() => setFrames([])}
                         onSelectMessage={handleSelectMessage}
                         onFilterByCanId={(canId: number) => setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' })}

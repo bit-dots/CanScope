@@ -2067,3 +2067,211 @@ select:focus-visible,
   font-size: 13px;
   user-select: none;
 }
+
+/* ============================================
+   报文监控设置弹窗
+   ============================================ */
+.frame-settings-dialog {
+  width: 480px;
+}
+
+.frame-settings-body {
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.frame-settings-section {
+  margin-bottom: 2px;
+}
+
+.frame-settings-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.frame-settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+/* 列显示 – 2 列 grid */
+.frame-settings-column-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+/* 复选框 */
+.frame-settings-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.frame-settings-checkbox-label:hover {
+  background: var(--bg-tertiary);
+}
+.frame-settings-checkbox-label--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.frame-settings-checkbox-label--disabled:hover {
+  background: transparent;
+}
+
+.frame-settings-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
+
+.frame-settings-checkbox-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+/* 单选组 */
+.frame-settings-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.frame-settings-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.frame-settings-radio-label:hover {
+  background: var(--bg-tertiary);
+}
+
+.frame-settings-radio {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
+
+.frame-settings-radio-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+/* 行布局（开关 + 标签 + 描述） */
+.frame-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.frame-settings-row--input {
+  padding: 6px 0;
+  gap: 12px;
+}
+
+/* 开关标签 */
+.frame-settings-toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.frame-settings-toggle-text {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.frame-settings-toggle-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Switch 开关 */
+.frame-settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.frame-settings-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.frame-settings-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.frame-settings-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.frame-settings-switch-input:checked + .frame-settings-switch-track {
+  background: var(--accent);
+}
+
+.frame-settings-switch-input:checked + .frame-settings-switch-track::after {
+  transform: translateX(16px);
+}
+
+/* 数字输入 */
+.frame-settings-input-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.frame-settings__input {
+  width: 120px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  outline: none;
+  text-align: right;
+  transition: border-color 0.15s;
+}
+.frame-settings__input:focus {
+  border-color: var(--accent);
+}

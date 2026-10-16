@@ -4,7 +4,10 @@ import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings } from 'lucide-solid';
+import type { FrameTableSettings } from './FrameTableSettings';
+import { loadSettings, saveSettings } from './FrameTableSettings';
+import FrameTableSettingsDialog from './FrameTableSettingsDialog';
 
 interface FrameTableProps {
   frames: FrameInfo[];
@@ -13,6 +16,7 @@ interface FrameTableProps {
   onClear?: () => void;
   onSelectMessage?: (canId: number) => void;
   onFilterByCanId?: (canId: number) => void;
+  projectName: string;
 }
 
 const ROW_HEIGHT = 28;
@@ -48,9 +52,21 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isPaused, setIsPaused] = createSignal(false);
   const [clearConfirm, setClearConfirm] = createSignal(false);
   let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
-  const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
+
+  // ---- 设置 ----
+  const [settings, setSettings] = createSignal<FrameTableSettings>(loadSettings(props.projectName));
+  const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
+  const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>(
+    settings().timeFormat,
+  );
   const [isTimeMenuOpen, setIsTimeMenuOpen] = createSignal(false);
   const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
+
+  const handleApplySettings = (s: FrameTableSettings) => {
+    setSettings(s);
+    saveSettings(props.projectName, s);
+    setTimeFormat(s.timeFormat);
+  };
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
@@ -90,7 +106,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.body.style.userSelect = 'none';
   };
 
-  const visibleColumns = () => COLUMNS.filter((c) => c.key !== 'name' || props.hasDbc);
+  const visibleColumns = () => {
+    const cols = settings().visibleColumns;
+    const hasDbc = props.hasDbc;
+    return COLUMNS.filter((c) => {
+      if (!cols.includes(c.key)) return false;
+      if (c.key === 'name' && !hasDbc) return false;
+      return true;
+    });
+  };
 
   // ---- 属性面板 ----
   interface TreeNode {
@@ -611,6 +635,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const handleTimeFormatSelect = (format: 'absolute' | 'relative-to-start' | 'relative-to-prev') => {
     setTimeFormat(format);
+    const s = settings();
+    const updated = { ...s, timeFormat: format };
+    setSettings(updated);
+    saveSettings(props.projectName, updated);
     setIsTimeMenuOpen(false);
   };
 
@@ -748,6 +776,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           >
             <ListClock size={14} />
             {isTimeMenuOpen() ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+
+          {/* 设置 */}
+          <button
+            class="frame-table__tool-btn"
+            title="报文监控设置"
+            aria-label="报文监控设置"
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            <Settings size={14} />
           </button>
 
             {/* 时间格式下拉菜单 */}
@@ -1127,6 +1165,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           y={contextMenuState()!.y}
           items={contextMenuItems()}
           onClose={() => setContextMenuState(null)}
+        />
+      </Show>
+
+      {/* 设置弹窗 */}
+      <Show when={isSettingsOpen()}>
+        <FrameTableSettingsDialog
+          settings={settings()}
+          hasDbc={props.hasDbc ?? false}
+          onApply={handleApplySettings}
+          onClose={() => setIsSettingsOpen(false)}
         />
       </Show>
     </div>
