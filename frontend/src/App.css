@@ -859,6 +859,28 @@ select:focus-visible,
   flex-shrink: 0;
 }
 
+/* 行首标记 Star */
+.frame-table__star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: color 0.15s;
+  opacity: 0.55;
+}
+.frame-table__star:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+.frame-table__star--marked {
+  color: var(--accent);
+  opacity: 1;
+}
+.frame-table__star--marked:hover {
+  color: var(--accent-hover);
+}
+
 /* 帧类型 Badge */
 .frame-table__type-badge {
   display: inline-block;

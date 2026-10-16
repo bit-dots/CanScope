@@ -4,7 +4,7 @@ import { Portal } from 'solid-js/web';
 import type { FrameInfo, DecodedSignalInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash, Star } from 'lucide-solid';
 import type { FrameTableSettings } from './FrameTableSettings';
 import { loadSettings, saveSettings } from './FrameTableSettings';
 import FrameTableSettingsDialog from './FrameTableSettingsDialog';
@@ -58,6 +58,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     | { kind: 'signal'; parentDisplayIdx: number; signal: DecodedSignalInfo };
 
   const [expandedFrames, setExpandedFrames] = createSignal<Set<number>>(new Set());
+  const [markedFrames, setMarkedFrames] = createSignal<Set<number>>(new Set());
 
   const toggleFrameExpand = (displayIdx: number) => {
     const next = new Set(expandedFrames());
@@ -67,6 +68,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       next.add(displayIdx);
     }
     setExpandedFrames(next);
+  };
+
+  const toggleMarkFrame = (displayIdx: number) => {
+    const next = new Set(markedFrames());
+    if (next.has(displayIdx)) {
+      next.delete(displayIdx);
+    } else {
+      next.add(displayIdx);
+    }
+    setMarkedFrames(next);
   };
 
   // ---- 设置 ----
@@ -1243,7 +1254,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   onClick={() => handleRowClick(idx)}
                   onContextMenu={(e) => handleRowContextMenu(e, idx)}
                 >
-                  <td class="frame-table__td frame-table__td--icon" />
+                  <td class="frame-table__td frame-table__td--icon">
+                    <span
+                      class="frame-table__star"
+                      classList={{ 'frame-table__star--marked': markedFrames().has(idx) }}
+                      onClick={(e: MouseEvent) => { e.stopPropagation(); toggleMarkFrame(idx); }}
+                      title={markedFrames().has(idx) ? '取消标记' : '标记'}
+                    >
+                      <Star size={13} />
+                    </span>
+                  </td>
                   <td class="frame-table__td frame-table__td--time">
                     <span
                       class={hasSignals ? 'frame-table__expand-toggle' : 'frame-table__expand-spacer'}
