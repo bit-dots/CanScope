@@ -245,18 +245,34 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         }
         let start = self.current_entry_index;
         let dbc = self.dbc.clone();
-        for i in 1..=self.entries.len() {
-            let idx = (start + i) % self.entries.len();
-            if idx == start && i > 1 {
-                return false;
-            }
-            if self.entries[idx].enabled {
-                self.entries[idx].engine.play();
-                if let Some(ref dbc) = dbc {
-                    self.entries[idx].engine.set_dbc(dbc.clone());
+        let len = self.entries.len();
+
+        if self.loop_enabled {
+            for i in 1..=len {
+                let idx = (start + i) % len;
+                if idx == start && i > 1 {
+                    return false;
                 }
-                self.current_entry_index = idx;
-                return true;
+                if self.entries[idx].enabled {
+                    let _ = self.entries[idx].engine.seek_to(0.0);
+                    self.entries[idx].engine.play();
+                    if let Some(ref dbc) = dbc {
+                        self.entries[idx].engine.set_dbc(dbc.clone());
+                    }
+                    self.current_entry_index = idx;
+                    return true;
+                }
+            }
+        } else {
+            for i in (start + 1)..len {
+                if self.entries[i].enabled {
+                    self.entries[i].engine.play();
+                    if let Some(ref dbc) = dbc {
+                        self.entries[i].engine.set_dbc(dbc.clone());
+                    }
+                    self.current_entry_index = i;
+                    return true;
+                }
             }
         }
         false
@@ -337,7 +353,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                         is_fd: frame.is_fd,
                         is_tx: frame.is_tx,
                         dlc: frame.dlc,
-                        data: frame.data,
+                        data: *frame.data,
                     };
                     frame.signals = dbc.decode_frame(&can_frame).ok();
                 }
@@ -506,7 +522,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                             is_fd: f.is_fd,
                             is_tx: f.is_tx,
                             dlc: f.dlc,
-                            data: f.data,
+                            data: *f.data,
                         });
                         frame.signals = f.signals;
                         frame.timestamp = ts + prev_entry.global_start_offset;
@@ -525,7 +541,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use canscope_core::{CanFrame, SeekError, SourceType, FileFormat};
+    use canscope_core::{CanFrame, SeekError, SourceType, FileFormat, StreamMetadata};
 
     struct MockStream {
         frames: Vec<CanFrame>,

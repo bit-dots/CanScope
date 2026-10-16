@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use canscope_core::{CanFrame, CanFrameStream, SeekError, StreamMetadata};
 use canscope_dbc::{Dbc, DecodedSignal};
@@ -23,7 +24,7 @@ pub struct PlaybackFrame {
     pub is_fd: bool,
     pub is_tx: bool,
     pub dlc: u8,
-    pub data: [u8; 64],
+    pub data: Arc<[u8; 64]>,
     pub signals: Option<Vec<DecodedSignal>>,
 }
 
@@ -37,7 +38,7 @@ impl From<CanFrame> for PlaybackFrame {
             is_fd: f.is_fd,
             is_tx: f.is_tx,
             dlc: f.dlc,
-            data: f.data,
+            data: Arc::new(f.data),
             signals: None,
         }
     }
@@ -186,7 +187,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
             is_fd: frame.is_fd,
             is_tx: frame.is_tx,
             dlc: frame.dlc,
-            data: frame.data,
+            data: Arc::new(frame.data),
             signals,
         }))
     }
@@ -223,7 +224,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                         is_fd: frame.is_fd,
                         is_tx: frame.is_tx,
                         dlc: frame.dlc,
-                        data: frame.data,
+                        data: Arc::new(frame.data),
                         signals,
                     });
                     remaining -= 1;

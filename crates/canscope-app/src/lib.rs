@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use canscope_core::CanFrameStream;
 use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry};
@@ -258,7 +257,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         is_fd: f.is_fd,
         is_tx: f.is_tx,
         dlc: f.dlc,
-        data: f.data,
+        data: *f.data,
         signals: f.signals.as_ref().map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),
     }
 }
