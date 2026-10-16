@@ -1,11 +1,9 @@
 import { createSignal, createMemo, createEffect, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import Ribbon from './components/ribbon/Ribbon';
-import FilterBar from './components/FilterBar';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
 import SignalChart from './components/SignalChart';
-import Timeline from './components/Timeline';
 import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import { Radio } from 'lucide-solid';
@@ -616,10 +614,11 @@ function App() {
     <div class="app-layout">
       {project() && (
         <Ribbon
-          online={online()}
+          project={project()}
+          error={error()}
+          hasSource={hasSource()}
           playbackState={playbackState()}
-          projectLoaded={project() !== null}
-          onToggleOnline={() => setOnline(prev => !prev)}
+          online={online()}
           onStart={() => handlePlaybackControl('play')}
           onStop={() => handlePlaybackControl('stop')}
           onOpenChannelConfig={() => {}}
@@ -641,21 +640,6 @@ function App() {
           onSaveProjectAs={handleSaveProjectAs}
           onCloseProject={handleCloseProject}
         />
-      )}
-      {hasSource() && (
-        <>
-          <FilterBar
-            filter={filter()}
-            onFilterChange={setFilter}
-            visible={hasSource()}
-          />
-          <Timeline
-            duration={metadata()?.totalDuration ?? null}
-            currentTime={currentTime()}
-            onSeek={handleSeek}
-            disabled={!hasSource()}
-          />
-        </>
       )}
       <main class="main-content">
         {error() && (
