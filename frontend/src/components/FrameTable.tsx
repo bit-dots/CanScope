@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
@@ -74,6 +74,56 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setSettings(updated);
     saveSettings(props.projectName, updated);
   };
+
+  // ---- 变化字节高亮 ----
+  const [flashingBytes, setFlashingBytes] = createSignal<Record<string, boolean>>({});
+  const canIdPrevData = new Map<number, number[]>();
+  let processedCount = 0;
+
+  createEffect(on(
+    () => ({ len: props.frames.length, enabled: settings().highlightChanges, paused: isPaused() }),
+    ({ len, enabled, paused }) => {
+      if (len < processedCount) {
+        processedCount = 0;
+        canIdPrevData.clear();
+        setFlashingBytes({});
+      }
+      if (!enabled || paused) {
+        processedCount = len;
+        return;
+      }
+      for (let i = processedCount; i < len; i++) {
+        const frame = props.frames[i];
+        const prev = canIdPrevData.get(frame.can_id);
+        const dlc = frame.dlc;
+        if (prev) {
+          const changed: Record<string, boolean> = {};
+          const minLen = Math.min(prev.length, dlc);
+          for (let b = 0; b < minLen; b++) {
+            if (prev[b] !== frame.data[b]) {
+              changed[`${i}-${b}`] = true;
+            }
+          }
+          for (let b = minLen; b < dlc; b++) {
+            changed[`${i}-${b}`] = true;
+          }
+          const keys = Object.keys(changed);
+          if (keys.length > 0) {
+            setFlashingBytes((prev) => ({ ...prev, ...changed }));
+            setTimeout(() => {
+              setFlashingBytes((prev) => {
+                const next = { ...prev };
+                for (const k of keys) delete next[k];
+                return next;
+              });
+            }, 450);
+          }
+        }
+        canIdPrevData.set(frame.can_id, frame.data.slice(0, dlc));
+      }
+      processedCount = len;
+    },
+  ));
 
   const pauseSnapshot = createSignal(0);
   const [pausedCount, setPausedCount] = pauseSnapshot;
@@ -1139,7 +1189,22 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   </td>
                   <td class="frame-table__td frame-table__td--dlc">{frame.dlc}</td>
                   <td class="frame-table__td frame-table__td--data">
-                    {formatDataHex(frame.data, frame.dlc)}
+                    {frame.data.slice(0, frame.dlc).map((byte, byteIdx, arr) => {
+                      const origIdx = props.frames.indexOf(frame);
+                      const key = `${origIdx}-${byteIdx}`;
+                      const isFlashing = !!flashingBytes()[key];
+                      const hex = byte.toString(16).padStart(2, '0').toUpperCase();
+                      return (
+                        <span>
+                          <span
+                            classList={{ 'byte-changed': isFlashing }}
+                          >
+                            {hex}
+                          </span>
+                          {byteIdx < arr.length - 1 && ' '}
+                        </span>
+                      );
+                    })}
                   </td>
                 </tr>
               );

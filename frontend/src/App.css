@@ -791,6 +791,28 @@ select:focus-visible,
   letter-spacing: 0.03em;
 }
 
+.byte-changed {
+  animation: byte-flash 450ms ease-out;
+  border-radius: 0px;
+}
+
+@keyframes byte-flash {
+  0% {
+    background: var(--warning);
+    color: var(--bg-primary);
+  }
+  100% {
+    background: transparent;
+    color: inherit;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .byte-changed {
+    animation: none;
+  }
+}
+
 /* 帧类型 Badge */
 .frame-table__type-badge {
   display: inline-block;
