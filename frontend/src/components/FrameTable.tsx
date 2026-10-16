@@ -4,7 +4,7 @@ import { Portal } from 'solid-js/web';
 import type { FrameInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash } from 'lucide-solid';
 import type { FrameTableSettings } from './FrameTableSettings';
 import { loadSettings, saveSettings } from './FrameTableSettings';
 import FrameTableSettingsDialog from './FrameTableSettingsDialog';
@@ -66,6 +66,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setSettings(s);
     saveSettings(props.projectName, s);
     setTimeFormat(s.timeFormat);
+  };
+
+  const handleAutoScrollToggle = () => {
+    const s = settings();
+    const updated = { ...s, autoScroll: !s.autoScroll };
+    setSettings(updated);
+    saveSettings(props.projectName, updated);
   };
 
   const pauseSnapshot = createSignal(0);
@@ -776,6 +783,17 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           >
             <ListClock size={14} />
             {isTimeMenuOpen() ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+
+          {/* 自动滚动 */}
+          <button
+            class="frame-table__tool-btn"
+            classList={{ 'frame-table__tool-btn--active': settings().autoScroll }}
+            title={settings().autoScroll ? '自动滚动: 开' : '自动滚动: 关'}
+            aria-label={settings().autoScroll ? '关闭自动滚动' : '开启自动滚动'}
+            onClick={handleAutoScrollToggle}
+          >
+            <ArrowBigDownDash size={14} />
           </button>
 
           {/* 设置 */}
