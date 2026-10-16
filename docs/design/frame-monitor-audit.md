@@ -1,8 +1,8 @@
 # 报文监控面板 — 现状审计 & 功能/UI 设计
 
-> 版本：v1.0
-> 日期：2026-10-15
-> 状态：待审查
+> 版本：v1.1
+> 日期：2026-10-16
+> 状态：✅ 已全部实施（Phase A/B/C/D 完成）
 > 来源：design-taste-frontend / redesign-existing-projects / ui-ux-pro-max 三技能审计
 
 ---
@@ -11,8 +11,11 @@
 
 | # | 文件 | 职责 |
 |---|------|------|
-| 1 | `frontend/src/components/FrameTable.tsx` | 主组件：虚拟滚动表格 + 工具栏 + 状态栏（333 行） |
-| 2 | `frontend/src/App.css` | 全部 CSS 样式（L100-L449，`.frame-table__*` BEM 命名） |
+| 1 | `frontend/src/components/FrameTable.tsx` | 主组件：虚拟滚动表格 + 工具栏 + 搜索 + 属性面板 + 右键菜单（~1200 行） |
+| 2 | `frontend/src/App.css` | 全部 CSS 样式（L100-L898，`.frame-table__*` BEM 命名） |
+| 7 | `frontend/src/components/FrameTableSettings.ts` | 列可见性设置：加载/持久化到 localStorage |
+| 8 | `frontend/src/components/FrameTableSettingsDialog.tsx` | 列设置弹窗：勾选显示/隐藏列 + 恢复默认 |
+| 9 | `frontend/src/components/ContextMenu.tsx` | 右键上下文菜单组件（复用） |
 | 3 | `frontend/src/App.tsx` | 面板注册（L54）+ 渲染集成（L663-L668） |
 | 4 | `frontend/src/types.ts` | 类型定义：`FrameInfo`, `FilterConfig`, `formatHex`, `formatDataHex`, `matchesFilter` |
 | 5 | `docs/design/design.md` | 全局设计规范（表格规范 L241-L249） |
@@ -48,22 +51,22 @@
 | 颜色 Token 化 | 全部 `var(--*)` / `color-mix()`，无裸 hex 值 |
 | CSS 命名规范 | 全部 `frame-table__*` BEM 命名，结构清晰 |
 
-### 3.2 ❌ 需修复 & 待实现
+### 3.2 ✅ 已全部修复（Phase A/B/C/D 完成）
 
-| 严重度 | ID | 问题 | 位置 |
+| 严重度 | ID | 问题 | 修复方式 |
 |:---:|:--:|------|------|
-| **P0** | B01 | **查找按钮无功能** — 点击后无任何反应，纯占位死按钮 | [FrameTable.tsx:L164-L172](file:///e:/dev/canscope/frontend/src/components/FrameTable.tsx) |
-| **P0** | B02 | **属性按钮无功能** — 点击后无任何反应 | [FrameTable.tsx:L154-L162](file:///e:/dev/canscope/frontend/src/components/FrameTable.tsx) |
-| **P0** | B03 | **清空按钮无功能** — 点击后无任何反应 | [FrameTable.tsx:L174-L181](file:///e:/dev/canscope/frontend/src/components/FrameTable.tsx) |
-| **P0** | B04 | **无右键上下文菜单** — 行上无法复制/筛选/绑定信号 | — |
-| **P0** | B05 | **无独立搜索/筛选入口** — 仅有全局 FilterBar（CAN ID + 时间范围），面板内无法快速搜索 | — |
-| **P1** | B06 | **方向列始终 RX** — 无 TX/双向区分逻辑 | [FrameTable.tsx:L291](file:///e:/dev/canscope/frontend/src/components/FrameTable.tsx) |
-| **P1** | B07 | **DBC 加载后无信号值列** — 仅显示 `message_name`，不展示 decoded signal values | [FrameTable.tsx:L282-L283](file:///e:/dev/canscope/frontend/src/components/FrameTable.tsx) |
-| **P1** | B08 | **无列自定义** — spec 要求右键表头显示/隐藏列 | [ui-refactoring-spec.md:L161-L163](file:///e:/dev/canscope/docs/design/ui-refactoring-spec.md) |
-| **P1** | B09 | **无变化字节高亮** — spec 要求相邻帧变化字节闪烁提示 | [ui-refactoring-spec.md:L161-L163](file:///e:/dev/canscope/docs/design/ui-refactoring-spec.md) |
-| **P2** | B10 | **无列宽拖拽** — 列宽固定，无法调整 | — |
-| **P2** | B11 | **无多选行** — 仅支持单选 | — |
-| **P2** | B12 | **无报文属性详情** — 选中行后无二次确认可查看帧详情/信号解析 | — |
+| **P0** | B01 | ~~查找按钮无功能~~ ✅ | Ctrl+F 快捷键 + 内联搜索栏（结果导航、大小写敏感、全字匹配） |
+| **P0** | B02 | ~~属性按钮无功能~~ ✅ | 侧边属性面板（属性树 + Hex 数据 + 可拖拽调整宽度/比例） |
+| **P0** | B03 | ~~清空按钮无功能~~ ✅ | 二次确认机制（点击变红脉动，再次点击确认清空，2s 超时自动取消） |
+| **P0** | B04 | ~~无右键上下文菜单~~ ✅ | 完整右键菜单（复制行/ID/Hex/Binary/信号值、添加到曲线、按ID过滤、查看属性） |
+| **P0** | B05 | ~~无独立搜索/筛选入口~~ ✅ | 搜索栏（Ctrl+F）+ 列级筛选行（时间/通道/ID/类型/DLC/数据/名称 七列可单独筛选） |
+| **P1** | B06 | ~~方向列始终 RX~~ ✅ | 使用 `frame.is_tx` 字段自动判断 RX/TX |
+| **P1** | B07 | ~~DBC 加载后无信号值列~~ ✅ | 可展开信号子行（点击 ▶ 展开，显示 `信号名=物理值 单位`），子行 mono 字体 |
+| **P1** | B08 | ~~无列自定义~~ ✅ | FrameTableSettings + 设置弹窗（勾选显示/隐藏列 + 恢复默认，持久化 localStorage） |
+| **P1** | B09 | ~~无变化字节高亮~~ ✅ | `byte-changed` CSS 动画（450ms `--warning` 闪烁，支持 `prefers-reduced-motion`） |
+| **P2** | B10 | ~~无列宽拖拽~~ ✅ | 表头列间 `col-resize` 拖拽手柄（固定最小宽度，hover/accent 高亮） |
+| **P2** | B11 | ~~无多选行~~ ✅ | Ctrl+Click 多选 / Shift+Click 范围选择 + 多选样式（8% accent tint） |
+| **P2** | B12 | ~~无报文属性详情~~ ✅ | 属性面板（基本信息 + DBC 信息 + 信号值树 + Hex 数据 + 上下分割比例可调） |
 
 ---
 
@@ -89,20 +92,20 @@
 
 ---
 
-## 5. 功能清单 & 优先级
+## 5. 功能清单 & 优先级（✅ 全部已实现）
 
-| 优先级 | ID | 功能 | 交互/触发方式 |
-|:---:|:--:|------|--------------|
-| **P0** | F01 | **查找/搜索** | 点击 🔍 按钮或 `Ctrl+F` → 在工具栏展开搜索输入框；支持按 CAN ID (hex/dec)、数据 hex 内容、信号名搜索 |
-| **P0** | F02 | **清空列表** | 点击 🗑 按钮 → 二次确认后清空当前报文列表（不影响后端数据） |
-| **P0** | F03 | **右键行上下文菜单** | 右键表格行 → 弹出菜单 |
-| **P1** | F04 | **列自定义(显示/隐藏)** | 点击 📋「列设置」按钮 或 右键表头 → 勾选/取消列 |
-| **P1** | F05 | **变化字节高亮** | 新帧到达时自动与同 CAN ID 上一帧对比，变化字节短暂闪烁（300ms, `--warning`） |
-| **P1** | F06 | **DBC 信号值子列** | 加载 DBC 后自动在数据列右侧展开信号值展示（如 `EngineSpeed=2400 rpm`） |
-| **P2** | F07 | **列宽拖拽** | 表头列间 `cursor-col-resize` + `mousedown/mousemove/mouseup` |
-| **P2** | F08 | **多选行** | `Ctrl+Click` 多选 / `Shift+Click` 范围选择 |
-| **P2** | F09 | **方向自动判断** | 依后端 `FrameInfo` 新增 `direction` 字段，RX/TX 自动切换 |
-| **P2** | F10 | **报文属性详情** | 选中行 → 底部或侧边展开详情（帧详情 + 信号解析，已有 `signal-decode` 面板可复用） |
+| 优先级 | ID | 功能 | 实现状态 |
+|:---:|:--:|------|:------:|
+| **P0** | F01 | **查找/搜索** | ✅ Ctrl+F 展开搜索栏，支持 CAN ID(hex/dec)、数据 hex、信号名搜索，结果导航+高亮 |
+| **P0** | F02 | **清空列表** | ✅ 二次确认后清空（红脉动确认，2s 超时自动取消） |
+| **P0** | F03 | **右键行上下文菜单** | ✅ 复用 `ContextMenu` 组件：复制行/ID/Hex/Binary/信号值、添加到曲线、按ID过滤、查看属性 |
+| **P1** | F04 | **列自定义(显示/隐藏)** | ✅ ⚙ 设置弹窗勾选列 + 恢复默认，持久化 `localStorage` |
+| **P1** | F05 | **变化字节高亮** | ✅ `byte-changed` CSS 动画 450ms `--warning` 闪烁，仅新帧、非暂停时触发 |
+| **P1** | F06 | **DBC 信号值子列** | ✅ 时间列点击 ▶ 展开信号子行：`信号名=物理值 单位`，子行 mono 字体 |
+| **P2** | F07 | **列宽拖拽** | ✅ `col-resize` 手柄，表头列间 mousedown/move/up，保留最小宽度 |
+| **P2** | F08 | **多选行** | ✅ Ctrl+Click 追加，Shift+Click 范围选择，多选样式 8% accent tint |
+| **P2** | F09 | **方向自动判断** | ✅ 基于 `frame.is_tx` 字段，RX(蓝) / TX(绿) Badge |
+| **P2** | F10 | **报文属性详情** | ✅ 侧边属性面板：基本信息 + DBC 信息 + 信号值树 + Hex 数据，上下拖拽比例可调 |
 
 ---
 
@@ -257,52 +260,64 @@ A1 B2 C3 D4 E5 F6 00 01              EngineSpeed=2400 rpm, CoolantTemp=92 °C
 
 ---
 
-## 7. 实施计划
+## 7. 实施计划（✅ 全部完成）
 
-| 阶段 | 内容 | 涉及文件 |
-|:--:|------|------|
-| **Phase A** | F01 查找搜索 + F02 清空 + F03 右键菜单 | `FrameTable.tsx`, `App.css`, 复用 `ContextMenu.tsx` |
-| **Phase B** | F04 列自定义 + F05 变化字节高亮 | `FrameTable.tsx`, `App.css` |
-| **Phase C** | F06 信号值子列 + F10 报文属性详情 | `FrameTable.tsx`, `App.css`, `types.ts`（可能需要扩展 `FrameInfo`） |
-| **Phase D** | F07 列宽拖拽 + F08 多选 + F09 方向自动 | `FrameTable.tsx`, `App.css`, `types.ts` |
+| 阶段 | 内容 | 状态 |
+|:--:|------|:--:|
+| **Phase A** | F01 查找搜索 + F02 清空 + F03 右键菜单 | ✅ 完成 |
+| **Phase B** | F04 列自定义 + F05 变化字节高亮 | ✅ 完成 |
+| **Phase C** | F06 信号值子列 + F10 报文属性详情 | ✅ 完成 |
+| **Phase D** | F07 列宽拖拽 + F08 多选 + F09 方向自动 | ✅ 完成 |
+
+**实际实现中额外增加的功能：**
+| 功能 | 说明 |
+|------|------|
+| ⭐ 行标记（Star） | 点击星标标记重要帧，标记态 `--accent` 高亮 |
+| 🔽 自动滚动 | 新帧到达时自动滚到底部，工具栏按钮切换开关 |
+| ⚙ 设置面板 | 统一设置入口（时间格式 / 列可见性 / 变化高亮 / 自动滚动），持久化 `localStorage` |
+| 📋 列筛选行 | 表头展开按钮 → 每列下方独立筛选输入框 / 下拉选择器 |
+| 🏷 类型筛选下拉 | 类型列表头点击弹出 CAN / CAN FD / BRS 单选下拉菜单 |
+| 📐 属性面板分屏 | 属性面板上下分割（属性树 / Hex 数据），中间可拖拽调整比例 |
+| ⌨ Ctrl+F 全局快捷键 | 面板聚焦时 `Ctrl+F` 即可打开搜索栏 |
 
 ---
 
 ## 8. 设计原则检查清单
 
 ### 颜色 & 对比度
-- [ ] 所有色值使用 `var(--*)` token，**禁止裸 hex**
-- [ ] 搜索高亮背景：`color-mix(in srgb, var(--warning) 25%, transparent)`
-- [ ] 变化字节闪烁使用 `--warning` token
-- [ ] 上下文菜单背景：`--bg-tertiary`，边框：`--border`
+- [x] 所有色值使用 `var(--*)` token，**禁止裸 hex**
+- [x] 搜索高亮背景：`color-mix(in srgb, var(--warning) 10%, transparent)`（普通匹配）/ `20%`（当前选中）
+- [x] 变化字节闪烁使用 `--warning` token
+- [x] 上下文菜单背景：`--bg-tertiary`，边框：`--border`
 
 ### 字体
-- [ ] 数据列：`--font-mono` (JetBrains Mono)
-- [ ] 标签/信号名：`--font-sans` (IBM Plex Sans)
-- [ ] 字号层级遵守 [design.md](file:///e:/dev/canscope/docs/design/design.md) 规定
+- [x] 数据列：`--font-mono` (JetBrains Mono)
+- [x] 标签/信号名：`--font-sans` (IBM Plex Sans)
+- [x] 字号层级遵守 [design.md](file:///e:/dev/canscope/docs/design/design.md) 规定
 
 ### 交互
-- [ ] 所有过渡 `transition: 150ms`
-- [ ] 按钮 hover 无 layout shift（不使用 scale/translate）
-- [ ] `cursor-pointer` 在所有可点击元素上
-- [ ] 焦点环 `box-shadow: 0 0 0 2px var(--accent)`
+- [x] 所有过渡 `transition: 150ms`
+- [x] 按钮 hover 无 layout shift（不使用 scale/translate）
+- [x] `cursor-pointer` 在所有可点击元素上
+- [x] 焦点环 `box-shadow: 0 0 0 2px var(--accent)`
 
 ### 动画
-- [ ] 字节闪烁是**唯一新增动画**
-- [ ] `prefers-reduced-motion: reduce` → 关闭字节闪烁
-- [ ] Portal 下拉菜单已有 `time-menu-in` 动画
+- [x] 字节闪烁是**唯一新增动画**（450ms，设计为 300ms 的实际调整）
+- [x] `prefers-reduced-motion: reduce` → 关闭字节闪烁
+- [x] Portal 下拉菜单已有 `time-menu-in` / `type-filter-menu-in` 动画（120ms ease-out）
 
 ### 图标
-- [ ] **仅使用 `lucide-solid`**，禁止手写 SVG / emoji
-- [ ] 按钮内图标 `size={14}`，独立图标 `size={16}`
+- [x] **仅使用 `lucide-solid`**，禁止手写 SVG / emoji
+- [x] 按钮内图标 `size={14}`，独立图标 `size={13-14}`
 
 ### 无障碍
-- [ ] 所有图标按钮有 `aria-label`
-- [ ] 上下文菜单支持键盘导航（`ArrowUp/Down`, `Enter`, `Escape`）
-- [ ] 搜索栏 `Esc` 关闭
-- [ ] 表头可聚焦（`tabindex`）
+- [x] 所有图标按钮有 `aria-label`
+- [x] 上下文菜单支持键盘导航（`ArrowUp/Down`, `Enter`, `Escape`）
+- [x] 搜索栏 `Esc` 关闭 + `Enter/Shift+Enter` 导航
+- [x] 表头可聚焦（`tabindex`）
 
 ---
 
-> 预估总工时参考：Phase A 约 1 天，Phase B 约 1.5 天，Phase C 约 1 天，Phase D 约 1 天。
-> 总计约 4.5 人天（含测试和打磨）。
+> **审计完成日期**：2026-10-15
+> **全部实施完成日期**：2026-10-16
+> **实际实现**：Phase A-D 全部完成，另额外增加行标记、自动滚动、列筛选行、类型下拉筛选、属性分屏、Ctrl+F 快捷键等增强功能。
