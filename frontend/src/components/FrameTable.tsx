@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
-import type { FrameInfo } from '../types';
+import type { FrameInfo, DecodedSignalInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash } from 'lucide-solid';
@@ -52,6 +52,22 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isPaused, setIsPaused] = createSignal(false);
   const [clearConfirm, setClearConfirm] = createSignal(false);
   let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  type FlatRow =
+    | { kind: 'frame'; displayIdx: number; frame: FrameInfo }
+    | { kind: 'signal'; parentDisplayIdx: number; signal: DecodedSignalInfo };
+
+  const [expandedFrames, setExpandedFrames] = createSignal<Set<number>>(new Set());
+
+  const toggleFrameExpand = (displayIdx: number) => {
+    const next = new Set(expandedFrames());
+    if (next.has(displayIdx)) {
+      next.delete(displayIdx);
+    } else {
+      next.add(displayIdx);
+    }
+    setExpandedFrames(next);
+  };
 
   // ---- 设置 ----
   const [settings, setSettings] = createSignal<FrameTableSettings>(loadSettings(props.projectName));
@@ -380,6 +396,38 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     return frames;
   };
 
+  const flattenedRows = () => {
+    const frames = displayedFrames();
+    const expanded = expandedFrames();
+    const rows: FlatRow[] = [];
+    for (let i = 0; i < frames.length; i++) {
+      rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
+      if (expanded.has(i)) {
+        const sigs = frames[i].signals;
+        if (sigs && sigs.length > 0) {
+          for (const sig of sigs) {
+            rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
+          }
+        }
+      }
+    }
+    return rows;
+  };
+
+  const flatIndexOfDisplayIdx = (displayIdx: number): number => {
+    const expanded = expandedFrames();
+    const frames = displayedFrames();
+    let flatIdx = 0;
+    for (let i = 0; i < displayIdx; i++) {
+      flatIdx++;
+      if (expanded.has(i)) {
+        const sigs = frames[i]?.signals;
+        if (sigs && sigs.length > 0) flatIdx += sigs.length;
+      }
+    }
+    return flatIdx;
+  };
+
   // ---- 搜索 ----
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
   const [searchQuery, setSearchQuery] = createSignal('');
@@ -562,7 +610,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const handleScrollToMatch = (frameIndex: number) => {
-    const targetY = frameIndex * ROW_HEIGHT;
+    const targetFlatIdx = flatIndexOfDisplayIdx(frameIndex);
+    const targetY = targetFlatIdx * ROW_HEIGHT;
     const viewH = containerRef?.clientHeight ?? 600;
     containerRef && (containerRef.scrollTop = Math.max(0, targetY - viewH / 2 + ROW_HEIGHT / 2));
   };
@@ -715,13 +764,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.removeEventListener('click', closeTypeFilterMenu);
   });
 
-  const totalHeight = () => displayedFrames().length * ROW_HEIGHT;
+  const totalHeight = () => flattenedRows().length * ROW_HEIGHT;
   const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
   const endIndex = () => Math.min(
-    displayedFrames().length,
+    flattenedRows().length,
     Math.ceil((scrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
   );
-  const visibleFrames = () => displayedFrames().slice(startIndex(), endIndex());
+  const visibleRows = () => flattenedRows().slice(startIndex(), endIndex());
 
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);
@@ -1147,8 +1196,31 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </thead>
           <tbody>
             <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
-            {visibleFrames().map((frame, i) => {
-              const idx = startIndex() + i;
+            {visibleRows().map((row, i) => {
+              const flatIdx = startIndex() + i;
+              if (row.kind === 'signal') {
+                return (
+                  <tr
+                    class="frame-table__row frame-table__sub-row"
+                    style={{ height: `${ROW_HEIGHT}px` }}
+                    onClick={() => handleRowClick(row.parentDisplayIdx)}
+                  >
+                    <td
+                      colspan={1 + visibleColumns().length}
+                      class="frame-table__td frame-table__td--signal"
+                    >
+                      <span class="frame-table__signal-name">{row.signal.name}</span>
+                      <span class="frame-table__signal-eq"> = </span>
+                      <span class="frame-table__signal-value">
+                        {row.signal.physical_value.toFixed(2)}{row.signal.unit ? ` ${row.signal.unit}` : ''}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              }
+
+              const frame = row.frame;
+              const idx = row.displayIdx;
               const isSelected = selectedRow() === idx;
               const isBrs = (frame as any).is_brs as boolean | undefined;
               const typeLabel = frame.is_fd
@@ -1157,6 +1229,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               const typeClass = frame.is_fd
                 ? (isBrs ? 'canfd-brs' : 'canfd')
                 : 'can';
+              const hasSignals = !!(frame.signals && frame.signals.length > 0);
               return (
                 <tr
                   class="frame-table__row"
@@ -1171,7 +1244,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   onContextMenu={(e) => handleRowContextMenu(e, idx)}
                 >
                   <td class="frame-table__td frame-table__td--icon" />
-                  <td class="frame-table__td frame-table__td--time">{formatTimestamp(frame, idx)}</td>
+                  <td class="frame-table__td frame-table__td--time">
+                    <span
+                      class={hasSignals ? 'frame-table__expand-toggle' : 'frame-table__expand-spacer'}
+                      onClick={hasSignals ? (e: MouseEvent) => { e.stopPropagation(); toggleFrameExpand(idx); } : undefined}
+                    >
+                      {hasSignals && (expandedFrames().has(idx) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
+                    </span>
+                    {formatTimestamp(frame, idx)}
+                  </td>
                   <td class="frame-table__td frame-table__td--channel">CH{frame.bus_id + 1}</td>
                   <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}

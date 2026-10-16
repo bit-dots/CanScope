@@ -813,6 +813,52 @@ select:focus-visible,
   }
 }
 
+/* ---- DBC 信号值子行 ---- */
+.frame-table__sub-row {
+  cursor: pointer;
+}
+.frame-table__sub-row .frame-table__td--signal {
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 40%, transparent);
+}
+.frame-table__signal-name {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+.frame-table__signal-eq {
+  color: var(--text-tertiary);
+  margin: 0 2px;
+}
+.frame-table__signal-value {
+  color: var(--accent);
+}
+
+/* 时间列展开开关 */
+.frame-table__expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+  transition: color 0.15s;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.frame-table__expand-toggle:hover {
+  color: var(--accent);
+}
+.frame-table__expand-spacer {
+  display: inline-block;
+  width: 14px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
 /* 帧类型 Badge */
 .frame-table__type-badge {
   display: inline-block;
