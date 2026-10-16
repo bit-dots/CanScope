@@ -170,6 +170,21 @@ const Ribbon: Component<RibbonProps> = (props) => {
     setBackstageVisible(false);
   };
 
+  const updateScrollMasks = (el: HTMLElement) => {
+    const atStart = el.scrollLeft <= 2;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    el.classList.toggle('ribbon__groups--mask-left', !atStart);
+    el.classList.toggle('ribbon__groups--mask-right', !atEnd);
+  };
+
+  const handleGroupsScroll = (e: Event) => {
+    updateScrollMasks(e.currentTarget as HTMLElement);
+  };
+
+  const groupsRef = (el: HTMLElement) => {
+    if (el) updateScrollMasks(el);
+  };
+
   return (
     <div class="ribbon">
       {/* ---- Tab Row ---- */}
@@ -195,7 +210,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
       <div class="ribbon__content">
         {/* 项目 */}
         {activeTab() === 'project' && (
-          <div class="ribbon__groups">
+          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="项目资源">
               <RibbonButton icon={<FolderOpen size={16} />} label="资源管理器" onClick={props.onOpenResourceManager} />
               <RibbonButton icon={<Database size={16} />} label="数据库" onClick={props.onOpenDatabaseManager} />
@@ -205,7 +220,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
 
         {/* 分析 */}
         {activeTab() === 'analysis' && (
-          <div class="ribbon__groups">
+          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="连接/测量">
               <RibbonButton icon={<IconOnline />} label="在线" active={props.online} onClick={props.onToggleOnline} />
               <RibbonButton icon={<IconPlay />} label="启动" onClick={props.onStart} disabled={props.playbackState === 'playing'} />
@@ -230,7 +245,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
 
         {/* 诊断 */}
         {activeTab() === 'diagnosis' && (
-          <div class="ribbon__groups">
+          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="诊断">
               <RibbonButton icon={<IconUds />} label="UDS 诊断" onClick={props.onOpenUds} />
               <RibbonButton icon={<IconObd />} label="OBD 诊断" onClick={props.onOpenObd} />
@@ -250,7 +265,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
 
         {/* 视图页签 */}
         {activeTab() === 'view' && (
-          <div class="ribbon__groups">
+          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="布局预设">
               <RibbonButton icon={<IconMonitor />} label="默认布局" onClick={() => {}} />
               <RibbonButton icon={<IconChart />} label="分析布局" onClick={() => {}} />

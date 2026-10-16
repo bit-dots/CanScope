@@ -99,6 +99,66 @@
   padding: 6px 8px 4px;
   gap: 0;
   min-height: 86px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Chrome / Safari 瘦滚动条 */
+.ribbon__groups::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ribbon__groups::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ribbon__groups::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.ribbon__groups::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ---- 左侧渐变遮罩 ---- */
+.ribbon__groups::before {
+  content: '';
+  position: sticky;
+  left: 0;
+  width: 48px;
+  flex-shrink: 0;
+  margin-right: -48px;
+  background: linear-gradient(to right, var(--bg-tertiary) 20%, transparent);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ---- 右侧渐变遮罩 ---- */
+.ribbon__groups::after {
+  content: '';
+  position: sticky;
+  right: 0;
+  width: 48px;
+  flex-shrink: 0;
+  margin-left: -48px;
+  background: linear-gradient(to left, var(--bg-tertiary) 20%, transparent);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 遮罩可见态 */
+.ribbon__groups--mask-left::before,
+.ribbon__groups--mask-right::after {
+  opacity: 1;
 }
 
 /* ============================================
@@ -111,6 +171,7 @@
   padding: 0 10px;
   border-right: 1px solid var(--border);
   position: relative;
+  flex-shrink: 0;
 }
 
 .ribbon-group:last-child {
@@ -121,7 +182,7 @@
   display: flex;
   align-items: flex-start;
   gap: 2px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
@@ -146,6 +207,7 @@
   height: 52px;
   padding: 4px 6px 2px;
   gap: 2px;
+  flex-shrink: 0;
   font-family: var(--font-sans);
   color: var(--text-primary);
   background: transparent;
