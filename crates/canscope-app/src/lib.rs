@@ -202,6 +202,7 @@ struct PlaylistFileInfo {
     total_frames: Option<u64>,
     start_time: Option<String>,
     bus_count: u8,
+    bus_type: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -228,6 +229,7 @@ fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
             total_frames: e.engine.total_frames(),
             start_time: e.engine.metadata().start_time.clone(),
             bus_count: e.engine.metadata().bus_count,
+            bus_type: format!("{:?}", e.engine.metadata().bus_type),
         })
         .collect();
 

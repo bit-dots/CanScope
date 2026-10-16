@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use canscope_core::{
-    CanFrame, CanFrameStream, FileFormat, SeekError, SourceType, StreamMetadata,
+    BusType, CanFrame, CanFrameStream, FileFormat, SeekError, SourceType, StreamMetadata,
 };
 
 use crate::error::ParseError;
@@ -31,6 +31,7 @@ impl AscReader {
                 path: path.to_path_buf(),
                 format: FileFormat::Asc,
             },
+            bus_type: BusType::Can,
             bus_count: 0,
             start_time: None,
             total_frames: None,

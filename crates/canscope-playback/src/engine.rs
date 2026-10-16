@@ -275,6 +275,7 @@ mod tests {
                         path: PathBuf::from("mock.asc"),
                         format: canscope_core::FileFormat::Asc,
                     },
+                    bus_type: canscope_core::BusType::Can,
                     bus_count: 1,
                     start_time: None,
                     total_frames: Some(total),

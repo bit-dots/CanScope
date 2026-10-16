@@ -59,6 +59,23 @@ pub enum SourceType {
     },
 }
 
+/// 总线/通道类型。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BusType {
+    Can,
+    Lin,
+    FlexRay,
+    Most,
+    Ethernet,
+    Unknown,
+}
+
+impl Default for BusType {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
 /// 支持的 CAN 日志文件格式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileFormat {
@@ -79,6 +96,9 @@ pub enum FileFormat {
 pub struct StreamMetadata {
     /// 数据源类型
     pub source_type: SourceType,
+
+    /// 总线/通道类型（CAN / LIN / FlexRay ...）
+    pub bus_type: BusType,
 
     /// 总线通道数
     pub bus_count: u8,

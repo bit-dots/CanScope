@@ -17,6 +17,7 @@ interface FrameTableProps {
   onSelectMessage?: (canId: number) => void;
   onFilterByCanId?: (canId: number) => void;
   projectName: string;
+  busType?: string;
 }
 
 const ROW_HEIGHT = 28;
@@ -57,6 +58,19 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   type FlatRow =
     | { kind: 'frame'; displayIdx: number; frame: FrameInfo }
     | { kind: 'signal'; parentDisplayIdx: number; signal: DecodedSignalInfo };
+
+  const channelLabel = (busId: number): string => {
+    const bt = (props.busType ?? 'Can').toLowerCase();
+    const n = busId + 1;
+    switch (bt) {
+      case 'can':     return `CAN ${n}`;
+      case 'lin':     return `LIN ${n}`;
+      case 'flexray': return `FR ${n}`;
+      case 'most':    return `MOST ${n}`;
+      case 'ethernet': return `ETH ${n}`;
+      default:        return `CH${n}`;
+    }
+  };
 
   const [expandedFrames, setExpandedFrames] = createSignal<Set<number>>(new Set<number>());
   const [markedFrames, setMarkedFrames] = createSignal<Set<number>>(new Set<number>());
@@ -248,7 +262,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       label: '基本信息',
       children: [
         { id: 'ts',    label: '时间戳', value: formatTimestamp(frame, idx) },
-        { id: 'bus',   label: '通道',   value: `CH${frame.bus_id + 1}` },
+        { id: 'bus',   label: '通道',   value: channelLabel(frame.bus_id) },
         { id: 'canid', label: 'CAN ID', value: formatHex(frame.can_id, frame.is_extended ? 8 : 3) },
         { id: 'fmt',   label: '帧格式', value: frame.is_extended ? '扩展帧' : '标准帧' },
         { id: 'type',  label: '帧类型', value: typeLabel, badgeClass: `frame-table__type-badge--${typeBadge}` },
@@ -386,7 +400,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
     frames = frames.filter((frame) => {
         if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
-        if (fc && !(`CH${frame.bus_id + 1}`).toLowerCase().includes(fc)) return false;
+        if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
         if (fi) {
           const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
           const decId = frame.can_id.toString();
@@ -494,7 +508,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const typeLabel = frame.is_fd
       ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
       : 'CAN';
-    return `CH${frame.bus_id + 1}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\t${getDirection(frame)}\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
+    return `${channelLabel(frame.bus_id)}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\t${getDirection(frame)}\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
   };
 
   const formatDataBinary = (frame: FrameInfo): string => {
@@ -1298,7 +1312,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     </span>
                     {formatTimestamp(frame, idx)}
                   </td>
-                  <td class="frame-table__td frame-table__td--channel">CH{frame.bus_id + 1}</td>
+                  <td class="frame-table__td frame-table__td--channel">{channelLabel(frame.bus_id)}</td>
                   <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                   </td>

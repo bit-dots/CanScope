@@ -15,6 +15,7 @@ export interface PlaylistFileInfo {
   totalFrames: number | null;
   startTime: string | null;
   busCount: number;
+  busType: string;
 }
 
 export interface PlaylistInfo {
