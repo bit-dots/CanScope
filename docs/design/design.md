@@ -63,13 +63,22 @@
 
 | 角色 | 字体 | 引入 |
 |------|------|------|
-| 正文 / UI | **IBM Plex Sans** (wght 400, 500, 600, 700) | [Google Fonts](https://fonts.google.com/specimen/IBM+Plex+Sans) |
-| 等宽 / 数据 | **JetBrains Mono** (wght 400, 500, 600, 700) | [Google Fonts](https://fonts.google.com/specimen/JetBrains+Mono) |
+| 正文 / UI | **Fira Sans** (wght 300, 400, 500, 600, 700) | [Google Fonts](https://fonts.google.com/specimen/Fira+Sans) |
+| 等宽 / 数据 | **Fira Code** (wght 400, 500, 600, 700) | [Google Fonts](https://fonts.google.com/specimen/Fira+Code) |
 
 ```css
-font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
-font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+/* 正文 / 标签 */
+font-family: 'Fira Sans', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+/* 等宽 / 数据（时间戳、帧计数、十六进制值等） */
+font-family: 'Fira Code', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
 ```
+
+> **中文字体规则**：中文内容不使用等宽字体。正文中的中文使用 `Fira Sans` → 系统回退字体链中的中文字体（PingFang SC、Microsoft YaHei），数据字段中的中文同样使用 sans-serif 回退链。等宽字体（Fira Code）仅用于数值、时间戳、CAN ID、数据帧字节等纯数字/字母内容。
+
+> **字体导入**：
+> ```css
+> @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+> ```
 
 ### 字号层级
 
