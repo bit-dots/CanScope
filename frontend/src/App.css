@@ -504,28 +504,6 @@ select:focus-visible,
   color: var(--text-primary);
 }
 
-/* 图标列 — 固定宽度，不可调 */
-.frame-table__th--icon,
-.frame-table__td--icon {
-  width: 22px;
-  min-width: 22px;
-  max-width: 22px;
-  padding: 0;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.frame-table__th--icon {
-  border-bottom: 2px solid var(--border);
-  border-right: 1px solid var(--border);
-  background: var(--bg-secondary);
-  text-align: center;
-}
-
-.frame-table__th--icon .frame-table__filter-toggle {
-  margin-right: 0;
-}
-
 .frame-table__filter-row .frame-table__th--filter {
   height: 24px;
   padding: 0;
@@ -722,6 +700,28 @@ select:focus-visible,
 
 .frame-table__td:last-child {
   border-right: none;
+}
+
+/* 图标列 — 固定宽度，不可调 */
+.frame-table__th--icon,
+.frame-table__td--icon {
+  width: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.frame-table__th--icon {
+  border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.frame-table__th--icon .frame-table__filter-toggle {
+  margin-right: 0;
 }
 
 /* 列宽由 colgroup 动态控制，CSS 仅保留字体/颜色/大小 */
