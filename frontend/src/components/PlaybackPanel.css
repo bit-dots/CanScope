@@ -413,6 +413,60 @@
   pointer-events: none;
 }
 
+/* 播放游标 — 竖线指示当前播放位置 */
+.playback-panel__file-timeline-playhead {
+  position: absolute;
+  top: -2px;
+  height: calc(100% + 4px);
+  width: 2px;
+  background: var(--success);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 3;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent);
+  transition: left 0.15s linear;
+}
+
+/* 已完成文件 — 淡色通栏 */
+.playback-panel__file-timeline--completed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* 时间范围标签 — 在时间轴下方 */
+.playback-panel__file-timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 3px;
+  padding: 0 1px;
+}
+
+.playback-panel__file-timeline-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted, #64748B);
+  line-height: 1;
+}
+
+.playback-panel__file-timeline-label--start {
+  text-align: left;
+}
+
+.playback-panel__file-timeline-label--end {
+  text-align: right;
+}
+
+/* 用户自定义了范围 — 标签高亮 */
+.playback-panel__file-timeline-label--custom {
+  color: var(--accent);
+}
+
 .playback-panel__file-timeline-handle {
   position: absolute;
   top: 0;

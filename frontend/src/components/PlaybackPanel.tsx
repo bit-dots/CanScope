@@ -81,6 +81,27 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     return -1;
   };
 
+  // 获取每个文件的播放游标位置 (% of full file duration) 和 全局时间偏移
+  const getFilePlayheadInfo = (fileIndex: number) => {
+    const fls = files();
+    const t = currentTime();
+    let globalAcc = 0;
+    for (let i = 0; i < fls.length; i++) {
+      const f = fls[i];
+      if (!f.enabled) continue;
+      const effDur = (f.playEndOffset ?? f.duration ?? 0) - f.playStartOffset;
+      if (i === fileIndex) {
+        if (!f.duration || f.duration <= 0) return { percent: -1, state: 'none' as const };
+        const localTime = t - globalAcc + f.playStartOffset;
+        if (t < globalAcc) return { percent: -1, state: 'pending' as const };
+        if (t >= globalAcc + effDur) return { percent: 100, state: 'completed' as const };
+        return { percent: (localTime / f.duration) * 100, state: 'playing' as const };
+      }
+      globalAcc += effDur;
+    }
+    return { percent: -1, state: 'none' as const };
+  };
+
   const handleSpeedMenuToggle = (e: MouseEvent) => {
     e.stopPropagation();
     const willOpen = !isSpeedMenuOpen();
@@ -665,7 +686,11 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                     <td class="playback-panel__td playback-panel__td--timeline">
                       <div
                         class="playback-panel__file-timeline"
-                        classList={{ 'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index() }}
+                        classList={{
+                          'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index(),
+                          'playback-panel__file-timeline--completed':
+                            props.playbackState === 'playing' && getFilePlayheadInfo(index()).state === 'completed',
+                        }}
                         data-index={index()}
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
@@ -673,6 +698,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                         onMouseLeave={handleTimelineMouseLeave}
                       >
                         <Show when={file.duration != null && file.duration > 0}>
+                          {/* 有效播放范围 */}
                           <div
                             class="playback-panel__file-timeline-range"
                             style={{
@@ -680,6 +706,19 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                               width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
                             }}
                           />
+                          {/* 播放游标 */}
+                          <Show when={getFilePlayheadInfo(index()).state !== 'none' && getFilePlayheadInfo(index()).state !== 'pending'}>
+                            {(() => {
+                              const info = getFilePlayheadInfo(index());
+                              return (
+                                <div
+                                  class="playback-panel__file-timeline-playhead"
+                                  style={{ left: `${info.percent}%` }}
+                                />
+                              );
+                            })()}
+                          </Show>
+                          {/* 拖拽手柄 */}
                           <div
                             class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
                             style={{ left: `${(file.playStartOffset / file.duration!) * 100}%` }}
@@ -692,6 +731,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
                             title="拖拽设置播放结束点"
                           />
+                          {/* Hover 时间提示 */}
                           <Show when={hoverTip()?.fileIndex === index()}>
                             <div
                               class="playback-panel__file-timeline-tip"
@@ -701,6 +741,26 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             </div>
                           </Show>
                         </Show>
+                      </div>
+                      {/* 时间范围标签 */}
+                      <div class="playback-panel__file-timeline-labels">
+                        <span
+                          class="playback-panel__file-timeline-label"
+                          classList={{
+                            'playback-panel__file-timeline-label--custom': file.playStartOffset > 0,
+                          }}
+                        >
+                          {file.playStartOffset > 0 ? formatDuration(file.playStartOffset) : '0:00'}
+                        </span>
+                        <span
+                          class="playback-panel__file-timeline-label"
+                          classList={{
+                            'playback-panel__file-timeline-label--custom':
+                              file.playEndOffset != null && file.playEndOffset !== file.duration,
+                          }}
+                        >
+                          {formatDuration(file.playEndOffset ?? file.duration)}
+                        </span>
                       </div>
                     </td>
                   </tr>
