@@ -1,5 +1,5 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
-import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, Database, File } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, File } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -78,6 +78,41 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const hasEntries = () => entries().length > 0;
 
+  const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
+  let lastClickedIndex: number | null = null;
+
+  const selectedCount = () => selectedIds().size;
+
+  const isSelected = (id: string) => selectedIds().has(id);
+
+  const clearSelection = () => {
+    setSelectedIds(new Set<string>());
+    lastClickedIndex = null;
+  };
+
+  const handleRowClick = (id: string, index: number, e: MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+      lastClickedIndex = index;
+    } else if (e.shiftKey && lastClickedIndex !== null) {
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      const idsInRange = entries().slice(start, end + 1).map((e) => e.id);
+      setSelectedIds(new Set(idsInRange));
+    } else {
+      setSelectedIds(new Set([id]));
+      lastClickedIndex = index;
+    }
+  };
+
   const closeHelp = () => setShowHelp(false);
   const toggleHelp = () => setShowHelp((v) => !v);
 
@@ -136,10 +171,6 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     } catch {
       // dialog cancelled
     }
-  };
-
-  const handleRemove = (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -231,30 +262,35 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   // Shared content body
   const Content = (
     <div class="dm-content">
-      <Show
-        when={hasEntries()}
-        fallback={
-          <div class="dm-section-empty">
-            <Database size={32} strokeWidth={1.2} />
-            <p>暂无文件，点击工具栏 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
-          </div>
-        }
-      >
-        <div class="dm-files-table">
-          <div class="dm-files-head">
-            <span class="dm-files-th dm-files-th--name">文件名</span>
-            <span class="dm-files-th dm-files-th--type">类型</span>
-            <span class="dm-files-th dm-files-th--channel">通道</span>
-            <span class="dm-files-th dm-files-th--path">路径</span>
-            <span class="dm-files-th dm-files-th--action"></span>
-          </div>
-          <div class="dm-files-body">
+      <div class="dm-files-table">
+        <div class="dm-files-head">
+          <span class="dm-files-th dm-files-th--name">文件名</span>
+          <span class="dm-files-th dm-files-th--type">类型</span>
+          <span class="dm-files-th dm-files-th--channel">关联通道</span>
+        </div>
+        <div class="dm-files-body" onClick={() => clearSelection()}>
+          <Show
+            when={hasEntries()}
+            fallback={
+              <div class="dm-files-empty">
+                <File size={24} strokeWidth={1.2} />
+                <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+              </div>
+            }
+          >
             <For each={entries()}>
               {(entry, idx) => (
-                <div class="dm-files-row">
+                <div
+                  class="dm-files-row"
+                  classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRowClick(entry.id, idx(), e);
+                  }}
+                >
                   <span class="dm-files-cell dm-files-cell--name">
                     <span class="dm-files-icon">
-                      <File size={16} />
+                      <File size={14} />
                     </span>
                     {entry.name}
                   </span>
@@ -270,6 +306,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                       min="0"
                       max="15"
                       value={entry.busId}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => {
                         const i = idx();
                         const v = parseInt(e.currentTarget.value, 10);
@@ -295,20 +332,12 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                       title="该 DBC 数据库绑定的 CAN 通道编号"
                     />
                   </span>
-                  <span class="dm-files-cell dm-files-cell--path" title={entry.path}>
-                    {entry.path}
-                  </span>
-                  <span class="dm-files-cell dm-files-cell--action">
-                    <button class="dm-files-remove" onClick={() => handleRemove(entry.id)} title="移除">
-                      <X size={14} />
-                    </button>
-                  </span>
                 </div>
               )}
             </For>
-          </div>
+          </Show>
         </div>
-      </Show>
+      </div>
     </div>
   );
 
@@ -321,6 +350,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       >
         <span class="dm-statusbar__text">
           <strong>{entries().length}</strong>{' 个文件'}
+          <Show when={selectedCount() > 0}>
+            <span class="dm-statusbar__sep">·</span>
+            {'已选中 '}<strong>{selectedCount()}</strong>{' 个'}
+          </Show>
         </span>
       </Show>
     </div>

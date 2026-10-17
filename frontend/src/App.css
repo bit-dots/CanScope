@@ -2077,15 +2077,29 @@ select:focus-visible,
   user-select: none;
 }
 
-.dm-files-th--name   { flex: 1; min-width: 0; }
-.dm-files-th--type   { flex-shrink: 0; width: 48px; }
-.dm-files-th--path   { flex: 2; min-width: 0; }
-.dm-files-th--action { flex-shrink: 0; width: 32px; }
+.dm-files-th--name    { flex: 1; min-width: 0; }
+.dm-files-th--type    { flex-shrink: 0; width: 48px; }
+.dm-files-th--channel { flex-shrink: 0; width: 64px; }
 
 .dm-files-body {
   flex: 1;
   overflow-y: auto;
   max-height: 280px;
+}
+
+.dm-files-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.dm-files-empty svg {
+  opacity: 0.25;
 }
 
 /* Row */
@@ -2103,6 +2117,14 @@ select:focus-visible,
 
 .dm-files-row:hover {
   background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.dm-files-row--selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.dm-files-row--selected:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 /* Cell */
