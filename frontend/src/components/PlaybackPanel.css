@@ -296,6 +296,8 @@
   align-items: center;
   gap: 6px;
   width: 40px;
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
 }
 
 .playback-panel__file-header-col--check input[type="checkbox"] {
@@ -308,12 +310,15 @@
 .playback-panel__file-header-col--name {
   flex: 1;
   min-width: 0;
+  padding-left: 8px;
 }
 
 .playback-panel__file-header-col--timeline {
   flex-shrink: 0;
   text-align: center;
   position: relative;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
 }
 
 .playback-panel__resize-handle {
