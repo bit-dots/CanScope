@@ -659,7 +659,6 @@ select:focus-visible,
 /* 数据行 */
 .frame-table__row {
   cursor: pointer;
-  transition: background 0.08s ease;
 }
 
 .frame-table__row--even {
@@ -668,6 +667,7 @@ select:focus-visible,
 
 .frame-table__row:hover {
   background: var(--bg-tertiary);
+  transition: background 0.08s ease;
 }
 
 .frame-table__row--selected {
