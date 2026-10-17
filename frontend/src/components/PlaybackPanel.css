@@ -1,6 +1,7 @@
 /* ============================================
    PlaybackPanel — 数据回放面板
    Layout: 工具栏 → 文件列表 → 底部栏(时间轴+摘要)
+   Design: industrial dark-tech, data-dense, restrained motion
    ============================================ */
 
 .playback-panel {
@@ -10,6 +11,18 @@
   background: var(--bg-secondary);
   user-select: none;
   overflow: hidden;
+  position: relative;
+}
+
+/* 微噪点纹理 — 打破纯平暗色表面的数字感 */
+.playback-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.018;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* ---- 工具栏 (与 frame-table__toolbar 一致) ---- */
@@ -34,17 +47,21 @@
   position: relative;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
 }
 
 .playback-panel__tool-btn:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border-color: var(--border);
+}
+
+.playback-panel__tool-btn:active:not(:disabled) {
+  transform: scale(0.93);
 }
 
 .playback-panel__tool-btn--active {
@@ -66,6 +83,10 @@
 .playback-panel__tool-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.playback-panel__tool-btn:disabled:active {
+  transform: none;
 }
 
 .playback-panel__badge {
@@ -102,7 +123,7 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--accent) 12%, var(--border));
   display: none;
   flex-direction: column;
   gap: 1px;
@@ -290,6 +311,16 @@
   background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary)) !important;
 }
 
+/* 当前正在播放的文件行 — 绿色闪烁脉冲 */
+.playback-panel__row--playing {
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-primary)) !important;
+  box-shadow: inset 2px 0 0 var(--success);
+}
+
+.playback-panel__row--playing .playback-panel__file-name {
+  color: var(--success);
+}
+
 /* 数据单元格 */
 .playback-panel__td {
   padding: 5px 10px;
@@ -311,6 +342,13 @@
   width: 40px;
   text-align: center;
   padding: 5px 0;
+}
+
+.playback-panel__td--check label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .playback-panel__td--check input[type="checkbox"] {
@@ -479,6 +517,25 @@
   opacity: 1;
 }
 
+/* 全局时间轴 hover 时间提示 */
+.playback-panel__timeline-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  pointer-events: none;
+  transform: translateX(-50%);
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 /* 底部信息行 */
 .playback-panel__footer-info {
   display: flex;
@@ -489,7 +546,7 @@
 .playback-panel__footer-time {
   font-size: 11px;
   color: var(--text-primary);
-  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .playback-panel__footer-summary {

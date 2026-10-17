@@ -62,6 +62,25 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   const [selectedFiles, setSelectedFiles] = createSignal<Set<number>>(new Set());
   const [selectedFileAnchor, setSelectedFileAnchor] = createSignal<number | null>(null);
 
+  // 全局时间轴 hover 提示
+  const [timelineHover, setTimelineHover] = createSignal<{ time: number; left: number } | null>(null);
+
+  // 当前播放到的文件索引 (基于 currentTime 估算)
+  const currentFileIndex = () => {
+    const t = currentTime();
+    const fls = files();
+    if (fls.length === 0) return -1;
+    let acc = 0;
+    for (let i = 0; i < fls.length; i++) {
+      const f = fls[i];
+      if (!f.enabled) continue;
+      const dur = (f.playEndOffset ?? f.duration ?? 0) - f.playStartOffset;
+      if (t >= acc && t < acc + dur) return i;
+      acc += dur;
+    }
+    return -1;
+  };
+
   const handleSpeedMenuToggle = (e: MouseEvent) => {
     e.stopPropagation();
     const willOpen = !isSpeedMenuOpen();
@@ -83,12 +102,29 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     setIsSpeedMenuOpen(false);
   };
 
+  let handleKeyDown: (e: KeyboardEvent) => void;
+
   onMount(() => {
     document.addEventListener('click', closeSpeedMenu);
+    handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (props.playbackState === 'playing') {
+          props.onPlaybackControl('pause');
+        } else {
+          props.onPlaybackControl('play');
+        }
+      } else if (e.key === 'Escape') {
+        props.onPlaybackControl('stop');
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
   });
 
   onCleanup(() => {
     document.removeEventListener('click', closeSpeedMenu);
+    document.removeEventListener('keydown', handleKeyDown!);
   });
 
   const progress = () => {
@@ -606,6 +642,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                     classList={{
                       'playback-panel__row--disabled': !file.enabled,
                       'playback-panel__row--selected': selectedFiles().has(index()),
+                      'playback-panel__row--playing': props.playbackState === 'playing' && currentFileIndex() === index(),
                     }}
                     onClick={(e) => handleFileClick(index(), e)}
                   >
@@ -680,6 +717,14 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           ref={timelineRef}
           class="playback-panel__timeline"
           onMouseDown={handleTimelineMouseDown}
+          onMouseMove={(e) => {
+            const dur = props.playlistInfo?.totalDuration;
+            if (!dur) { setTimelineHover(null); return; }
+            const rect = timelineRef.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            setTimelineHover({ time: ratio * dur, left: e.clientX - rect.left });
+          }}
+          onMouseLeave={() => setTimelineHover(null)}
         >
           <div
             class="playback-panel__timeline-track"
@@ -690,6 +735,14 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             classList={{ 'playback-panel__timeline-thumb--active': isDragging() }}
             style={{ left: `${progress() * 100}%` }}
           />
+          <Show when={timelineHover()}>
+            <div
+              class="playback-panel__timeline-tooltip"
+              style={{ left: `${timelineHover()!.left}px` }}
+            >
+              {formatTime(timelineHover()!.time)}
+            </div>
+          </Show>
         </div>
         <div class="playback-panel__footer-info">
           <span class="playback-panel__footer-time">{formatTime(currentTime())}</span>
