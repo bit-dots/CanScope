@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show, onCleanup, createEffect, type JSX } from 'solid-js';
+import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { PlusCircle, Link, CircleHelp, X, Database, File } from 'lucide-solid';
 
 export interface DatabaseEntry {
@@ -44,6 +44,25 @@ const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: bo
 
 const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   const isDialog = () => (props.mode ?? 'dialog') === 'dialog';
+
+  const [visible, setVisible] = createSignal(false);
+  const [closing, setClosing] = createSignal(false);
+
+  onMount(() => {
+    if (isDialog()) {
+      requestAnimationFrame(() => setVisible(true));
+    }
+  });
+
+  const closeWithAnimation = () => {
+    if (!isDialog()) {
+      props.onCancel();
+      return;
+    }
+    setClosing(true);
+    setVisible(false);
+    setTimeout(() => props.onCancel(), 200);
+  };
 
   const [entries, setEntries] = createSignal<DatabaseEntry[]>(
     props.initialBindings.map((b) => ({
@@ -133,14 +152,14 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       if (showHelp()) {
         closeHelp();
       } else {
-        props.onCancel();
+        closeWithAnimation();
       }
     }
   };
 
   const handleOverlayClick = (e: MouseEvent) => {
     if (isDialog() && dialogRef && !dialogRef.contains(e.target as Node)) {
-      props.onCancel();
+      closeWithAnimation();
     }
   };
 
@@ -314,13 +333,28 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   // Dialog mode: overlay + centered modal
   return (
-    <div class="dm-overlay" onKeyDown={handleKeyDown} onClick={handleOverlayClick}>
-      <div ref={dialogRef} class="dm-dialog">
+    <div
+      class="dm-overlay"
+      classList={{
+        'dm-overlay--visible': visible(),
+        'dm-overlay--closing': closing(),
+      }}
+      onKeyDown={handleKeyDown}
+      onClick={handleOverlayClick}
+    >
+      <div
+        ref={dialogRef}
+        class="dm-dialog"
+        classList={{
+          'dm-dialog--visible': visible(),
+          'dm-dialog--closing': closing(),
+        }}
+      >
         <div class="dm-titlebar">
           <span class="dm-titlebar-text">数据库管理</span>
           <div class="dm-titlebar-actions">
             {HelpButton}
-            <button class="dm-titlebar-close" onClick={props.onCancel} aria-label="关闭">
+            <button class="dm-titlebar-close" onClick={closeWithAnimation} aria-label="关闭">
               <X size={14} />
             </button>
           </div>

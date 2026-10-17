@@ -1712,6 +1712,17 @@ select:focus-visible,
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dm-overlay--visible {
+  opacity: 1;
+}
+
+.dm-overlay--closing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .dm-panel {
@@ -1734,6 +1745,22 @@ select:focus-visible,
   display: flex;
   flex-direction: column;
   max-height: 85vh;
+  opacity: 0;
+  transform: scale(0.95) translateY(12px);
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dm-dialog--visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.dm-dialog--closing {
+  opacity: 0;
+  transform: scale(0.95) translateY(12px);
+  pointer-events: none;
 }
 
 /* ── Title Bar ─────────────────────────── */
