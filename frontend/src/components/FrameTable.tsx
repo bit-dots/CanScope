@@ -31,12 +31,12 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'time',      label: '时间', defaultWidth: 110, minWidth: 60 },
-  { key: 'channel',   label: '通道', defaultWidth: 48,  minWidth: 40 },
-  { key: 'canid',     label: 'ID',   defaultWidth: 72,  minWidth: 50 },
+  { key: 'time',      label: '时间', defaultWidth: 120, minWidth: 60 },
+  { key: 'channel',   label: '通道', defaultWidth: 55,  minWidth: 40 },
+  { key: 'canid',     label: 'ID',   defaultWidth: 50,  minWidth: 50 },
   { key: 'name',      label: '名称', defaultWidth: 120, minWidth: 60 },
-  { key: 'type',      label: '类型', defaultWidth: 48,  minWidth: 40 },
-  { key: 'direction', label: '方向', defaultWidth: 42,  minWidth: 36 },
+  { key: 'type',      label: '类型', defaultWidth: 60,  minWidth: 40 },
+  { key: 'direction', label: '方向', defaultWidth: 44,  minWidth: 36 },
   { key: 'dlc',       label: '长度', defaultWidth: 40,  minWidth: 36 },
   { key: 'data',      label: '数据', defaultWidth: 0,   minWidth: 80 },
 ];
