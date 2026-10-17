@@ -185,9 +185,12 @@ function App() {
     }
   };
 
-  const handleRemoveRecent = async (_path: string) => {
-    // Recent projects are managed server-side via add_to_recent
-    // The list will refresh on next WelcomeScreen mount
+  const handleRemoveRecent = async (path: string) => {
+    try {
+      await invoke('remove_recent_project', { path });
+    } catch (e) {
+      console.error('Failed to remove recent project:', e);
+    }
   };
 
   const openProjectByPath = async (path: string) => {

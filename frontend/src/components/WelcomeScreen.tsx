@@ -31,7 +31,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
   const handleRemoveRecent = async (e: MouseEvent, path: string) => {
     e.stopPropagation();
     try {
-      props.onRemoveRecent(path);
+      await props.onRemoveRecent(path);
       const { invoke } = await import('@tauri-apps/api/core');
       const list: RecentProjectInfo[] = await invoke('get_recent_projects');
       setRecentProjects(list);
