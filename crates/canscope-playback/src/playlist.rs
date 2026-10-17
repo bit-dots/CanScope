@@ -307,7 +307,6 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         let limit = max_count.min(1024);
         let mut batch = Vec::with_capacity(limit);
         let mut remaining = limit;
-        let dbc = self.dbc.clone();
 
         while remaining > 0 {
             if self.current_entry_index >= self.entries.len() {
@@ -336,7 +335,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
             if entry.engine.state() != PlaybackState::Playing {
                 entry.engine.play();
-                if let Some(ref dbc) = dbc {
+                if let Some(ref dbc) = self.dbc {
                     entry.engine.set_dbc(dbc.clone());
                 }
             }
@@ -360,20 +359,6 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             let count = inner_batch.len();
             for mut frame in inner_batch {
                 frame.timestamp += offset;
-                if let Some(ref dbc) = dbc {
-                    let can_frame = canscope_core::CanFrame {
-                        timestamp: frame.timestamp,
-                        bus_id: frame.bus_id,
-                        can_id: frame.can_id,
-                        is_extended: frame.is_extended,
-                        is_remote: false,
-                        is_fd: frame.is_fd,
-                        is_tx: frame.is_tx,
-                        dlc: frame.dlc,
-                        data: *frame.data,
-                    };
-                    frame.signals = dbc.decode_frame(&can_frame).ok();
-                }
                 self.global_time = Some(frame.timestamp);
                 batch.push(frame);
             }
