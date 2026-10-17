@@ -151,6 +151,7 @@ export interface RibbonProps {
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
   onCloseProject: () => void;
+  onOpenRecent: (path: string) => void;
 }
 
 const Ribbon: Component<RibbonProps> = (props) => {
@@ -288,6 +289,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
         onSaveProject={props.onSaveProject}
         onSaveProjectAs={props.onSaveProjectAs}
         onCloseProject={props.onCloseProject}
+        onOpenRecent={props.onOpenRecent}
         projectLoaded={props.projectLoaded}
       />
     </div>

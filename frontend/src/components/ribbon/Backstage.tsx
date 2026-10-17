@@ -1,4 +1,5 @@
 import { Component, createSignal, For, JSX, onMount } from 'solid-js';
+import ContextMenu, { type ContextMenuItem } from '../ContextMenu';
 import './Ribbon.css';
 
 interface RecentProjectInfo {
@@ -57,6 +58,7 @@ export interface BackstageProps {
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
   onCloseProject: () => void;
+  onOpenRecent: (path: string) => void;
   projectLoaded: boolean;
   children?: JSX.Element;
 }
@@ -126,6 +128,40 @@ const Backstage: Component<BackstageProps> = (props) => {
       return iso;
     }
   };
+
+  const [contextTarget, setContextTarget] = createSignal<{ x: number; y: number; project: RecentProjectInfo } | null>(null);
+
+  const closeContextMenu = () => setContextTarget(null);
+
+  const handleClickRecent = (p: RecentProjectInfo) => {
+    props.onOpenRecent(p.path);
+    props.onClose();
+  };
+
+  const handleRemoveRecent = async (path: string) => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('remove_recent_project', { path });
+      setRecentProjects((prev) => prev.filter((r) => r.path !== path));
+    } catch { /* ignore */ }
+    closeContextMenu();
+  };
+
+  const handleClearRecent = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('clear_recent_projects');
+      setRecentProjects([]);
+    } catch { /* ignore */ }
+    closeContextMenu();
+  };
+
+  const buildContextItems = (): ContextMenuItem[] => [
+    { id: 'open', label: '打开工程', action: () => handleClickRecent(contextTarget()!.project) },
+    { id: 'remove', label: '从列表中移除', action: () => handleRemoveRecent(contextTarget()!.project.path) },
+    { id: 'sep', label: '', separator: true },
+    { id: 'clear', label: '清空列表', action: handleClearRecent },
+  ];
 
   return (
     <div class="backstage" classList={{ 'backstage--visible': props.visible }}>
@@ -198,7 +234,11 @@ const Backstage: Component<BackstageProps> = (props) => {
                 <div class="backstage__recent-list">
                   <For each={recentProjects()}>
                     {(p) => (
-                      <div class="backstage__recent-item">
+                      <div
+                        class="backstage__recent-item"
+                        onClick={() => handleClickRecent(p)}
+                        onContextMenu={(e) => { e.preventDefault(); setContextTarget({ x: e.clientX, y: e.clientY, project: p }); }}
+                      >
                         <span class="backstage__recent-name">{p.name}</span>
                         <span class="backstage__recent-time">{formatTime(p.openedAt)}</span>
                         <span class="backstage__recent-path" title={p.path}>{p.path}</span>
@@ -298,6 +338,9 @@ const Backstage: Component<BackstageProps> = (props) => {
           </div>
         </div>
       </div>
+      {contextTarget() !== null && (
+        <ContextMenu x={contextTarget()!.x} y={contextTarget()!.y} items={buildContextItems()} onClose={closeContextMenu} />
+      )}
     </div>
   );
 };

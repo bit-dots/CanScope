@@ -1049,6 +1049,20 @@ fn get_recent_projects(app: tauri::AppHandle) -> Result<Vec<RecentProjectInfo>, 
 }
 
 #[tauri::command]
+fn remove_recent_project(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let mut entries = load_recent_projects(&app);
+    entries.retain(|e| e.path != path);
+    save_recent_projects(&app, &entries);
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_recent_projects(app: tauri::AppHandle) -> Result<(), String> {
+    save_recent_projects(&app, &[]);
+    Ok(())
+}
+
+#[tauri::command]
 fn update_project_state(
     state: State<AppState>,
     filters: Option<FilterConfigJson>,
@@ -1169,6 +1183,8 @@ pub fn run() {
             save_project,
             save_project_as,
             get_recent_projects,
+            remove_recent_project,
+            clear_recent_projects,
             update_project_state,
             set_project_can_log,
             ensure_dir,

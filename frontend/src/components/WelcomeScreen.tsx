@@ -96,6 +96,12 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
         </button>
       </div>
 
+      <div class="welcome-footer">
+        <span>快捷键：</span>
+        <kbd>{modKey}+N</kbd> 新建工程 &nbsp;
+        <kbd>{modKey}+O</kbd> 打开工程
+      </div>
+
       {recentProjects().length > 0 && (
         <div class="welcome-recent">
           <div class="welcome-recent-header">最近工程</div>
@@ -131,12 +137,6 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
           </div>
         </div>
       )}
-
-      <div class="welcome-footer">
-        <span>快捷键：</span>
-        <kbd>{modKey}+N</kbd> 新建工程 &nbsp;
-        <kbd>{modKey}+O</kbd> 打开工程
-      </div>
     </div>
   );
 };

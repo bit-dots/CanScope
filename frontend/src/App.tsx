@@ -609,6 +609,7 @@ function App() {
           onSaveProject={handleSaveProject}
           onSaveProjectAs={handleSaveProjectAs}
           onCloseProject={handleCloseProject}
+          onOpenRecent={handleOpenRecent}
         />
       )}
       <main class="main-content">
