@@ -1,7 +1,7 @@
 import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
-import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X, ChevronDown, Check } from 'lucide-solid';
+import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X, ChevronDown, ChevronUp, Check } from 'lucide-solid';
 import type { PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -258,7 +258,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           onClick={handleSpeedMenuToggle}
         >
           <Gauge size={14} />
-          <ChevronDown size={10} class="playback-panel__speed-chevron" classList={{ 'playback-panel__speed-chevron--open': isSpeedMenuOpen() }} />
+          {isSpeedMenuOpen() ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
         </button>
 
         <button

@@ -4,7 +4,7 @@ import { Portal } from 'solid-js/web';
 import type { FrameInfo, DecodedSignalInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
-import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash, Star } from 'lucide-solid';
+import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, ChevronUp, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash, Star } from 'lucide-solid';
 import type { FrameTableSettings } from './FrameTableSettings';
 import { loadSettings, saveSettings } from './FrameTableSettings';
 import FrameTableSettingsDialog from './FrameTableSettingsDialog';
@@ -925,7 +925,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             aria-label="时间显示格式"
           >
             <ListClock size={14} />
-            {isTimeMenuOpen() ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            {isTimeMenuOpen() ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
 
           {/* 自动滚动 */}
