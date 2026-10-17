@@ -6,7 +6,7 @@ use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry};
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 const MAX_RECENT_PROJECTS: usize = 10;
 
@@ -280,7 +280,7 @@ fn load_dbc(
 }
 
 #[tauri::command]
-fn get_batch(state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
+fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
     let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
@@ -288,7 +288,13 @@ fn get_batch(state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
         if let Some(ref dbc) = *dbc_guard {
             playlist.set_dbc(dbc.clone());
         }
+        let was_playing = playlist.state() == PlaybackState::Playing;
         let batch = playlist.next_batch(100).map_err(|e| e.to_string())?;
+
+        if was_playing && playlist.state() == PlaybackState::Stopped {
+            let _ = app.emit("playback-state-changed", "stopped");
+        }
+
         Ok(batch.iter().map(frame_to_info).collect())
     } else {
         Ok(Vec::new())

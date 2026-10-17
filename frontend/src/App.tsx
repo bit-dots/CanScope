@@ -1,5 +1,6 @@
 import { createSignal, createMemo, createEffect, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import Ribbon from './components/ribbon/Ribbon';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
@@ -461,7 +462,16 @@ function App() {
 
   const hasSource = () => metadata() !== null;
 
-  onMount(() => {
+  onMount(async () => {
+    // 监听后端播放状态变更事件（如播放完毕自动停止）
+    const unlisten = await listen<string>('playback-state-changed', (event) => {
+      if (event.payload === 'stopped') {
+        stopPolling();
+        setPlaybackState('stopped');
+      }
+    });
+    onCleanup(unlisten);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'n') {
