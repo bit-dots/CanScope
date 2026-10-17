@@ -1905,6 +1905,12 @@ select:focus-visible,
   flex-shrink: 0;
 }
 
+.dm-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
 .dm-toolbar--right {
   display: flex;
   align-items: center;

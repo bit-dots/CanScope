@@ -1,5 +1,5 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
-import { PlusCircle, CircleHelp, X, Database, File } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, Database, File } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -180,9 +180,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
           <div class="dm-help-popover-body">
             <strong>在此统一管理工程加载的数据库文件。</strong>
             <ul>
-              <li>点击工具栏 <PlusCircle class="dm-inline-icon" size={12} /> 导入 DBC 或 LDF 文件</li>
-              <li>在列表中确认后，点击"确定"统一加载</li>
-              <li>LDF / ARXML 文件暂未支持，导入后不解析</li>
+              <li>点击 <FilePlus class="dm-inline-icon" size={12} /> 添加 DBC 或 LDF 文件</li>
+              <li>选中文件后可移除、刷新或查看属性</li>
+              <li>关闭窗口后自动加载至工程</li>
             </ul>
           </div>
         </div>
@@ -193,9 +193,29 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   // Shared icon toolbar
   const Toolbar = (
     <div class="dm-toolbar">
-      <ToolbarIcon title="导入数据库文件" onClick={handleImport}>
-        <PlusCircle size={16} />
-      </ToolbarIcon>
+      <div class="dm-toolbar__group">
+        <ToolbarIcon title="添加文件" onClick={handleImport}>
+          <FilePlus size={16} />
+        </ToolbarIcon>
+        <ToolbarIcon title="移除文件" onClick={() => {}} disabled={!hasEntries()}>
+          <FileX size={16} />
+        </ToolbarIcon>
+        <ToolbarIcon title="刷新" onClick={() => {}} disabled={!hasEntries()}>
+          <RefreshCw size={16} />
+        </ToolbarIcon>
+      </div>
+      <div class="dm-toolbar-sep" />
+      <div class="dm-toolbar__group">
+        <ToolbarIcon title="属性" onClick={() => {}} disabled={!hasEntries()}>
+          <Info size={16} />
+        </ToolbarIcon>
+      </div>
+      <div class="dm-toolbar-sep" />
+      <div class="dm-toolbar__group">
+        <ToolbarIcon title="清空全部" onClick={() => {}} disabled={!hasEntries()}>
+          <Eraser size={16} />
+        </ToolbarIcon>
+      </div>
       <Show when={hasEntries()}>
         <div class="dm-toolbar-sep" />
         <span class="dm-toolbar-count">{entries().length} 个文件</span>
@@ -216,7 +236,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         fallback={
           <div class="dm-section-empty">
             <Database size={32} strokeWidth={1.2} />
-            <p>暂无文件，点击工具栏 <PlusCircle class="dm-inline-icon" size={12} /> 导入</p>
+            <p>暂无文件，点击工具栏 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
           </div>
         }
       >
