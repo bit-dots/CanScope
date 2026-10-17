@@ -1327,7 +1327,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   <td class="frame-table__td frame-table__td--canid">
                     {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
                   </td>
-                  {props.hasDbc && (
+                  {visibleColumns().some((c) => c.key === 'name') && (
                     <td class="frame-table__td frame-table__td--name">{(frame as any).message_name ?? ''}</td>
                   )}
                   <td class="frame-table__td frame-table__td--type">

@@ -11,7 +11,7 @@ export interface FrameTableSettings {
 const STORAGE_PREFIX = 'canscope.frame-monitor.settings';
 
 const DEFAULT_SETTINGS: FrameTableSettings = {
-  visibleColumns: ['time', 'channel', 'canid', 'type', 'direction', 'dlc', 'data'],
+  visibleColumns: ['time', 'channel', 'canid', 'name', 'type', 'direction', 'dlc', 'data'],
   timeFormat: 'absolute',
   dataFormat: 'hex',
   canIdFormat: 'no-prefix',
