@@ -1,6 +1,7 @@
-import { Component, createSignal, createEffect, onCleanup, For, Show } from 'solid-js';
+import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
-import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X } from 'lucide-solid';
+import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X, ChevronDown, Check } from 'lucide-solid';
 import type { PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -49,6 +50,42 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   const [currentTime, setCurrentTime] = createSignal<number>(0);
   const [isDragging, setIsDragging] = createSignal(false);
   let timelineRef!: HTMLDivElement;
+
+  // 倍速下拉菜单
+  const SPEED_OPTIONS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8, 16, 32];
+  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = createSignal(false);
+  const [speedMenuPos, setSpeedMenuPos] = createSignal({ left: 0, top: 0 });
+  let speedBtnRef!: HTMLButtonElement;
+  let speedMenuRef!: HTMLDivElement;
+
+  const handleSpeedMenuToggle = (e: MouseEvent) => {
+    e.stopPropagation();
+    const willOpen = !isSpeedMenuOpen();
+    if (willOpen && speedBtnRef) {
+      const rect = speedBtnRef.getBoundingClientRect();
+      setSpeedMenuPos({ left: rect.left, top: rect.bottom + 4 });
+    }
+    setIsSpeedMenuOpen(willOpen);
+  };
+
+  const handleSpeedSelect = (speed: number) => {
+    props.onSetSpeed(speed);
+    setIsSpeedMenuOpen(false);
+  };
+
+  const closeSpeedMenu = (e: MouseEvent) => {
+    if (speedBtnRef && speedBtnRef.contains(e.target as Node)) return;
+    if (speedMenuRef && speedMenuRef.contains(e.target as Node)) return;
+    setIsSpeedMenuOpen(false);
+  };
+
+  onMount(() => {
+    document.addEventListener('click', closeSpeedMenu);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('click', closeSpeedMenu);
+  });
 
   const progress = () => {
     const dur = props.playlistInfo?.totalDuration;
@@ -213,12 +250,15 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
         </button>
 
         <button
+          ref={speedBtnRef}
           class="playback-panel__tool-btn"
+          classList={{ 'playback-panel__tool-btn--active': isSpeedMenuOpen() }}
           title={`播放速度: ${props.speed}x`}
           aria-label="播放速度"
-          onClick={() => props.onSetSpeed(props.speed >= 32 ? 0.1 : props.speed * 2)}
+          onClick={handleSpeedMenuToggle}
         >
           <Gauge size={14} />
+          <ChevronDown size={10} class="playback-panel__speed-chevron" classList={{ 'playback-panel__speed-chevron--open': isSpeedMenuOpen() }} />
         </button>
 
         <button
@@ -281,6 +321,35 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           <Settings size={14} />
         </button>
       </div>
+
+      {/* 倍速下拉菜单 */}
+      <Portal>
+        <div
+          ref={speedMenuRef}
+          class="playback-panel__speed-menu"
+          classList={{ 'playback-panel__speed-menu--open': isSpeedMenuOpen() }}
+          role="menu"
+          style={{
+            left: `${speedMenuPos().left}px`,
+            top: `${speedMenuPos().top}px`,
+            display: isSpeedMenuOpen() ? 'flex' : 'none',
+          }}
+        >
+          {SPEED_OPTIONS.map((speed) => (
+            <button
+              class="playback-panel__speed-menu-item"
+              classList={{ 'playback-panel__speed-menu-item--selected': props.speed === speed }}
+              role="menuitem"
+              onClick={() => handleSpeedSelect(speed)}
+            >
+              <span class="playback-panel__speed-menu-check">
+                {props.speed === speed && <Check size={12} />}
+              </span>
+              <span class="playback-panel__speed-menu-label">{speed}x</span>
+            </button>
+          ))}
+        </div>
+      </Portal>
 
       {/* ---- 文件列表 ---- */}
       <div class="playback-panel__file-list">
