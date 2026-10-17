@@ -222,14 +222,13 @@ function App() {
         );
       }
 
-      if (proj.dbcPaths.length > 0) {
-        for (const dbcPath of proj.dbcPaths) {
+      if (proj.dbcBindings && proj.dbcBindings.length > 0) {
+        for (const binding of proj.dbcBindings) {
           try {
-            await invoke('load_dbc', { path: dbcPath });
+            await invoke('load_dbc', { path: binding.path, busId: binding.busId });
             const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
             if (tree) {
               setDbcTree(tree);
-              break;
             }
           } catch {
             // DBC file may have been moved
@@ -373,9 +372,9 @@ function App() {
     setFilter({ canId: '', timeStart: '', timeEnd: '' });
   };
 
-  const handleLoadDbc = async (path: string) => {
+  const handleLoadDbc = async (path: string, busId: number) => {
     try {
-      const result: string = await invoke('load_dbc', { path });
+      const result: string = await invoke('load_dbc', { path, busId });
       console.log(result);
 
       const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
@@ -393,19 +392,18 @@ function App() {
   const handleDatabaseManagerConfirm = async (entries: DatabaseEntry[]) => {
     setShowDatabaseManager(false);
 
-    const dbcPaths = entries
-      .filter((e) => e.type === 'dbc')
-      .map((e) => e.path);
+    // Load all DBC entries with their assigned bus IDs
+    for (const entry of entries) {
+      if (entry.type === 'dbc') {
+        await handleLoadDbc(entry.path, entry.busId);
+      }
+    }
 
+    // LDF import — not yet implemented on backend, skip for now
     const ldfPaths = entries
       .filter((e) => e.type === 'ldf')
       .map((e) => e.path);
 
-    if (dbcPaths.length > 0) {
-      await handleLoadDbc(dbcPaths[0]);
-    }
-
-    // LDF import — not yet implemented on backend, skip for now
     if (ldfPaths.length > 0) {
       console.log('LDF files selected (not yet implemented):', ldfPaths);
     }
@@ -653,7 +651,7 @@ function App() {
                       <ResourceManager
                         dbcTree={dbcTree()}
                         projectName={project()?.name ?? '未命名'}
-                        dbcPaths={project()?.dbcPaths ?? []}
+                        dbcBindings={project()?.dbcBindings ?? []}
                         canLogPath={project()?.canLogPath ?? null}
                         visiblePanels={windowManager.visiblePanels()}
                         minimizedPanels={windowManager.minimizedPanels()}
@@ -800,7 +798,7 @@ function App() {
       )}
       {showDatabaseManager() && (
         <DatabaseManagerDialog
-          initialPaths={project()?.dbcPaths ?? []}
+          initialPaths={project()?.dbcBindings?.map((b) => b.path) ?? []}
           onConfirm={handleDatabaseManagerConfirm}
           onCancel={() => setShowDatabaseManager(false)}
         />

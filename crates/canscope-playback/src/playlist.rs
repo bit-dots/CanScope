@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use canscope_core::CanFrameStream;
 use canscope_dbc::Dbc;
 
@@ -30,7 +32,7 @@ pub struct PlaylistEngine<S: CanFrameStream> {
     state: PlaybackState,
     speed: f64,
     loop_enabled: bool,
-    dbc: Option<Dbc>,
+    dbcs: HashMap<u8, Dbc>,
     current_entry_index: usize,
     global_time: Option<f64>,
     global_frame_count: u64,
@@ -43,7 +45,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             state: PlaybackState::Stopped,
             speed: 1.0,
             loop_enabled: false,
-            dbc: None,
+            dbcs: HashMap::new(),
             current_entry_index: 0,
             global_time: None,
             global_frame_count: 0,
@@ -70,8 +72,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         self.loop_enabled
     }
 
-    pub fn set_dbc(&mut self, dbc: Dbc) {
-        self.dbc = Some(dbc);
+    pub fn set_dbcs(&mut self, dbcs: HashMap<u8, Dbc>) {
+        self.dbcs = dbcs;
     }
 
     pub fn global_time(&self) -> Option<f64> {
@@ -232,14 +234,12 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     }
 
     fn reset_all_entries(&mut self) {
-        let dbc = self.dbc.clone();
+        let dbcs = self.dbcs.clone();
         for entry in &mut self.entries {
             entry.engine.stop();
             let _ = entry.engine.seek_to(0.0);
             entry.engine.set_loop(false);
-            if let Some(ref dbc) = dbc {
-                entry.engine.set_dbc(dbc.clone());
-            }
+            entry.engine.set_dbcs(dbcs.clone());
         }
         self.current_entry_index = 0;
     }
@@ -261,7 +261,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             return false;
         }
         let start = self.current_entry_index;
-        let dbc = self.dbc.clone();
+        let dbcs = self.dbcs.clone();
         let len = self.entries.len();
 
         if self.loop_enabled {
@@ -273,9 +273,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                 if self.entries[idx].enabled {
                     let _ = self.entries[idx].engine.seek_to(0.0);
                     self.entries[idx].engine.play();
-                    if let Some(ref dbc) = dbc {
-                        self.entries[idx].engine.set_dbc(dbc.clone());
-                    }
+                    self.entries[idx].engine.set_dbcs(dbcs.clone());
                     self.current_entry_index = idx;
                     return true;
                 }
@@ -284,9 +282,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             for i in (start + 1)..len {
                 if self.entries[i].enabled {
                     self.entries[i].engine.play();
-                    if let Some(ref dbc) = dbc {
-                        self.entries[i].engine.set_dbc(dbc.clone());
-                    }
+                    self.entries[i].engine.set_dbcs(dbcs.clone());
                     self.current_entry_index = i;
                     return true;
                 }
@@ -335,9 +331,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
             if entry.engine.state() != PlaybackState::Playing {
                 entry.engine.play();
-                if let Some(ref dbc) = self.dbc {
-                    entry.engine.set_dbc(dbc.clone());
-                }
+                entry.engine.set_dbcs(self.dbcs.clone());
             }
 
             let inner_batch = entry.engine.next_batch(remaining)?;
@@ -435,13 +429,11 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         }
 
         let idx = self.current_entry_index;
-        let dbc = self.dbc.clone();
+        let dbcs = self.dbcs.clone();
         let entry = &mut self.entries[idx];
         if entry.engine.state() != PlaybackState::Playing {
             entry.engine.play();
-            if let Some(ref dbc) = dbc {
-                entry.engine.set_dbc(dbc.clone());
-            }
+            entry.engine.set_dbcs(dbcs.clone());
         }
         let offset = entry.global_start_offset;
 
@@ -452,11 +444,9 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             }
             let idx2 = self.current_entry_index;
             let entry2 = &mut self.entries[idx2];
-            let dbc2 = self.dbc.clone();
+            let dbcs2 = self.dbcs.clone();
             entry2.engine.play();
-            if let Some(ref dbc) = dbc2 {
-                entry2.engine.set_dbc(dbc.clone());
-            }
+            entry2.engine.set_dbcs(dbcs2.clone());
             let offset2 = entry2.global_start_offset;
             let inner = entry2.engine.next_batch(1)?;
             if let Some(mut frame) = inner.into_iter().next() {

@@ -1,5 +1,5 @@
 import { Component, createSignal, For, Show, createMemo, JSX } from 'solid-js';
-import type { DbcTreeInfo, DbcMessageInfo } from '../types';
+import type { DbcTreeInfo, DbcMessageInfo, DbcBinding } from '../types';
 import type { PanelWindowState } from './windowing/window-types';
 import './ResourceManager.css';
 
@@ -9,7 +9,7 @@ import './ResourceManager.css';
 export interface ResourceManagerProps {
   dbcTree: DbcTreeInfo | null;
   projectName: string;
-  dbcPaths: string[];
+  dbcBindings: DbcBinding[];
   canLogPath: string | null;
   visiblePanels: PanelWindowState[];
   minimizedPanels: PanelWindowState[];
@@ -201,17 +201,23 @@ const ResourceManager: Component<ResourceManagerProps> = (props) => {
         id="databases"
         icon={<FolderIcon />}
         label="数据库文件"
-        badge={String(props.dbcPaths.length)}
+        badge={String(props.dbcBindings.length)}
       >
         <Show
-          when={props.dbcPaths.length > 0}
+          when={props.dbcBindings.length > 0}
           fallback={<TreeRow indent={1} label="暂无数据库文件" dimmed onClick={() => {}} />}
         >
-          <For each={props.dbcPaths}>
-            {(path) => {
-              const name = path.split(/[/\\]/).pop() ?? path;
+          <For each={props.dbcBindings}>
+            {(binding) => {
+              const name = binding.path.split(/[/\\]/).pop() ?? binding.path;
               return (
-                <TreeRow indent={1} icon={<FileIcon />} label={name} meta={path} onClick={() => {}} />
+                <TreeRow
+                  indent={1}
+                  icon={<FileIcon />}
+                  label={name}
+                  meta={`CAN ${binding.busId}`}
+                  onClick={() => {}}
+                />
               );
             }}
           </For>

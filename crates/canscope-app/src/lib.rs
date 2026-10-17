@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -54,10 +55,17 @@ impl Default for UiLayoutJson {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DbcBinding {
+    bus_id: u8,
+    path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ProjectConfig {
     name: String,
     can_log_path: Option<String>,
-    dbc_paths: Vec<String>,
+    dbc_bindings: Vec<DbcBinding>,
     last_position: f64,
     filters: FilterConfigJson,
     chart_signals: Vec<ChartSignalJson>,
@@ -75,7 +83,7 @@ struct RecentProjectEntry {
 
 struct AppState {
     engine: Mutex<Option<PlaylistEngine<AscReader>>>,
-    dbc: Mutex<Option<Dbc>>,
+    dbc_map: Mutex<HashMap<u8, Dbc>>,
     file_path: Mutex<Option<PathBuf>>,
     project: Mutex<Option<ProjectConfig>>,
     project_path: Mutex<Option<PathBuf>>,
@@ -132,6 +140,7 @@ impl From<&DbcSignal> for DbcSignalInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DbcMessageInfo {
+    bus_id: u8,
     can_id: u32,
     name: String,
     dlc: u8,
@@ -140,9 +149,10 @@ struct DbcMessageInfo {
     signal_count: usize,
 }
 
-impl From<&DbcMessage> for DbcMessageInfo {
-    fn from(m: &DbcMessage) -> Self {
+impl DbcMessageInfo {
+    fn from_message(bus_id: u8, m: &DbcMessage) -> Self {
         Self {
+            bus_id,
             can_id: m.can_id,
             name: m.name.clone(),
             dlc: m.dlc,
@@ -163,18 +173,22 @@ struct DbcTreeInfo {
 
 #[tauri::command]
 fn get_dbc_info(state: State<AppState>) -> Result<Option<DbcTreeInfo>, String> {
-    let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
-    if let Some(ref dbc) = *dbc_guard {
-        let messages: Vec<DbcMessageInfo> = dbc.messages.iter().map(|m| DbcMessageInfo::from(m)).collect();
-        let signal_count: usize = messages.iter().map(|m| m.signal_count).sum();
-        Ok(Some(DbcTreeInfo {
-            message_count: messages.len(),
-            signal_count,
-            messages,
-        }))
-    } else {
-        Ok(None)
+    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    if dbc_map.is_empty() {
+        return Ok(None);
     }
+    let mut messages: Vec<DbcMessageInfo> = Vec::new();
+    for (&bus_id, dbc) in dbc_map.iter() {
+        for m in &dbc.messages {
+            messages.push(DbcMessageInfo::from_message(bus_id, m));
+        }
+    }
+    let signal_count: usize = messages.iter().map(|m| m.signal_count).sum();
+    Ok(Some(DbcTreeInfo {
+        message_count: messages.len(),
+        signal_count,
+        messages,
+    }))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -275,27 +289,26 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
 #[tauri::command]
 fn load_dbc(
     path: String,
+    bus_id: u8,
     state: State<AppState>,
 ) -> Result<String, String> {
     let dbc = canscope_dbc::parse_dbc(&PathBuf::from(&path)).map_err(|e| e.to_string())?;
     let msg_count = dbc.messages.len();
     let signal_count: usize = dbc.messages.iter().map(|m| m.signals.len()).sum();
 
-    let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
-    *dbc_guard = Some(dbc);
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    dbc_map.insert(bus_id, dbc);
 
-    Ok(format!("Loaded DBC: {} messages, {} signals", msg_count, signal_count))
+    Ok(format!("Loaded DBC for channel {}: {} messages, {} signals", bus_id, msg_count, signal_count))
 }
 
 #[tauri::command]
 fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
-    let dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
+    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
     if let Some(ref mut playlist) = *engine_guard {
-        if let Some(ref dbc) = *dbc_guard {
-            playlist.set_dbc(dbc.clone());
-        }
+        playlist.set_dbcs(dbc_map.clone());
         let was_playing = playlist.state() == PlaybackState::Playing;
         let batch = playlist.next_batch(100).map_err(|e| e.to_string())?;
 
@@ -800,7 +813,7 @@ fn add_to_recent(app: &tauri::AppHandle, name: &str, path: &str) {
 struct ProjectInfo {
     name: String,
     can_log_path: Option<String>,
-    dbc_paths: Vec<String>,
+    dbc_bindings: Vec<DbcBinding>,
     last_position: f64,
     filters: FilterConfigJson,
     chart_signals: Vec<ChartSignalJson>,
@@ -838,7 +851,7 @@ fn create_project(
     let project = ProjectConfig {
         name,
         can_log_path: None,
-        dbc_paths: Vec::new(),
+        dbc_bindings: Vec::new(),
         last_position: 0.0,
         filters: FilterConfigJson::default(),
         chart_signals: Vec::new(),
@@ -860,7 +873,7 @@ fn create_project(
     Ok(ProjectInfo {
         name: project.name,
         can_log_path: project.can_log_path,
-        dbc_paths: project.dbc_paths,
+        dbc_bindings: project.dbc_bindings,
         last_position: project.last_position,
         filters: project.filters,
         chart_signals: project.chart_signals,
@@ -988,15 +1001,14 @@ fn open_project(
         *file_path = Some(log_path);
     }
 
-    let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
-    *dbc_guard = None;
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    dbc_map.clear();
 
-    for dbc_path_str in &project.dbc_paths {
-        let dbc_path = PathBuf::from(dbc_path_str);
+    for binding in &project.dbc_bindings {
+        let dbc_path = PathBuf::from(&binding.path);
         if dbc_path.exists() {
             if let Ok(dbc) = canscope_dbc::parse_dbc(&dbc_path) {
-                *dbc_guard = Some(dbc);
-                break;
+                dbc_map.insert(binding.bus_id, dbc);
             }
         }
     }
@@ -1019,7 +1031,7 @@ fn open_project(
     Ok(ProjectInfo {
         name: project_clone.name,
         can_log_path: project_clone.can_log_path,
-        dbc_paths: project_clone.dbc_paths,
+        dbc_bindings: project_clone.dbc_bindings,
         last_position: project_clone.last_position,
         filters: project_clone.filters,
         chart_signals: project_clone.chart_signals,
@@ -1097,8 +1109,8 @@ fn is_project_dirty(state: State<AppState>) -> Result<bool, String> {
 fn close_project(state: State<AppState>) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = None;
-    let mut dbc_guard = state.dbc.lock().map_err(|e| e.to_string())?;
-    *dbc_guard = None;
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    dbc_map.clear();
     let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
     *file_path = None;
     let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
@@ -1118,7 +1130,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(AppState {
             engine: Mutex::new(None),
-            dbc: Mutex::new(None),
+            dbc_map: Mutex::new(HashMap::new()),
             file_path: Mutex::new(None),
             project: Mutex::new(None),
             project_path: Mutex::new(None),

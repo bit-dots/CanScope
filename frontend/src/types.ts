@@ -78,6 +78,7 @@ export interface DbcSignalInfo {
 }
 
 export interface DbcMessageInfo {
+  busId: number;
   canId: number;
   name: string;
   dlc: number;
@@ -153,10 +154,15 @@ export interface UiLayoutJson {
   chartHeight: number;
 }
 
+export interface DbcBinding {
+  busId: number;
+  path: string;
+}
+
 export interface ProjectInfo {
   name: string;
   canLogPath: string | null;
-  dbcPaths: string[];
+  dbcBindings: DbcBinding[];
   lastPosition: number;
   filters: FilterConfigJson;
   chartSignals: ChartSignalJson[];

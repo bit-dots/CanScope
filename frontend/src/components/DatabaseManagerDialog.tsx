@@ -6,6 +6,7 @@ export interface DatabaseEntry {
   name: string;
   path: string;
   type: 'dbc' | 'ldf';
+  busId: number;
 }
 
 interface DatabaseManagerDialogProps {
@@ -47,6 +48,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
       name: getFileName(p),
       path: p,
       type: getFileType(p),
+      busId: 1,
     }))
   );
   const [showHelp, setShowHelp] = createSignal(false);
@@ -101,6 +103,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
             name: getFileName(path),
             path,
             type: getFileType(path),
+            busId: 1,
           });
         }
       }
@@ -178,7 +181,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
             <PlusCircle size={16} />
           </ToolbarIcon>
           <div class="dm-toolbar-sep" />
-          <ToolbarIcon title="通道绑定" onClick={() => {}} disabled>
+          <ToolbarIcon title="通道绑定（在文件列表中设置）" onClick={() => {}}>
             <Link size={16} />
           </ToolbarIcon>
           <Show when={hasEntries()}>
@@ -205,12 +208,13 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
                 <div class="dm-files-head">
                   <span class="dm-files-th dm-files-th--name">文件名</span>
                   <span class="dm-files-th dm-files-th--type">类型</span>
+                  <span class="dm-files-th dm-files-th--channel">通道</span>
                   <span class="dm-files-th dm-files-th--path">路径</span>
                   <span class="dm-files-th dm-files-th--action"></span>
                 </div>
                 <div class="dm-files-body">
                   <For each={entries()}>
-                    {(entry) => (
+                    {(entry, idx) => (
                       <div class="dm-files-row">
                         <span class="dm-files-cell dm-files-cell--name">
                           <span class="dm-files-icon">
@@ -222,6 +226,38 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
                           <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
                             {entry.type.toUpperCase()}
                           </span>
+                        </span>
+                        <span class="dm-files-cell dm-files-cell--channel">
+                          <input
+                            type="number"
+                            class="dm-channel-input"
+                            min="0"
+                            max="15"
+                            value={entry.busId}
+                            onChange={(e) => {
+                              const i = idx();
+                              const v = parseInt(e.currentTarget.value, 10);
+                              if (!isNaN(v) && v >= 0 && v <= 15) {
+                                setEntries((prev) => {
+                                  const next = [...prev];
+                                  next[i] = { ...next[i], busId: v };
+                                  return next;
+                                });
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const i = idx();
+                              const v = parseInt(e.currentTarget.value, 10);
+                              if (isNaN(v) || v < 0) {
+                                setEntries((prev) => {
+                                  const next = [...prev];
+                                  next[i] = { ...next[i], busId: 0 };
+                                  return next;
+                                });
+                              }
+                            }}
+                            title="该 DBC 数据库绑定的 CAN 通道编号"
+                          />
                         </span>
                         <span class="dm-files-cell dm-files-cell--path" title={entry.path}>
                           {entry.path}
@@ -239,10 +275,12 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
             </Show>
           </section>
 
-          {/* Section: Channel Binding (placeholder) */}
+          {/* Section: Channel Binding */}
           <section class="dm-section">
             <h3 class="dm-section-title">通道绑定</h3>
-            <div class="dm-section-placeholder">功能开发中</div>
+            <div class="dm-section-hint">
+              每个数据库文件可独立绑定到不同的 CAN 通道。在上方文件列表的「通道」列中修改编号。
+            </div>
           </section>
         </div>
 

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use canscope_core::{CanFrame, CanFrameStream, SeekError, StreamMetadata};
@@ -46,7 +46,7 @@ impl From<CanFrame> for PlaybackFrame {
 
 pub struct PlaybackEngine<S> {
     stream: S,
-    dbc: Option<Dbc>,
+    dbcs: HashMap<u8, Dbc>,
     state: PlaybackState,
     speed: f64,
     loop_enabled: bool,
@@ -59,7 +59,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
     pub fn new(stream: S) -> Self {
         Self {
             stream,
-            dbc: None,
+            dbcs: HashMap::new(),
             state: PlaybackState::Stopped,
             speed: 1.0,
             loop_enabled: false,
@@ -69,15 +69,8 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
         }
     }
 
-    pub fn with_dbc(stream: S, dbc: Dbc) -> Self {
-        Self {
-            dbc: Some(dbc),
-            ..Self::new(stream)
-        }
-    }
-
-    pub fn set_dbc(&mut self, dbc: Dbc) {
-        self.dbc = Some(dbc);
+    pub fn set_dbcs(&mut self, dbcs: HashMap<u8, Dbc>) {
+        self.dbcs = dbcs;
     }
 
     pub fn state(&self) -> PlaybackState {
@@ -174,10 +167,8 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
         self.current_time = Some(frame.timestamp);
         self.frame_count = self.frame_count.saturating_sub(1);
 
-        let signals = self
-            .dbc
-            .as_ref()
-            .and_then(|dbc| dbc.decode_frame(&frame).ok());
+        let dbc = self.dbcs.get(&frame.bus_id);
+        let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
 
         Ok(Some(PlaybackFrame {
             timestamp: frame.timestamp,
@@ -211,9 +202,8 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                     self.current_time = Some(ts);
                     self.frame_count += 1;
 
-                    let signals = self
-                        .dbc
-                        .as_ref()
+                    let dbc = self.dbcs.get(&frame.bus_id);
+                    let signals = dbc
                         .and_then(|dbc| dbc.decode_frame(&frame).ok());
 
                     batch.push(PlaybackFrame {
