@@ -472,13 +472,123 @@ fn playlist_add(
         }
         Ok(build_playlist_info(playlist))
     } else {
-        // Create new playlist with single file
         let mut playlist = PlaylistEngine::new();
         playlist.add_entry(entry);
         let info = build_playlist_info(&playlist);
 
         let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
         *file_path = Some(path_buf);
+
+        *engine_guard = Some(playlist);
+        Ok(info)
+    }
+}
+
+fn find_asc_files(folder: &Path) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    let mut dirs: Vec<PathBuf> = vec![folder.to_path_buf()];
+
+    while let Some(dir) = dirs.pop() {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    dirs.push(path);
+                } else if let Some(ext) = path.extension() {
+                    if ext.eq_ignore_ascii_case("asc") {
+                        result.push(path);
+                    }
+                }
+            }
+        }
+    }
+
+    result.sort();
+    result
+}
+
+fn build_entry_from_path(path: &PathBuf) -> Option<PlaylistEntry<AscReader>> {
+    let reader = AscReader::open(path).ok()?;
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let engine = PlaybackEngine::new(reader);
+    Some(PlaylistEntry {
+        engine,
+        file_name,
+        file_path: path.to_string_lossy().to_string(),
+        enabled: true,
+        global_start_offset: 0.0,
+        global_end_offset: None,
+    })
+}
+
+#[tauri::command]
+fn playlist_add_folder(
+    folder_path: String,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let folder = PathBuf::from(&folder_path);
+    if !folder.is_dir() {
+        return Err(format!("不是文件夹: {}", folder_path));
+    }
+
+    let asc_paths = find_asc_files(&folder);
+    if asc_paths.is_empty() {
+        return Err(format!("文件夹中未找到 .asc 文件: {}", folder_path));
+    }
+
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+
+    if let Some(ref mut playlist) = *engine_guard {
+        let was_playing = playlist.state() == PlaybackState::Playing;
+        let mut added = 0usize;
+
+        for path in &asc_paths {
+            if let Some(entry) = build_entry_from_path(path) {
+                playlist.add_entry(entry);
+                added += 1;
+            } else {
+                eprintln!("跳过无法解析的文件: {}", path.display());
+            }
+        }
+
+        if added == 0 {
+            return Err("文件夹中没有可解析的 .asc 文件".into());
+        }
+
+        if was_playing {
+            playlist.play();
+        }
+        Ok(build_playlist_info(playlist))
+    } else {
+        let mut playlist = PlaylistEngine::new();
+        let mut first_added: Option<PathBuf> = None;
+        let mut added = 0usize;
+
+        for path in &asc_paths {
+            if let Some(entry) = build_entry_from_path(path) {
+                if first_added.is_none() {
+                    first_added = Some(path.clone());
+                }
+                playlist.add_entry(entry);
+                added += 1;
+            } else {
+                eprintln!("跳过无法解析的文件: {}", path.display());
+            }
+        }
+
+        if added == 0 {
+            return Err("文件夹中没有可解析的 .asc 文件".into());
+        }
+
+        let info = build_playlist_info(&playlist);
+
+        if let Some(fp) = first_added {
+            let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+            *file_path = Some(fp);
+        }
 
         *engine_guard = Some(playlist);
         Ok(info)
@@ -1005,6 +1115,7 @@ pub fn run() {
             step_forward,
             step_back,
             playlist_add,
+            playlist_add_folder,
             playlist_remove,
             playlist_toggle,
             playlist_reorder,

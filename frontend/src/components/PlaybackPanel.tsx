@@ -58,6 +58,10 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   let speedBtnRef!: HTMLButtonElement;
   let speedMenuRef!: HTMLDivElement;
 
+  // 文件列表多选
+  const [selectedFiles, setSelectedFiles] = createSignal<Set<number>>(new Set());
+  const [selectedFileAnchor, setSelectedFileAnchor] = createSignal<number | null>(null);
+
   const handleSpeedMenuToggle = (e: MouseEvent) => {
     e.stopPropagation();
     const willOpen = !isSpeedMenuOpen();
@@ -142,7 +146,23 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   };
 
   const handleAddFolder = async () => {
-    // TODO: 添加文件夹（批量导入 CAN 日志）
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        title: '选择包含 CAN 日志的文件夹',
+        directory: true,
+        multiple: false,
+      });
+      if (!selected) return;
+
+      const folderPath = typeof selected === 'string' ? selected : null;
+      if (!folderPath) return;
+
+      await invoke('playlist_add_folder', { folderPath });
+      props.onRefreshPlaylist();
+    } catch (e) {
+      console.error('Failed to add folder:', e);
+    }
   };
 
   const handleRemoveFile = async (index: number) => {
@@ -163,8 +183,47 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     }
   };
 
+  const handleFileClick = (index: number, e?: MouseEvent) => {
+    const ctrl = e?.ctrlKey || e?.metaKey;
+    const shift = e?.shiftKey;
+
+    if (ctrl) {
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        if (next.has(index)) {
+          next.delete(index);
+        } else {
+          next.add(index);
+        }
+        return next;
+      });
+      setSelectedFileAnchor(index);
+    } else if (shift && selectedFileAnchor() !== null) {
+      const anchor = selectedFileAnchor()!;
+      const lo = Math.min(anchor, index);
+      const hi = Math.max(anchor, index);
+      const next = new Set<number>();
+      for (let i = lo; i <= hi; i++) next.add(i);
+      setSelectedFiles(next);
+    } else {
+      setSelectedFileAnchor(index);
+      setSelectedFiles(new Set([index]));
+    }
+  };
+
   const handleRemoveSelected = async () => {
-    // TODO: 选中文件后移除
+    const checked = files().filter((f) => f.enabled);
+    if (checked.length === 0) return;
+
+    const indices = checked.map((_, i) => files().findIndex((f) => f === checked[i])).sort((a, b) => b - a);
+    try {
+      for (const id of indices) {
+        await invoke('playlist_remove', { index: id });
+      }
+      props.onRefreshPlaylist();
+    } catch (e) {
+      console.error('Failed to remove selected files:', e);
+    }
   };
 
   const handleSettings = () => {
@@ -292,9 +351,9 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
         </button>
         <button
           class="playback-panel__tool-btn"
-          title="移除选中文件"
-          aria-label="移除选中文件"
-          disabled={files().length === 0}
+          title="移除勾选文件"
+          aria-label="移除勾选文件"
+          disabled={!files().some((f) => f.enabled)}
           onClick={handleRemoveSelected}
         >
           <FileXCorner size={14} />
@@ -364,9 +423,13 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           {(file, index) => (
             <div
               class="playback-panel__file-item"
-              classList={{ 'playback-panel__file-item--disabled': !file.enabled }}
+              classList={{
+                'playback-panel__file-item--disabled': !file.enabled,
+                'playback-panel__file-item--selected': selectedFiles().has(index()),
+              }}
+              onClick={(e) => handleFileClick(index(), e)}
             >
-              <label class="playback-panel__file-checkbox">
+              <label class="playback-panel__file-checkbox" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="checkbox"
                   checked={file.enabled}
@@ -383,7 +446,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
               </div>
               <button
                 class="playback-panel__file-remove"
-                onClick={() => handleRemoveFile(index())}
+                onClick={(e) => { e.stopPropagation(); handleRemoveFile(index()); }}
                 title="移除文件"
               >
                 <X size={12} />
