@@ -261,82 +261,80 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   // Shared content body
   const Content = (
-    <div class="dm-content">
-      <div class="dm-files-table">
-        <div class="dm-files-head">
-          <span class="dm-files-th dm-files-th--name">文件名</span>
-          <span class="dm-files-th dm-files-th--type">类型</span>
-          <span class="dm-files-th dm-files-th--channel">关联通道</span>
-        </div>
-        <div class="dm-files-body" onClick={() => clearSelection()}>
-          <Show
-            when={hasEntries()}
-            fallback={
-              <div class="dm-files-empty">
-                <File size={24} strokeWidth={1.2} />
-                <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+    <div class="dm-files">
+      <div class="dm-files-head">
+        <span class="dm-files-th dm-files-th--name">文件名</span>
+        <span class="dm-files-th dm-files-th--type">类型</span>
+        <span class="dm-files-th dm-files-th--channel">关联通道</span>
+      </div>
+      <div class="dm-files-body" onClick={() => clearSelection()}>
+        <Show
+          when={hasEntries()}
+          fallback={
+            <div class="dm-files-empty">
+              <File size={24} strokeWidth={1.2} />
+              <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+            </div>
+          }
+        >
+          <For each={entries()}>
+            {(entry, idx) => (
+              <div
+                class="dm-files-row"
+                classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRowClick(entry.id, idx(), e);
+                }}
+              >
+                <span class="dm-files-cell dm-files-cell--name">
+                  <span class="dm-files-icon">
+                    <File size={14} />
+                  </span>
+                  {entry.name}
+                </span>
+                <span class="dm-files-cell dm-files-cell--type">
+                  <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
+                    {entry.type.toUpperCase()}
+                  </span>
+                </span>
+                <span class="dm-files-cell dm-files-cell--channel">
+                  <input
+                    type="number"
+                    class="dm-channel-input"
+                    min="0"
+                    max="15"
+                    value={entry.busId}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const i = idx();
+                      const v = parseInt(e.currentTarget.value, 10);
+                      if (!isNaN(v) && v >= 0 && v <= 15) {
+                        setEntries((prev) => {
+                          const next = [...prev];
+                          next[i] = { ...next[i], busId: v };
+                          return next;
+                        });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const i = idx();
+                      const v = parseInt(e.currentTarget.value, 10);
+                      if (isNaN(v) || v < 0) {
+                        setEntries((prev) => {
+                          const next = [...prev];
+                          next[i] = { ...next[i], busId: 0 };
+                          return next;
+                        });
+                      }
+                    }}
+                    title="该 DBC 数据库绑定的 CAN 通道编号"
+                  />
+                </span>
               </div>
-            }
-          >
-            <For each={entries()}>
-              {(entry, idx) => (
-                <div
-                  class="dm-files-row"
-                  classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRowClick(entry.id, idx(), e);
-                  }}
-                >
-                  <span class="dm-files-cell dm-files-cell--name">
-                    <span class="dm-files-icon">
-                      <File size={14} />
-                    </span>
-                    {entry.name}
-                  </span>
-                  <span class="dm-files-cell dm-files-cell--type">
-                    <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
-                      {entry.type.toUpperCase()}
-                    </span>
-                  </span>
-                  <span class="dm-files-cell dm-files-cell--channel">
-                    <input
-                      type="number"
-                      class="dm-channel-input"
-                      min="0"
-                      max="15"
-                      value={entry.busId}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        const i = idx();
-                        const v = parseInt(e.currentTarget.value, 10);
-                        if (!isNaN(v) && v >= 0 && v <= 15) {
-                          setEntries((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...next[i], busId: v };
-                            return next;
-                          });
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const i = idx();
-                        const v = parseInt(e.currentTarget.value, 10);
-                        if (isNaN(v) || v < 0) {
-                          setEntries((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...next[i], busId: 0 };
-                            return next;
-                          });
-                        }
-                      }}
-                      title="该 DBC 数据库绑定的 CAN 通道编号"
-                    />
-                  </span>
-                </div>
-              )}
-            </For>
-          </Show>
-        </div>
+            )}
+          </For>
+        </Show>
       </div>
     </div>
   );
