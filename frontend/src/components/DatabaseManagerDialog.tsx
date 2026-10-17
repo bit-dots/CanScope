@@ -10,7 +10,7 @@ export interface DatabaseEntry {
 }
 
 interface DatabaseManagerDialogProps {
-  initialPaths: string[];
+  initialBindings: { busId: number; path: string }[];
   onConfirm: (entries: DatabaseEntry[]) => void;
   onCancel: () => void;
 }
@@ -43,12 +43,12 @@ const ToolbarIcon: Component<{ title: string; onClick: () => void; disabled?: bo
 
 const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => {
   const [entries, setEntries] = createSignal<DatabaseEntry[]>(
-    props.initialPaths.map((p) => ({
+    props.initialBindings.map((b) => ({
       id: nextId(),
-      name: getFileName(p),
-      path: p,
-      type: getFileType(p),
-      busId: 1,
+      name: getFileName(b.path),
+      path: b.path,
+      type: getFileType(b.path),
+      busId: b.busId,
     }))
   );
   const [showHelp, setShowHelp] = createSignal(false);
@@ -128,10 +128,6 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
         props.onCancel();
       }
     }
-  };
-
-  const handleConfirm = () => {
-    props.onConfirm(entries());
   };
 
   return (
@@ -282,16 +278,6 @@ const DatabaseManagerDialog: Component<DatabaseManagerDialogProps> = (props) => 
               每个数据库文件可独立绑定到不同的 CAN 通道。在上方文件列表的「通道」列中修改编号。
             </div>
           </section>
-        </div>
-
-        {/* Footer */}
-        <div class="dm-footer">
-          <button class="dm-footer-btn dm-footer-btn--cancel" onClick={props.onCancel}>
-            取消
-          </button>
-          <button class="dm-footer-btn dm-footer-btn--confirm" onClick={handleConfirm}>
-            确定
-          </button>
         </div>
       </div>
     </div>

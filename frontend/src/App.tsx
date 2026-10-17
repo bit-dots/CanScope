@@ -1,6 +1,7 @@
 import { createSignal, createMemo, createEffect, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+
 import Ribbon from './components/ribbon/Ribbon';
 import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
@@ -9,13 +10,13 @@ import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import { Radio, FilePlay } from 'lucide-solid';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
-import DatabaseManagerDialog, { type DatabaseEntry } from './components/DatabaseManagerDialog';
 import ConfirmDialog from './components/ConfirmDialog';
 import FloatingWindow from './components/windowing/FloatingWindow';
 import WindowTaskbar from './components/windowing/WindowTaskbar';
 import { useWindowManager } from './components/windowing/useWindowManager';
 import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
+import DatabaseManagerDialog from './components/DatabaseManagerDialog';
 import type {
   PlaybackState,
   FrameInfo,
@@ -43,8 +44,8 @@ function App() {
   const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [online] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
-  const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+  const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
 
   const PANEL_DEFS = [
@@ -114,6 +115,8 @@ function App() {
       isWindowClosing = true;
       setShowUnsavedDialog(true);
     });
+
+    
   });
 
   const handleNewProject = async () => {
@@ -392,7 +395,7 @@ function App() {
     setShowDatabaseManager(true);
   };
 
-  const handleDatabaseManagerConfirm = async (entries: DatabaseEntry[]) => {
+  const handleDatabaseManagerConfirm = async (entries: Array<{ id: string; name: string; path: string; type: string; busId: number }>) => {
     setShowDatabaseManager(false);
 
     // Load all DBC entries with their assigned bus IDs
@@ -804,13 +807,6 @@ function App() {
           onCancel={() => setShowNewProjectDialog(false)}
         />
       )}
-      {showDatabaseManager() && (
-        <DatabaseManagerDialog
-          initialPaths={project()?.dbcBindings?.map((b) => b.path) ?? []}
-          onConfirm={handleDatabaseManagerConfirm}
-          onCancel={() => setShowDatabaseManager(false)}
-        />
-      )}
       {showUnsavedDialog() && (
         <ConfirmDialog
           title="未保存的更改"
@@ -835,6 +831,13 @@ function App() {
               },
             },
           ]}
+        />
+      )}
+      {showDatabaseManager() && (
+        <DatabaseManagerDialog
+          initialBindings={project()?.dbcBindings ?? []}
+          onConfirm={handleDatabaseManagerConfirm}
+          onCancel={() => setShowDatabaseManager(false)}
         />
       )}
       <StatusBar
