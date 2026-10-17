@@ -13,7 +13,6 @@ interface DatabaseManagerProps {
   mode?: 'dialog' | 'panel';
   initialBindings: { busId: number; path: string }[];
   onConfirm: (entries: DatabaseEntry[]) => void;
-  onCancel: () => void;
 }
 
 const getFileType = (path: string): 'dbc' | 'ldf' => {

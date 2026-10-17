@@ -837,7 +837,6 @@ function App() {
         <DatabaseManagerDialog
           initialBindings={project()?.dbcBindings ?? []}
           onConfirm={handleDatabaseManagerConfirm}
-          onCancel={() => setShowDatabaseManager(false)}
         />
       )}
       <StatusBar
