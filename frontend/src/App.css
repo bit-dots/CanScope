@@ -827,7 +827,7 @@ select:focus-visible,
   cursor: pointer;
 }
 .frame-table__sub-row .frame-table__td--signal {
-  padding: 0 8px;
+  padding: 0 8px 0 48px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--text-secondary);
