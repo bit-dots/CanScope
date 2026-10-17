@@ -275,9 +275,11 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
             when={hasEntries()}
             fallback={
               <tr>
-                <td class="dm-files-empty" colSpan={3}>
-                  <File size={24} strokeWidth={1.2} />
-                  <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+                <td colSpan={3} style={{padding:0}}>
+                  <div class="dm-files-empty">
+                    <File size={24} strokeWidth={1.2} />
+                    <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+                  </div>
                 </td>
               </tr>
             }
