@@ -1479,6 +1479,9 @@ select:focus-visible,
   border-radius: 10px;
   width: 520px;
   max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
@@ -1514,6 +1517,9 @@ select:focus-visible,
 
 .npd-body {
   padding: 0 22px 18px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .npd-field {
