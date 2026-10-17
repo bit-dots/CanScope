@@ -201,6 +201,10 @@ struct PlaylistFileInfo {
     duration: Option<f64>,
     total_frames: Option<u64>,
     start_time: Option<String>,
+    start_offset: f64,
+    end_offset: Option<f64>,
+    play_start_offset: f64,
+    play_end_offset: Option<f64>,
     bus_count: u8,
     bus_type: String,
 }
@@ -228,6 +232,10 @@ fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
             duration: e.engine.metadata().duration,
             total_frames: e.engine.total_frames(),
             start_time: e.engine.metadata().start_time.clone(),
+            start_offset: e.global_start_offset,
+            end_offset: e.global_end_offset,
+            play_start_offset: e.play_start_offset,
+            play_end_offset: e.play_end_offset,
             bus_count: e.engine.metadata().bus_count,
             bus_type: format!("{:?}", e.engine.metadata().bus_type),
         })
@@ -461,6 +469,8 @@ fn playlist_add(
         enabled: true,
         global_start_offset: 0.0,
         global_end_offset: None,
+        play_start_offset: 0.0,
+        play_end_offset: None,
     };
 
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
@@ -521,6 +531,8 @@ fn build_entry_from_path(path: &PathBuf) -> Option<PlaylistEntry<AscReader>> {
         enabled: true,
         global_start_offset: 0.0,
         global_end_offset: None,
+        play_start_offset: 0.0,
+        play_end_offset: None,
     })
 }
 
@@ -633,6 +645,22 @@ fn playlist_reorder(
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
         playlist.reorder(from, to);
+        Ok(build_playlist_info(playlist))
+    } else {
+        Err("No playlist active".into())
+    }
+}
+
+#[tauri::command]
+fn playlist_set_offset(
+    index: usize,
+    play_start_offset: f64,
+    play_end_offset: Option<f64>,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.set_entry_offsets(index, play_start_offset, play_end_offset);
         Ok(build_playlist_info(playlist))
     } else {
         Err("No playlist active".into())
@@ -943,6 +971,8 @@ fn open_project(
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+        play_start_offset: 0.0,
+        play_end_offset: None,
         };
 
         let mut playlist = PlaylistEngine::new();
@@ -1119,6 +1149,7 @@ pub fn run() {
             playlist_remove,
             playlist_toggle,
             playlist_reorder,
+            playlist_set_offset,
             playlist_get_files,
             playlist_get_info,
             create_project,

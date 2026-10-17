@@ -269,6 +269,102 @@
   text-overflow: ellipsis;
 }
 
+/* ---- 文件列表表头 ---- */
+.playback-panel__file-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.playback-panel__file-header-col {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #64748B);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.playback-panel__file-header-col--check {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 40px;
+}
+
+.playback-panel__file-header-col--check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.playback-panel__file-header-col--name {
+  flex: 1;
+  min-width: 0;
+}
+
+.playback-panel__file-header-col--timeline {
+  flex-shrink: 0;
+  width: 120px;
+  text-align: center;
+}
+
+/* ---- 单文件时间轴 ---- */
+.playback-panel__file-timeline {
+  flex-shrink: 0;
+  width: 120px;
+  height: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  position: relative;
+  cursor: default;
+  overflow: visible;
+}
+
+.playback-panel__file-timeline--dragging {
+  cursor: col-resize;
+}
+
+.playback-panel__file-timeline-range {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.playback-panel__file-timeline-handle {
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  cursor: col-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  transform: translateX(-50%);
+}
+
+.playback-panel__file-item:hover .playback-panel__file-timeline-handle {
+  opacity: 1;
+}
+
+.playback-panel__file-timeline-handle:hover {
+  opacity: 1 !important;
+  width: 8px;
+  background: color-mix(in srgb, var(--accent) 100%, white 20%);
+}
+
+/* ---- 文件移除按钮 ---- */
 .playback-panel__file-remove {
   flex-shrink: 0;
   width: 22px;

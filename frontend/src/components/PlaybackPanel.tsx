@@ -183,6 +183,97 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     }
   };
 
+  const handleSelectAll = async () => {
+    const allEnabled = files().every((f) => f.enabled);
+    try {
+      if (allEnabled) {
+        // 全不选
+        for (let i = 0; i < files().length; i++) {
+          await invoke('playlist_toggle', { index: i, enabled: false });
+        }
+      } else {
+        // 全选
+        for (let i = 0; i < files().length; i++) {
+          await invoke('playlist_toggle', { index: i, enabled: true });
+        }
+      }
+      props.onRefreshPlaylist();
+    } catch (e) {
+      console.error('Failed to toggle all files:', e);
+    }
+  };
+
+  // 单文件时间轴拖拽
+  const [draggingOffset, setDraggingOffset] = createSignal<{
+    fileIndex: number;
+    handle: 'start' | 'end';
+  } | null>(null);
+
+  const handleOffsetMouseDown = (e: MouseEvent, fileIndex: number, handle: 'start' | 'end') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingOffset({ fileIndex, handle });
+
+    const onMove = (ev: MouseEvent) => {
+      const file = files()[fileIndex];
+      if (!file || file.duration == null || file.duration === 0) return;
+      const bar = (ev.currentTarget as HTMLElement)?.closest('.playback-panel__file-timeline');
+      if (!bar) return;
+      const rect = bar.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const newOffset = ratio * file.duration;
+      const current = draggingOffset();
+      if (current?.handle === 'start') {
+        const end = file.playEndOffset ?? file.duration;
+        if (newOffset < end - 0.1) {
+          // Update local visual only
+        }
+      }
+    };
+
+    const onUp = async (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      const state = draggingOffset();
+      if (!state) return;
+
+      const file = files()[state.fileIndex];
+      if (!file || file.duration == null) return;
+      const bar = document.querySelector(
+        `.playback-panel__file-timeline[data-index="${state.fileIndex}"]`
+      );
+      if (!bar) { setDraggingOffset(null); return; }
+      const rect = bar.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const newOffset = ratio * file.duration;
+
+      let startOffset = file.playStartOffset;
+      let endOffset = file.playEndOffset;
+
+      if (state.handle === 'start') {
+        startOffset = Math.max(0, Math.min(newOffset, (endOffset ?? file.duration) - 0.1));
+      } else {
+        const minEnd = startOffset + 0.1;
+        endOffset = Math.min(file.duration, Math.max(minEnd, newOffset));
+      }
+
+      setDraggingOffset(null);
+      try {
+        await invoke('playlist_set_offset', {
+          index: state.fileIndex,
+          playStartOffset: startOffset,
+          playEndOffset: endOffset,
+        });
+        props.onRefreshPlaylist();
+      } catch (e) {
+        console.error('Failed to set offset:', e);
+      }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   const handleFileClick = (index: number, e?: MouseEvent) => {
     const ctrl = e?.ctrlKey || e?.metaKey;
     const shift = e?.shiftKey;
@@ -419,6 +510,20 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             点击工具栏 <FilePlus size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
           </div>
         </Show>
+        <Show when={files().length > 0}>
+          <div class="playback-panel__file-header">
+            <div class="playback-panel__file-header-col playback-panel__file-header-col--check">
+              <input
+                type="checkbox"
+                checked={files().every((f) => f.enabled)}
+                onChange={handleSelectAll}
+                title="全选 / 全不选"
+              />
+            </div>
+            <div class="playback-panel__file-header-col playback-panel__file-header-col--name">文件名</div>
+            <div class="playback-panel__file-header-col playback-panel__file-header-col--timeline">时间轴</div>
+          </div>
+        </Show>
         <For each={files()}>
           {(file, index) => (
             <div
@@ -443,6 +548,35 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                   {formatDuration(file.duration)} · {formatFrameCount(file.totalFrames)} 帧
                   <Show when={file.startTime}> · {file.startTime}</Show>
                 </span>
+              </div>
+              <div
+                class="playback-panel__file-timeline"
+                classList={{ 'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index() }}
+                data-index={index()}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <Show when={file.duration != null && file.duration > 0}>
+                  <div
+                    class="playback-panel__file-timeline-range"
+                    style={{
+                      left: `${((file.playStartOffset) / file.duration!) * 100}%`,
+                      width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
+                    }}
+                  />
+                  <div
+                    class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
+                    style={{ left: `${((file.playStartOffset) / file.duration!) * 100}%` }}
+                    onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
+                    title="拖拽设置播放起始点"
+                  />
+                  <div
+                    class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--end"
+                    style={{ left: `${(((file.playEndOffset ?? file.duration!) / file.duration!) * 100) - 0.5}%` }}
+                    onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
+                    title="拖拽设置播放结束点"
+                  />
+                </Show>
               </div>
               <button
                 class="playback-panel__file-remove"

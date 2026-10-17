@@ -14,6 +14,10 @@ pub struct PlaylistEntry<S: CanFrameStream> {
     pub global_start_offset: f64,
     /// 该文件在全局时间线上的结束偏移（秒），None 表示未知
     pub global_end_offset: Option<f64>,
+    /// 文件内播放起始偏移（秒），0.0 表示从文件开头播放
+    pub play_start_offset: f64,
+    /// 文件内播放结束偏移（秒），None 表示播放到文件末尾
+    pub play_end_offset: Option<f64>,
 }
 
 /// 串联播放引擎：按列表顺序首尾相连播放多个 CAN 日志文件
@@ -112,6 +116,19 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     pub fn toggle_entry(&mut self, index: usize, enabled: bool) {
         if let Some(entry) = self.entries.get_mut(index) {
             entry.enabled = enabled;
+        }
+    }
+
+    /// 设置文件的播放裁剪区间
+    pub fn set_entry_offsets(
+        &mut self,
+        index: usize,
+        play_start_offset: f64,
+        play_end_offset: Option<f64>,
+    ) {
+        if let Some(entry) = self.entries.get_mut(index) {
+            entry.play_start_offset = play_start_offset.max(0.0);
+            entry.play_end_offset = play_end_offset;
         }
     }
 
@@ -635,6 +652,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
         engine.add_entry(PlaylistEntry {
             engine: PlaybackEngine::new(stream_b),
@@ -643,6 +662,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
 
         engine.play();
@@ -680,6 +701,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
         engine.add_entry(PlaylistEntry {
             engine: PlaybackEngine::new(stream_b),
@@ -688,6 +711,8 @@ mod tests {
             enabled: false, // disabled
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
 
         engine.play();
@@ -713,6 +738,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
         engine.set_loop(true);
         engine.play();
@@ -745,6 +772,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
         engine.add_entry(PlaylistEntry {
             engine: PlaybackEngine::new(stream_b),
@@ -753,6 +782,8 @@ mod tests {
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         });
 
         // File A duration=2.0, File B starts at global 2.0
