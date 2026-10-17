@@ -214,12 +214,33 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   const handleTimelineMouseLeave = () => setHoverTip(null);
 
   // 列宽拖拽调整
+  const [nameColumnWidth, setNameColumnWidth] = createSignal(200);
   const [timelineColumnWidth, setTimelineColumnWidth] = createSignal(180);
   const [isResizing, setIsResizing] = createSignal(false);
   let resizeStartX = 0;
   let resizeStartWidth = 0;
 
-  const handleResizeStart = (e: MouseEvent) => {
+  const handleNameResizeStart = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStartX = e.clientX;
+    resizeStartWidth = nameColumnWidth();
+    setIsResizing(true);
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - resizeStartX;
+      setNameColumnWidth(Math.max(100, Math.min(600, resizeStartWidth + delta)));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setIsResizing(false);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleTimelineResizeStart = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     resizeStartX = e.clientX;
@@ -554,7 +575,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           <table class="playback-panel__table">
             <colgroup>
               <col style={{ width: '40px' }} />
-              <col />
+              <col style={{ width: `${nameColumnWidth()}px` }} />
               <col style={{ width: `${timelineColumnWidth()}px` }} />
             </colgroup>
             <thead class="playback-panel__thead">
@@ -567,10 +588,13 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                     title="全选 / 全不选"
                   />
                 </th>
-                <th class="playback-panel__th playback-panel__th--name">文件名</th>
+                <th class="playback-panel__th playback-panel__th--name">
+                  文件名
+                  <div class="playback-panel__col-resizer" onMouseDown={handleNameResizeStart} />
+                </th>
                 <th class="playback-panel__th playback-panel__th--timeline">
                   时间轴
-                  <div class="playback-panel__col-resizer" onMouseDown={handleResizeStart} />
+                  <div class="playback-panel__col-resizer" onMouseDown={handleTimelineResizeStart} />
                 </th>
               </tr>
             </thead>
