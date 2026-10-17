@@ -2059,6 +2059,7 @@ select:focus-visible,
   padding: 0 12px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   font-size: 10px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -2070,6 +2071,10 @@ select:focus-visible,
 
 .dm-files-th--name    { width: 160px; }
 .dm-files-th--type    { width: 52px; }
+
+.dm-files-thead th:last-child {
+  border-right: none;
+}
 
 /* tbody */
 .dm-files-tbody td {
