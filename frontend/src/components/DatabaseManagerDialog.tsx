@@ -1,5 +1,5 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
-import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, File } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, File, Database } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -396,7 +396,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         }}
       >
         <div class="dm-titlebar">
-          <span class="dm-titlebar-text">数据库管理</span>
+          <span class="dm-titlebar-text">
+            <Database size={14} strokeWidth={2} />
+            数据库
+          </span>
           <div class="dm-titlebar-actions">
             {HelpButton}
             <button class="dm-titlebar-close" onClick={closeWithAnimation} aria-label="关闭">
