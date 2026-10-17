@@ -714,17 +714,28 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                               width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
                             }}
                           />
-                          {/* 播放游标 */}
-                          <Show when={getFilePlayheadInfo(index()).state !== 'none' && getFilePlayheadInfo(index()).state !== 'pending'}>
-                            {(() => {
-                              const info = getFilePlayheadInfo(index());
-                              return (
-                                <div
-                                  class="playback-panel__file-timeline-playhead"
-                                  style={{ left: `${info.percent}%` }}
-                                />
-                              );
-                            })()}
+                          {/* 左游标竖线 — 播放时跟随 currentTime，stopped 时停在 playStartOffset */}
+                          {(() => {
+                            const leftPct =
+                              props.playbackState !== 'stopped'
+                                ? (() => {
+                                    const info = getFilePlayheadInfo(index());
+                                    return info.state === 'none' || info.state === 'pending' ? -1 : info.percent;
+                                  })()
+                                : (file.playStartOffset / file.duration!) * 100;
+                            return leftPct > 0 ? (
+                              <div
+                                class="playback-panel__file-timeline-cursor playback-panel__file-timeline-cursor--left"
+                                style={{ left: `${leftPct}%` }}
+                              />
+                            ) : null;
+                          })()}
+                          {/* 右游标竖线 — 仅用户拖拽过右侧 handle 时显示 */}
+                          <Show when={file.playEndOffset != null && file.playEndOffset !== file.duration}>
+                            <div
+                              class="playback-panel__file-timeline-cursor playback-panel__file-timeline-cursor--right"
+                              style={{ left: `${((file.playEndOffset ?? file.duration!) / file.duration!) * 100}%` }}
+                            />
                           </Show>
                           {/* 拖拽手柄 */}
                           <div

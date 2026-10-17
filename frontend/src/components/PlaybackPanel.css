@@ -413,19 +413,27 @@
   pointer-events: none;
 }
 
-/* 播放游标 — 竖线指示当前播放位置 */
-.playback-panel__file-timeline-playhead {
+/* 游标竖线 — 左=播放位置(绿) / 右=用户自定义终点(蓝) */
+.playback-panel__file-timeline-cursor {
   position: absolute;
   top: -2px;
   height: calc(100% + 4px);
   width: 2px;
-  background: var(--success);
   border-radius: 1px;
   pointer-events: none;
   z-index: 3;
   transform: translateX(-50%);
+}
+
+.playback-panel__file-timeline-cursor--left {
+  background: var(--success);
   box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent);
   transition: left 0.15s linear;
+}
+
+.playback-panel__file-timeline-cursor--right {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 /* 已完成文件 — 淡色通栏 */
