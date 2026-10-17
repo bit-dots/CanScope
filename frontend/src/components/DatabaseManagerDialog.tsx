@@ -262,28 +262,27 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   // Shared content body
   const Content = (
     <div class="dm-files">
-      <table class="dm-files-table">
-        <thead class="dm-files-thead">
-          <tr>
-            <th class="dm-files-th dm-files-th--name">文件名</th>
-            <th class="dm-files-th dm-files-th--type">类型</th>
-            <th class="dm-files-th dm-files-th--channel">关联通道</th>
-          </tr>
-        </thead>
-        <tbody class="dm-files-tbody" onClick={() => clearSelection()}>
-          <Show
-            when={hasEntries()}
-            fallback={
-              <tr>
-                <td colSpan={3} style={{padding:0}}>
-                  <div class="dm-files-empty">
-                    <File size={24} strokeWidth={1.2} />
-                    <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
-                  </div>
-                </td>
-              </tr>
-            }
-          >
+      <Show when={!hasEntries()}>
+        <div class="dm-files-empty">
+          <File size={24} strokeWidth={1.2} />
+          <p>暂无文件，点击 <FilePlus class="dm-inline-icon" size={12} /> 添加</p>
+        </div>
+      </Show>
+      <Show when={hasEntries()}>
+        <table class="dm-files-table" onClick={() => clearSelection()}>
+          <colgroup>
+            <col style={{ width: '160px' }} />
+            <col style={{ width: '52px' }} />
+            <col />
+          </colgroup>
+          <thead class="dm-files-thead">
+            <tr>
+              <th class="dm-files-th">文件名</th>
+              <th class="dm-files-th">类型</th>
+              <th class="dm-files-th">关联通道</th>
+            </tr>
+          </thead>
+          <tbody>
             <For each={entries()}>
               {(entry, idx) => (
                 <tr
@@ -341,9 +340,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                 </tr>
               )}
             </For>
-          </Show>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </Show>
     </div>
   );
 
