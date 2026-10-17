@@ -688,6 +688,7 @@ function App() {
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
+                        startTime={metadata()?.files?.[0]?.startTime}
                         onClear={() => setFrames([])}
                         onSelectMessage={handleSelectMessage}
                         onFilterByCanId={(canId: number) => setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' })}

@@ -43,6 +43,32 @@ function formatTimeHMS(seconds: number | null): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+// 绝对时间格式化：startTime + offset → HH:MM:SS 或 HH:MM:SS.mmm
+function formatAbsoluteTime(offsetSec: number | null, startTime: string | null): string {
+  if (offsetSec === null || offsetSec === undefined) return '--:--:--';
+  if (!startTime) return formatTimeHMS(offsetSec);
+  const base = new Date(startTime);
+  if (isNaN(base.getTime())) return formatTimeHMS(offsetSec);
+  const abs = new Date(base.getTime() + offsetSec * 1000);
+  const h = abs.getUTCHours().toString().padStart(2, '0');
+  const m = abs.getUTCMinutes().toString().padStart(2, '0');
+  const s = abs.getUTCSeconds().toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function formatAbsoluteTimeMs(offsetSec: number | null, startTime: string | null): string {
+  if (offsetSec === null || offsetSec === undefined) return '--:--:--.---';
+  if (!startTime) return formatTime(offsetSec);
+  const base = new Date(startTime);
+  if (isNaN(base.getTime())) return formatTime(offsetSec);
+  const abs = new Date(base.getTime() + offsetSec * 1000);
+  const h = abs.getUTCHours().toString().padStart(2, '0');
+  const m = abs.getUTCMinutes().toString().padStart(2, '0');
+  const s = abs.getUTCSeconds().toString().padStart(2, '0');
+  const ms = abs.getUTCMilliseconds().toString().padStart(3, '0');
+  return `${h}:${m}:${s}.${ms}`;
+}
+
 function formatFrameCount(count: number | null): string {
   if (count === null || count === undefined) return '--';
   if (count >= 1_000_000) {
@@ -796,38 +822,47 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                           </Show>
                         </Show>
                       </div>
-                      {/* 时间范围标签 — 拖拽时跟随预览值 */}
-                      <div class="playback-panel__file-timeline-labels">
-                        <span
-                          class="playback-panel__file-timeline-label"
-                          classList={{
-                            'playback-panel__file-timeline-label--custom':
-                              (dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'start'
-                                ? dragPreview()!.offset > 0
-                                : file.playStartOffset > 0),
-                          }}
-                        >
-                          {formatTimeHMS(
-                            dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'start'
-                              ? dragPreview()!.offset
-                              : file.playStartOffset
-                          )}
-                        </span>
-                        <span
-                          class="playback-panel__file-timeline-label"
-                          classList={{
-                            'playback-panel__file-timeline-label--custom':
-                              (dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'end') ||
-                              (file.playEndOffset != null && file.playEndOffset !== file.duration),
-                          }}
-                        >
-                          {formatTimeHMS(
-                            dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'end'
-                              ? dragPreview()!.offset
-                              : (file.playEndOffset ?? file.duration)
-                          )}
-                        </span>
-                      </div>
+                      {/* 时间范围标签 — 拖拽时带毫秒，松手后恢复时分秒 */}
+                      {(() => {
+                        const formatLabel = (isDragging: boolean, offsetSec: number, st: string | null) =>
+                          isDragging ? formatAbsoluteTimeMs(offsetSec, st) : formatAbsoluteTime(offsetSec, st);
+
+                        const draggingStart =
+                          dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'start';
+                        const draggingEnd =
+                          dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'end';
+                        const startVal = draggingStart ? dragPreview()!.offset : file.playStartOffset;
+                        const endVal = draggingEnd
+                          ? dragPreview()!.offset
+                          : (file.playEndOffset ?? file.duration!);
+
+                        const isStartCustom = draggingStart
+                          ? dragPreview()!.offset > 0
+                          : file.playStartOffset > 0;
+                        const isEndCustom =
+                          draggingEnd || (file.playEndOffset != null && file.playEndOffset !== file.duration);
+
+                        return (
+                          <div class="playback-panel__file-timeline-labels">
+                            <span
+                              class="playback-panel__file-timeline-label"
+                              classList={{
+                                'playback-panel__file-timeline-label--custom': isStartCustom,
+                              }}
+                            >
+                              {formatLabel(draggingStart, startVal, file.startTime)}
+                            </span>
+                            <span
+                              class="playback-panel__file-timeline-label"
+                              classList={{
+                                'playback-panel__file-timeline-label--custom': isEndCustom,
+                              }}
+                            >
+                              {formatLabel(draggingEnd, endVal, file.startTime)}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 )}
