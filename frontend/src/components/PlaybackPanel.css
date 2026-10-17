@@ -312,15 +312,30 @@
 
 .playback-panel__file-header-col--timeline {
   flex-shrink: 0;
-  width: 120px;
   text-align: center;
+  position: relative;
+}
+
+.playback-panel__resize-handle {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.playback-panel__resize-handle:hover,
+.playback-panel__resize-handle:active {
+  background: var(--accent);
+  opacity: 0.4;
 }
 
 /* ---- 单文件时间轴 ---- */
 .playback-panel__file-timeline {
   flex-shrink: 0;
-  width: 120px;
-  height: 16px;
+  height: 10px;
   background: var(--bg-tertiary);
   border-radius: 3px;
   position: relative;
@@ -334,8 +349,8 @@
 
 .playback-panel__file-timeline-range {
   position: absolute;
-  top: 2px;
-  height: calc(100% - 4px);
+  top: 1px;
+  height: calc(100% - 2px);
   background: color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 2px;
   pointer-events: none;
@@ -362,6 +377,22 @@
   opacity: 1 !important;
   width: 8px;
   background: color-mix(in srgb, var(--accent) 100%, white 20%);
+}
+
+.playback-panel__file-timeline-tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #fff;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  pointer-events: none;
+  transform: translateX(-50%);
+  z-index: 5;
 }
 
 /* ---- 文件移除按钮 ---- */

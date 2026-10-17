@@ -209,6 +209,55 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     handle: 'start' | 'end';
   } | null>(null);
 
+  // 时间轴 hover 时间提示
+  const [hoverTip, setHoverTip] = createSignal<{ fileIndex: number; time: number; left: number } | null>(null);
+
+  const handleTimelineMouseMove = (e: MouseEvent, fileIndex: number) => {
+    const file = files()[fileIndex];
+    if (!file || file.duration == null || file.duration === 0) { setHoverTip(null); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverTip({ fileIndex, time: ratio * file.duration, left: e.clientX - rect.left });
+  };
+
+  const handleTimelineMouseLeave = () => setHoverTip(null);
+
+  // 列宽拖拽调整
+  const [timelineColumnWidth, setTimelineColumnWidth] = createSignal(180);
+  const [isResizing, setIsResizing] = createSignal(false);
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
+
+  const handleResizeStart = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStartX = e.clientX;
+    resizeStartWidth = timelineColumnWidth();
+    setIsResizing(true);
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - resizeStartX;
+      setTimelineColumnWidth(Math.max(80, Math.min(400, resizeStartWidth + delta)));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setIsResizing(false);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  createEffect(() => {
+    if (isResizing()) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
   const handleOffsetMouseDown = (e: MouseEvent, fileIndex: number, handle: 'start' | 'end') => {
     e.stopPropagation();
     e.preventDefault();
@@ -521,7 +570,13 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
               />
             </div>
             <div class="playback-panel__file-header-col playback-panel__file-header-col--name">文件名</div>
-            <div class="playback-panel__file-header-col playback-panel__file-header-col--timeline">时间轴</div>
+            <div
+              class="playback-panel__file-header-col playback-panel__file-header-col--timeline"
+              style={{ width: `${timelineColumnWidth()}px` }}
+            >
+              <span class="playback-panel__resize-handle" onMouseDown={handleResizeStart} />
+              时间轴
+            </div>
           </div>
         </Show>
         <For each={files()}>
@@ -552,30 +607,41 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
               <div
                 class="playback-panel__file-timeline"
                 classList={{ 'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index() }}
+                style={{ width: `${timelineColumnWidth()}px` }}
                 data-index={index()}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
+                onMouseMove={(e) => handleTimelineMouseMove(e, index())}
+                onMouseLeave={handleTimelineMouseLeave}
               >
                 <Show when={file.duration != null && file.duration > 0}>
                   <div
                     class="playback-panel__file-timeline-range"
                     style={{
-                      left: `${((file.playStartOffset) / file.duration!) * 100}%`,
+                      left: `${(file.playStartOffset / file.duration!) * 100}%`,
                       width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
                     }}
                   />
                   <div
                     class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
-                    style={{ left: `${((file.playStartOffset) / file.duration!) * 100}%` }}
+                    style={{ left: `${(file.playStartOffset / file.duration!) * 100}%` }}
                     onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
                     title="拖拽设置播放起始点"
                   />
                   <div
                     class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--end"
-                    style={{ left: `${(((file.playEndOffset ?? file.duration!) / file.duration!) * 100) - 0.5}%` }}
+                    style={{ left: `${((file.playEndOffset ?? file.duration!) / file.duration!) * 100 - 0.5}%` }}
                     onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
                     title="拖拽设置播放结束点"
                   />
+                  <Show when={hoverTip()?.fileIndex === index()}>
+                    <div
+                      class="playback-panel__file-timeline-tip"
+                      style={{ left: `${hoverTip()!.left}px` }}
+                    >
+                      {formatTime(hoverTip()!.time)}
+                    </div>
+                  </Show>
                 </Show>
               </div>
               <button
