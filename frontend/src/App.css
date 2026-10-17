@@ -2216,44 +2216,25 @@ select:focus-visible,
   color: var(--error);
 }
 
-/* ── Footer ────────────────────────────── */
-.dm-footer {
+/* ── Status Bar ────────────────────────── */
+.dm-statusbar {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 14px;
+  align-items: center;
+  padding: 0 14px;
   border-top: 1px solid var(--border);
   background: var(--bg-tertiary);
   flex-shrink: 0;
+  min-height: 28px;
 }
 
-.dm-footer-btn {
-  padding: 7px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.dm-footer-btn--cancel {
-  background: transparent;
+.dm-statusbar__text {
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
-.dm-footer-btn--cancel:hover {
-  background: var(--bg-primary);
+.dm-statusbar__text strong {
   color: var(--text-primary);
-}
-
-.dm-footer-btn--confirm {
-  background: var(--accent);
-  color: #fff;
-}
-
-.dm-footer-btn--confirm:hover {
-  background: color-mix(in srgb, var(--accent) 85%, #fff);
+  font-weight: 600;
 }
 
 .mock-panel {
