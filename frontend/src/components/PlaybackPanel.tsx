@@ -35,6 +35,14 @@ function formatTime(seconds: number | null): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
 }
 
+function formatTimeHMS(seconds: number | null): string {
+  if (seconds === null || seconds === undefined) return '--:--:--';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 function formatFrameCount(count: number | null): string {
   if (count === null || count === undefined) return '--';
   if (count >= 1_000_000) {
@@ -742,7 +750,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                           </Show>
                         </Show>
                       </div>
-                      {/* 时间范围标签 */}
+                      {/* 时间范围标签：左=startHandle时刻，右=endHandle时刻 */}
                       <div class="playback-panel__file-timeline-labels">
                         <span
                           class="playback-panel__file-timeline-label"
@@ -750,7 +758,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             'playback-panel__file-timeline-label--custom': file.playStartOffset > 0,
                           }}
                         >
-                          {file.playStartOffset > 0 ? formatDuration(file.playStartOffset) : '0:00'}
+                          {formatTimeHMS(file.playStartOffset)}
                         </span>
                         <span
                           class="playback-panel__file-timeline-label"
@@ -759,7 +767,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                               file.playEndOffset != null && file.playEndOffset !== file.duration,
                           }}
                         >
-                          {formatDuration(file.playEndOffset ?? file.duration)}
+                          {formatTimeHMS(file.playEndOffset ?? file.duration)}
                         </span>
                       </div>
                     </td>
