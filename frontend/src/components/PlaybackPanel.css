@@ -198,61 +198,143 @@
   line-height: 1.8;
 }
 
-/* 文件条目 */
-.playback-panel__file-item {
-  display: flex;
-  align-items: center;
-  padding: 7px 10px;
-  gap: 8px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s ease;
+/* ---- 文件列表表格 ---- */
+.playback-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.playback-panel__file-item:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.03));
+/* 表头 */
+.playback-panel__thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.playback-panel__file-item--disabled {
-  opacity: 0.45;
+.playback-panel__th {
+  position: relative;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  user-select: none;
+  color: var(--text-muted, #64748B);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.playback-panel__file-item--selected {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-left: 2px solid var(--accent);
+.playback-panel__th:last-child {
+  border-right: none;
 }
 
-.playback-panel__file-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  cursor: pointer;
+.playback-panel__th--check {
+  width: 40px;
+  text-align: center;
+  padding: 6px 0;
 }
 
-.playback-panel__file-checkbox input[type="checkbox"] {
+.playback-panel__th--check input[type="checkbox"] {
   width: 14px;
   height: 14px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
-.playback-panel__file-index {
-  font-size: 11px;
-  color: var(--text-muted, #64748B);
-  width: 18px;
+.playback-panel__th--timeline {
   text-align: center;
-  font-weight: 600;
 }
 
-.playback-panel__file-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* 列宽拖拽手柄（参照 FrameTable col-resizer） */
+.playback-panel__col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 1;
+  transition: background 0.15s;
 }
 
+.playback-panel__col-resizer:hover,
+.playback-panel__col-resizer:active {
+  background: var(--accent);
+}
+
+/* 数据行 */
+.playback-panel__row {
+  cursor: pointer;
+  transition: background 0.08s ease;
+}
+
+.playback-panel__row:hover {
+  background: var(--bg-tertiary);
+}
+
+.playback-panel__row--disabled {
+  opacity: 0.45;
+}
+
+.playback-panel__row--selected {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-primary)) !important;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.playback-panel__row--selected:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary)) !important;
+}
+
+/* 数据单元格 */
+.playback-panel__td {
+  padding: 5px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.playback-panel__td:last-child {
+  border-right: none;
+}
+
+.playback-panel__td--check {
+  width: 40px;
+  text-align: center;
+  padding: 5px 0;
+}
+
+.playback-panel__td--check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.playback-panel__td--name {
+  vertical-align: top;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  line-height: 1.5;
+}
+
+.playback-panel__td--timeline {
+  padding: 5px 8px;
+  vertical-align: middle;
+}
+
+/* 文件名和元信息（保留原有样式） */
 .playback-panel__file-name {
+  display: block;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
@@ -262,6 +344,7 @@
 }
 
 .playback-panel__file-meta {
+  display: block;
   font-size: 11px;
   color: var(--text-muted, #64748B);
   white-space: nowrap;
@@ -269,77 +352,8 @@
   text-overflow: ellipsis;
 }
 
-/* ---- 文件列表表头 ---- */
-.playback-panel__file-header {
-  display: flex;
-  align-items: center;
-  padding: 4px 10px;
-  gap: 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.playback-panel__file-header-col {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted, #64748B);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.playback-panel__file-header-col--check {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 40px;
-  border-right: 1px solid var(--border);
-  padding-right: 8px;
-}
-
-.playback-panel__file-header-col--check input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.playback-panel__file-header-col--name {
-  flex: 1;
-  min-width: 0;
-  padding-left: 8px;
-}
-
-.playback-panel__file-header-col--timeline {
-  flex-shrink: 0;
-  text-align: center;
-  position: relative;
-  border-left: 1px solid var(--border);
-  padding-left: 8px;
-}
-
-.playback-panel__resize-handle {
-  position: absolute;
-  left: -3px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-  z-index: 2;
-}
-
-.playback-panel__resize-handle:hover,
-.playback-panel__resize-handle:active {
-  background: var(--accent);
-  opacity: 0.4;
-}
-
 /* ---- 单文件时间轴 ---- */
 .playback-panel__file-timeline {
-  flex-shrink: 0;
   height: 10px;
   background: var(--bg-tertiary);
   border-radius: 3px;
@@ -374,7 +388,7 @@
   transform: translateX(-50%);
 }
 
-.playback-panel__file-item:hover .playback-panel__file-timeline-handle {
+.playback-panel__row:hover .playback-panel__file-timeline-handle {
   opacity: 1;
 }
 
@@ -398,32 +412,6 @@
   pointer-events: none;
   transform: translateX(-50%);
   z-index: 5;
-}
-
-/* ---- 文件移除按钮 ---- */
-.playback-panel__file-remove {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted, #64748B);
-  cursor: pointer;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  opacity: 0;
-}
-
-.playback-panel__file-item:hover .playback-panel__file-remove {
-  opacity: 1;
-}
-
-.playback-panel__file-remove:hover {
-  background: color-mix(in srgb, var(--error) 18%, var(--bg-primary));
-  color: var(--error);
 }
 
 /* ---- 底部栏 ---- */

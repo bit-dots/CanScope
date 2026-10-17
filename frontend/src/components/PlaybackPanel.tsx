@@ -1,7 +1,7 @@
 import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
-import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, X, ChevronDown, ChevronUp, Check } from 'lucide-solid';
+import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
 import type { PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -162,15 +162,6 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       props.onRefreshPlaylist();
     } catch (e) {
       console.error('Failed to add folder:', e);
-    }
-  };
-
-  const handleRemoveFile = async (index: number) => {
-    try {
-      await invoke('playlist_remove', { index });
-      props.onRefreshPlaylist();
-    } catch (e) {
-      console.error('Failed to remove file:', e);
     }
   };
 
@@ -560,100 +551,103 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           </div>
         </Show>
         <Show when={files().length > 0}>
-          <div class="playback-panel__file-header">
-            <div class="playback-panel__file-header-col playback-panel__file-header-col--check">
-              <input
-                type="checkbox"
-                checked={files().every((f) => f.enabled)}
-                onChange={handleSelectAll}
-                title="全选 / 全不选"
-              />
-            </div>
-            <div class="playback-panel__file-header-col playback-panel__file-header-col--name">文件名</div>
-            <div
-              class="playback-panel__file-header-col playback-panel__file-header-col--timeline"
-              style={{ width: `${timelineColumnWidth()}px` }}
-            >
-              <span class="playback-panel__resize-handle" onMouseDown={handleResizeStart} />
-              时间轴
-            </div>
-          </div>
-        </Show>
-        <For each={files()}>
-          {(file, index) => (
-            <div
-              class="playback-panel__file-item"
-              classList={{
-                'playback-panel__file-item--disabled': !file.enabled,
-                'playback-panel__file-item--selected': selectedFiles().has(index()),
-              }}
-              onClick={(e) => handleFileClick(index(), e)}
-            >
-              <label class="playback-panel__file-checkbox" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={file.enabled}
-                  onChange={(e) => handleToggleFile(index(), e.currentTarget.checked)}
-                />
-                <span class="playback-panel__file-index">{index() + 1}</span>
-              </label>
-              <div class="playback-panel__file-info">
-                <span class="playback-panel__file-name">{file.fileName}</span>
-                <span class="playback-panel__file-meta">
-                  {formatDuration(file.duration)} · {formatFrameCount(file.totalFrames)} 帧
-                  <Show when={file.startTime}> · {file.startTime}</Show>
-                </span>
-              </div>
-              <div
-                class="playback-panel__file-timeline"
-                classList={{ 'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index() }}
-                style={{ width: `${timelineColumnWidth()}px` }}
-                data-index={index()}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onMouseMove={(e) => handleTimelineMouseMove(e, index())}
-                onMouseLeave={handleTimelineMouseLeave}
-              >
-                <Show when={file.duration != null && file.duration > 0}>
-                  <div
-                    class="playback-panel__file-timeline-range"
-                    style={{
-                      left: `${(file.playStartOffset / file.duration!) * 100}%`,
-                      width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
+          <table class="playback-panel__table">
+            <colgroup>
+              <col style={{ width: '40px' }} />
+              <col />
+              <col style={{ width: `${timelineColumnWidth()}px` }} />
+            </colgroup>
+            <thead class="playback-panel__thead">
+              <tr>
+                <th class="playback-panel__th playback-panel__th--check">
+                  <input
+                    type="checkbox"
+                    checked={files().every((f) => f.enabled)}
+                    onChange={handleSelectAll}
+                    title="全选 / 全不选"
+                  />
+                </th>
+                <th class="playback-panel__th playback-panel__th--name">文件名</th>
+                <th class="playback-panel__th playback-panel__th--timeline">
+                  时间轴
+                  <div class="playback-panel__col-resizer" onMouseDown={handleResizeStart} />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={files()}>
+                {(file, index) => (
+                  <tr
+                    class="playback-panel__row"
+                    classList={{
+                      'playback-panel__row--disabled': !file.enabled,
+                      'playback-panel__row--selected': selectedFiles().has(index()),
                     }}
-                  />
-                  <div
-                    class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
-                    style={{ left: `${(file.playStartOffset / file.duration!) * 100}%` }}
-                    onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
-                    title="拖拽设置播放起始点"
-                  />
-                  <div
-                    class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--end"
-                    style={{ left: `${((file.playEndOffset ?? file.duration!) / file.duration!) * 100 - 0.5}%` }}
-                    onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
-                    title="拖拽设置播放结束点"
-                  />
-                  <Show when={hoverTip()?.fileIndex === index()}>
-                    <div
-                      class="playback-panel__file-timeline-tip"
-                      style={{ left: `${hoverTip()!.left}px` }}
-                    >
-                      {formatTime(hoverTip()!.time)}
-                    </div>
-                  </Show>
-                </Show>
-              </div>
-              <button
-                class="playback-panel__file-remove"
-                onClick={(e) => { e.stopPropagation(); handleRemoveFile(index()); }}
-                title="移除文件"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          )}
-        </For>
+                    onClick={(e) => handleFileClick(index(), e)}
+                  >
+                    <td class="playback-panel__td playback-panel__td--check">
+                      <label onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={file.enabled}
+                          onChange={(e) => handleToggleFile(index(), e.currentTarget.checked)}
+                        />
+                      </label>
+                    </td>
+                    <td class="playback-panel__td playback-panel__td--name">
+                      <span class="playback-panel__file-name">{file.fileName}</span>
+                      <span class="playback-panel__file-meta">
+                        {formatDuration(file.duration)} · {formatFrameCount(file.totalFrames)} 帧
+                        <Show when={file.startTime}> · {file.startTime}</Show>
+                      </span>
+                    </td>
+                    <td class="playback-panel__td playback-panel__td--timeline">
+                      <div
+                        class="playback-panel__file-timeline"
+                        classList={{ 'playback-panel__file-timeline--dragging': draggingOffset()?.fileIndex === index() }}
+                        data-index={index()}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseMove={(e) => handleTimelineMouseMove(e, index())}
+                        onMouseLeave={handleTimelineMouseLeave}
+                      >
+                        <Show when={file.duration != null && file.duration > 0}>
+                          <div
+                            class="playback-panel__file-timeline-range"
+                            style={{
+                              left: `${(file.playStartOffset / file.duration!) * 100}%`,
+                              width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
+                            }}
+                          />
+                          <div
+                            class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
+                            style={{ left: `${(file.playStartOffset / file.duration!) * 100}%` }}
+                            onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
+                            title="拖拽设置播放起始点"
+                          />
+                          <div
+                            class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--end"
+                            style={{ left: `${((file.playEndOffset ?? file.duration!) / file.duration!) * 100 - 0.5}%` }}
+                            onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
+                            title="拖拽设置播放结束点"
+                          />
+                          <Show when={hoverTip()?.fileIndex === index()}>
+                            <div
+                              class="playback-panel__file-timeline-tip"
+                              style={{ left: `${hoverTip()!.left}px` }}
+                            >
+                              {formatTime(hoverTip()!.time)}
+                            </div>
+                          </Show>
+                        </Show>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </Show>
       </div>
 
       {/* ---- 底部栏: 时间轴 + 摘要 ---- */}
