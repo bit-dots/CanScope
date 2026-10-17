@@ -50,9 +50,9 @@ function formatAbsoluteTime(offsetSec: number | null, startTime: string | null):
   const base = new Date(startTime);
   if (isNaN(base.getTime())) return formatTimeHMS(offsetSec);
   const abs = new Date(base.getTime() + offsetSec * 1000);
-  const h = abs.getUTCHours().toString().padStart(2, '0');
-  const m = abs.getUTCMinutes().toString().padStart(2, '0');
-  const s = abs.getUTCSeconds().toString().padStart(2, '0');
+  const h = abs.getHours().toString().padStart(2, '0');
+  const m = abs.getMinutes().toString().padStart(2, '0');
+  const s = abs.getSeconds().toString().padStart(2, '0');
   return `${h}:${m}:${s}`;
 }
 
@@ -62,10 +62,10 @@ function formatAbsoluteTimeMs(offsetSec: number | null, startTime: string | null
   const base = new Date(startTime);
   if (isNaN(base.getTime())) return formatTime(offsetSec);
   const abs = new Date(base.getTime() + offsetSec * 1000);
-  const h = abs.getUTCHours().toString().padStart(2, '0');
-  const m = abs.getUTCMinutes().toString().padStart(2, '0');
-  const s = abs.getUTCSeconds().toString().padStart(2, '0');
-  const ms = abs.getUTCMilliseconds().toString().padStart(3, '0');
+  const h = abs.getHours().toString().padStart(2, '0');
+  const m = abs.getMinutes().toString().padStart(2, '0');
+  const s = abs.getSeconds().toString().padStart(2, '0');
+  const ms = abs.getMilliseconds().toString().padStart(3, '0');
   return `${h}:${m}:${s}.${ms}`;
 }
 
@@ -98,6 +98,24 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   // 全局时间轴 hover 提示
   const [timelineHover, setTimelineHover] = createSignal<{ time: number; left: number } | null>(null);
+
+  // 回放设置模态框
+  const [showSettings, setShowSettings] = createSignal(false);
+  const [playbackMode, setPlaybackMode] = createSignal<'continuous' | 'single'>('continuous');
+  const [loopScope, setLoopScope] = createSignal<'all' | 'single'>('all');
+  const [timeDisplayFormat, setTimeDisplayFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
+  const [autoScrollEnabled, setAutoScrollEnabled] = createSignal(true);
+  const [settingsDraft, setSettingsDraft] = createSignal<{
+    playbackMode: 'continuous' | 'single';
+    loopScope: 'all' | 'single';
+    timeFormat: 'absolute' | 'relative-to-start' | 'relative-to-prev';
+    autoScroll: boolean;
+  }>({
+    playbackMode: 'continuous',
+    loopScope: 'all',
+    timeFormat: 'absolute',
+    autoScroll: true,
+  });
 
   // 当前播放到的文件索引 (基于 currentTime 估算)
   const currentFileIndex = () => {
@@ -484,7 +502,35 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   };
 
   const handleSettings = () => {
-    // TODO: 打开回放设置
+    setSettingsDraft({
+      playbackMode: playbackMode(),
+      loopScope: loopScope(),
+      timeFormat: timeDisplayFormat(),
+      autoScroll: autoScrollEnabled(),
+    });
+    setShowSettings(true);
+  };
+
+  const handleSettingsApply = () => {
+    const d = settingsDraft();
+    setPlaybackMode(d.playbackMode);
+    setLoopScope(d.loopScope);
+    setTimeDisplayFormat(d.timeFormat);
+    setAutoScrollEnabled(d.autoScroll);
+    setShowSettings(false);
+  };
+
+  const handleSettingsCancel = () => {
+    setShowSettings(false);
+  };
+
+  const handleSettingsReset = () => {
+    setSettingsDraft({
+      playbackMode: 'continuous',
+      loopScope: 'all',
+      timeFormat: 'absolute',
+      autoScroll: true,
+    });
   };
 
   const handleToggleFile = async (index: number, enabled: boolean) => {
@@ -912,6 +958,190 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           </span>
         </div>
       </div>
+
+      {/* 回放设置模态框 */}
+      <Show when={showSettings()}>
+        <div class="npd-overlay" onClick={handleSettingsCancel}>
+          <div
+            class="npd-dialog npd-dialog-sm playback-settings-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div class="npd-header">
+              <h2 class="npd-title">回放设置</h2>
+              <button class="npd-close" onClick={handleSettingsCancel}
+                aria-label="关闭" title="关闭"
+              >&#x2715;</button>
+            </div>
+
+            <div class="npd-body playback-settings-body">
+              {/* 播放模式 */}
+              <div class="playback-settings-section">
+                <div class="playback-settings-section-title">播放模式</div>
+                <div class="playback-settings-radio-group">
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().playbackMode === 'continuous' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="playbackMode"
+                      value="continuous"
+                      checked={settingsDraft().playbackMode === 'continuous'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), playbackMode: 'continuous' })}
+                    />
+                    <span class="playback-settings-radio-text">连续播放</span>
+                    <span class="playback-settings-radio-desc">当前文件播完后自动播放下一个启用文件</span>
+                  </label>
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().playbackMode === 'single' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="playbackMode"
+                      value="single"
+                      checked={settingsDraft().playbackMode === 'single'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), playbackMode: 'single' })}
+                    />
+                    <span class="playback-settings-radio-text">单文件播放</span>
+                    <span class="playback-settings-radio-desc">播完当前文件后停止</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="playback-settings-divider" />
+
+              {/* 循环范围 */}
+              <div class="playback-settings-section">
+                <div class="playback-settings-section-title">循环范围</div>
+                <div class="playback-settings-radio-group">
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().loopScope === 'all' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="loopScope"
+                      value="all"
+                      checked={settingsDraft().loopScope === 'all'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), loopScope: 'all' })}
+                    />
+                    <span class="playback-settings-radio-text">全部循环</span>
+                    <span class="playback-settings-radio-desc">播完所有文件后重新开始</span>
+                  </label>
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().loopScope === 'single' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="loopScope"
+                      value="single"
+                      checked={settingsDraft().loopScope === 'single'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), loopScope: 'single' })}
+                    />
+                    <span class="playback-settings-radio-text">单文件循环</span>
+                    <span class="playback-settings-radio-desc">当前文件播完后从头再播</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="playback-settings-divider" />
+
+              {/* 时间格式 */}
+              <div class="playback-settings-section">
+                <div class="playback-settings-section-title">时间格式</div>
+                <div class="playback-settings-radio-group">
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'absolute' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="timeFormat"
+                      value="absolute"
+                      checked={settingsDraft().timeFormat === 'absolute'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'absolute' })}
+                    />
+                    <span class="playback-settings-radio-text">绝对时间</span>
+                    <span class="playback-settings-radio-desc">基于录制时刻的挂钟时间</span>
+                  </label>
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'relative-to-start' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="timeFormat"
+                      value="relative-to-start"
+                      checked={settingsDraft().timeFormat === 'relative-to-start'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'relative-to-start' })}
+                    />
+                    <span class="playback-settings-radio-text">相对起始</span>
+                    <span class="playback-settings-radio-desc">相对于文件第一条帧的时间偏移</span>
+                  </label>
+                  <label
+                    class="playback-settings-radio-label"
+                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'relative-to-prev' }}
+                  >
+                    <input
+                      class="playback-settings-radio"
+                      type="radio"
+                      name="timeFormat"
+                      value="relative-to-prev"
+                      checked={settingsDraft().timeFormat === 'relative-to-prev'}
+                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'relative-to-prev' })}
+                    />
+                    <span class="playback-settings-radio-text">相对上一帧</span>
+                    <span class="playback-settings-radio-desc">每帧相对于前一帧的时间间隔</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="playback-settings-divider" />
+
+              {/* 行为 */}
+              <div class="playback-settings-section">
+                <div class="playback-settings-section-title">行为</div>
+                <div class="playback-settings-row">
+                  <label class="playback-settings-toggle-label">
+                    <span class="playback-settings-toggle-text">自动滚动</span>
+                    <span class="playback-settings-toggle-desc">播放时自动滚动到当前帧</span>
+                  </label>
+                  <label class="playback-settings-switch">
+                    <input
+                      class="playback-settings-switch-input"
+                      type="checkbox"
+                      checked={settingsDraft().autoScroll}
+                      onChange={(e) => setSettingsDraft({ ...settingsDraft(), autoScroll: e.currentTarget.checked })}
+                    />
+                    <span class="playback-settings-switch-track" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="npd-footer">
+              <button class="npd-btn npd-btn-cancel" onClick={handleSettingsReset}>
+                恢复默认
+              </button>
+              <div style="flex: 1" />
+              <button class="npd-btn npd-btn-cancel" onClick={handleSettingsCancel}>
+                取消
+              </button>
+              <button class="npd-btn npd-btn-create" onClick={handleSettingsApply}>
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
     </div>
   );
 };

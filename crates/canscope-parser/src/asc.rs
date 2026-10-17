@@ -8,6 +8,30 @@ use canscope_core::{
 
 use crate::error::ParseError;
 
+const MONTH_NAMES: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/// 将 ASC 文件头部的 date 字符串（如 `Sun Oct 17 14:30:00.000 2026`）
+/// 转换为 ISO 8601 格式（`2026-10-17T14:30:00.000`）。
+/// Tauri WebView 的 JS 引擎无法可靠解析 ASC 原始格式，必须标准化。
+fn parse_asc_date(raw: &str) -> Option<String> {
+    let parts: Vec<&str> = raw.split_whitespace().collect();
+    if parts.len() != 5 {
+        return None;
+    }
+    let month_idx = MONTH_NAMES.iter().position(|&m| m.eq_ignore_ascii_case(parts[1]))?;
+    let month = month_idx + 1;
+    let day: u32 = parts[2].parse().ok()?;
+    let time = parts[3];
+    let year: u32 = parts[4].parse().ok()?;
+    Some(format!(
+        "{:04}-{:02}-{:02}T{}",
+        year, month, day, time
+    ))
+}
+
 /// ASC 格式读取器（全量加载到内存）。
 ///
 /// Phase 1 MVP：大文件（<500MB）直接全量加载，后续可改为索引+分页。
@@ -57,7 +81,7 @@ impl AscReader {
 
             if !in_triggerblock {
                 if let Some(date_str) = trimmed.strip_prefix("date ") {
-                    metadata.start_time = Some(date_str.to_string());
+                    metadata.start_time = parse_asc_date(date_str);
                 } else if trimmed.starts_with("Begin Triggerblock") {
                     in_triggerblock = true;
                 }

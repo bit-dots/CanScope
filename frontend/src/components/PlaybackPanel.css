@@ -615,3 +615,150 @@
   font-size: 11px;
   color: var(--text-muted, #64748B);
 }
+
+/* ─── 回放设置模态框 ─── */
+.playback-settings-dialog {
+  max-width: 460px;
+}
+
+.playback-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.playback-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playback-settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #64748B);
+  margin-bottom: 2px;
+}
+
+.playback-settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+/* 单选项组 */
+.playback-settings-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playback-settings-radio-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.playback-settings-radio-label:hover {
+  border-color: var(--text-muted);
+}
+
+.playback-settings-radio-label--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.playback-settings-radio {
+  display: none;
+}
+
+.playback-settings-radio-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.playback-settings-radio-desc {
+  font-size: 11px;
+  color: var(--text-muted, #64748B);
+  line-height: 1.4;
+}
+
+/* 开关行 */
+.playback-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.playback-settings-toggle-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.playback-settings-toggle-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.playback-settings-toggle-desc {
+  font-size: 11px;
+  color: var(--text-muted, #64748B);
+}
+
+.playback-settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.playback-settings-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.playback-settings-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.playback-settings-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.playback-settings-switch-input:checked + .playback-settings-switch-track {
+  background: var(--accent);
+}
+
+.playback-settings-switch-input:checked + .playback-settings-switch-track::after {
+  transform: translateX(16px);
+}

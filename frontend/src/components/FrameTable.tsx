@@ -736,10 +736,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         const base = props.startTime ? new Date(props.startTime) : null;
         if (base && !isNaN(base.getTime())) {
           const abs = new Date(base.getTime() + frame.timestamp * 1000);
-          const hh = abs.getUTCHours().toString().padStart(2, '0');
-          const mm = abs.getUTCMinutes().toString().padStart(2, '0');
-          const ss = abs.getUTCSeconds().toString().padStart(2, '0');
-          const ms = abs.getUTCMilliseconds().toString().padStart(3, '0');
+          const hh = abs.getHours().toString().padStart(2, '0');
+          const mm = abs.getMinutes().toString().padStart(2, '0');
+          const ss = abs.getSeconds().toString().padStart(2, '0');
+          const ms = abs.getMilliseconds().toString().padStart(3, '0');
           return `${hh}:${mm}:${ss}.${ms}`;
         }
         // 无 startTime → 相对时间，显示为 HH:MM:SS.mmm
