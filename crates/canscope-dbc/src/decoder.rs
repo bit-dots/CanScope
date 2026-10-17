@@ -32,7 +32,13 @@ fn decode_message(msg: &DbcMessage, frame: &CanFrame) -> Result<Vec<DecodedSigna
 
         let physical = raw_to_physical(raw, sig);
 
-        let label = sig.value_descriptions.get(&(raw as u32)).cloned();
+        let mask = if sig.bit_length >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << sig.bit_length) - 1
+        };
+        let unsigned_raw = raw & mask;
+        let label = sig.value_descriptions.get(&(unsigned_raw as u32)).cloned();
 
         result.push(DecodedSignal {
             name: sig.name.clone(),
@@ -50,7 +56,12 @@ fn resolve_multiplexor(msg: &DbcMessage, frame: &CanFrame) -> Option<u32> {
     for sig in &msg.signals {
         if sig.multiplexer == crate::types::Multiplexer::Multiplexor {
             let raw = extract_raw(frame, sig);
-            return Some(raw as u32);
+            let mask = if sig.bit_length >= 64 {
+                u64::MAX
+            } else {
+                (1u64 << sig.bit_length) - 1
+            };
+            return Some((raw & mask) as u32);
         }
     }
     None
@@ -323,6 +334,29 @@ VAL_ 256 State 0 "Off" 1 "On" 2 "Error" 3 "Reserved" ;
 
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].raw_value, 2);
+        assert_eq!(signals[0].label.as_deref(), Some("Error"));
+    }
+
+    #[test]
+    fn decode_signed_with_value_labels() {
+        let dbc_content = r#"VERSION ""
+
+BU_: BCM
+
+BO_ 256 Msg1: 1 BCM
+ SG_ Level : 0|8@1- (1,0) [-128|127] "" IC
+
+VAL_ 256 Level 255 "Error" 0 "OK" 1 "Warning" ;
+
+"#;
+        let path = write_temp_dbc("decode_signed_labels", dbc_content);
+        let dbc = parse_dbc(&path).unwrap();
+
+        let frame = make_frame(256, &[0xFF]);
+        let signals = dbc.decode_frame(&frame).unwrap();
+
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].raw_value as i64, -1);
         assert_eq!(signals[0].label.as_deref(), Some("Error"));
     }
 
