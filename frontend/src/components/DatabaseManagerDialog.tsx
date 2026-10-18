@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, File, Database } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -179,6 +179,12 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const handleCloseSidebar = () => setShowSidebar(false);
 
+  const handleClearAll = () => {
+    setEntries([]);
+    clearSelection();
+    setShowSidebar(false);
+  };
+
   const handleImport = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
@@ -290,8 +296,8 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       </div>
       <div class="dm-toolbar-sep" />
       <div class="dm-toolbar__group">
-        <ToolbarIcon title="清空全部" onClick={() => {}} disabled={!hasEntries()}>
-          <Eraser size={16} />
+        <ToolbarIcon title="清空全部" onClick={handleClearAll} disabled={!hasEntries()}>
+          <Trash2 size={16} />
         </ToolbarIcon>
       </div>
       <Show when={hasEntries()}>
