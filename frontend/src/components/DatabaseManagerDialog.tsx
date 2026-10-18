@@ -252,7 +252,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     setShowSidebar((v) => !v);
   };
 
-  const handleCloseSidebar = () => setShowSidebar(false);
+  const handleCloseSidebar = (e?: MouseEvent) => {
+    e?.stopPropagation();
+    setShowSidebar(false);
+  };
 
   const handleClearAll = () => {
     setEntries([]);
