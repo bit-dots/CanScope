@@ -287,10 +287,37 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
 }
 
 #[tauri::command]
-fn clear_all_dbc(state: State<AppState>) -> Result<(), String> {
+fn reload_all_dbc(bindings: Vec<DbcBinding>, state: State<AppState>) -> Result<String, String> {
+    let mut new_map: HashMap<u8, Dbc> = HashMap::new();
+    let mut loaded = 0usize;
+    let mut failed = Vec::new();
+
+    for binding in &bindings {
+        match canscope_dbc::parse_dbc(&PathBuf::from(&binding.path)) {
+            Ok(dbc) => {
+                new_map.insert(binding.bus_id, dbc);
+                loaded += 1;
+            }
+            Err(e) => {
+                failed.push(format!("{}: {}", binding.path, e));
+            }
+        }
+    }
+
     let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
-    dbc_map.clear();
-    Ok(())
+    *dbc_map = new_map;
+    drop(dbc_map);
+
+    if failed.is_empty() {
+        Ok(format!("Loaded {} DBC file(s)", loaded))
+    } else {
+        Ok(format!(
+            "Loaded {} DBC file(s), {} failed: {}",
+            loaded,
+            failed.len(),
+            failed.join("; ")
+        ))
+    }
 }
 
 #[tauri::command]
@@ -1164,7 +1191,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            clear_all_dbc,
+            reload_all_dbc,
             load_dbc,
             get_dbc_info,
             get_batch,

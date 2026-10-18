@@ -378,19 +378,6 @@ function App() {
     setFilter({ canId: '', timeStart: '', timeEnd: '' });
   };
 
-  const handleLoadDbc = async (path: string, busId: number) => {
-    try {
-      const result: string = await invoke('load_dbc', { path, busId });
-      console.log(result);
-
-      const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
-      setDbcTree(tree);
-    } catch (e) {
-      console.error('Failed to load DBC:', e);
-      setError(String(e));
-    }
-  };
-
   const handleOpenDatabaseManager = () => {
     setShowDatabaseManager(true);
   };
@@ -398,18 +385,18 @@ function App() {
   const handleDatabaseManagerConfirm = async (entries: Array<{ id: string; name: string; path: string; type: string; busId: number }>) => {
     setShowDatabaseManager(false);
 
-    // 先清空引擎中所有已加载的 DBC，再按最新列表逐条加载
-    await invoke('clear_all_dbc');
-
-    // Load all DBC entries with their assigned bus IDs
-    for (const entry of entries) {
-      if (entry.type === 'dbc') {
-        await handleLoadDbc(entry.path, entry.busId);
-      }
+    // 原子替换：在一次调用中完成所有 DBC 的解析和替换，零空窗
+    const bindings = entries.map((e) => ({ busId: e.busId, path: e.path }));
+    try {
+      await invoke('reload_all_dbc', { bindings });
+      const tree: DbcTreeInfo | null = await invoke('get_dbc_info');
+      setDbcTree(tree);
+    } catch (e) {
+      console.error('Failed to reload DBCs:', e);
+      setError(String(e));
     }
 
     // 同步更新工程状态中的 DBC 绑定列表
-    const bindings = entries.map((e) => ({ busId: e.busId, path: e.path }));
     setProject((prev) => prev ? { ...prev, dbcBindings: bindings } : null);
 
     // LDF import — not yet implemented on backend, skip for now
