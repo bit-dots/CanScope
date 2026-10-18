@@ -249,6 +249,43 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     }
   });
 
+  const [nameColWidth, setNameColWidth] = createSignal(164);
+  const [typeColWidth, setTypeColWidth] = createSignal(52);
+  const [chanColWidth, setChanColWidth] = createSignal(110);
+  const [isResizing, setIsResizing] = createSignal(false);
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
+
+  const makeResizeHandler = (setter: (v: number) => void, getter: () => number) => (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStartX = e.clientX;
+    resizeStartWidth = getter();
+    setIsResizing(true);
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - resizeStartX;
+      const newWidth = Math.max(40, Math.min(400, resizeStartWidth + delta));
+      setter(newWidth);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setIsResizing(false);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  createEffect(() => {
+    if (isResizing()) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
   const handleToggleSidebar = () => {
     if (selectedCount() !== 1) return;
     setShowSidebar((v) => !v);
@@ -420,15 +457,24 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
           <div class="dm-files-table-wrap">
             <table class="dm-files-table" onClick={() => clearSelection()}>
               <colgroup>
-                <col style={{ width: '164px' }} />
-                <col style={{ width: '52px' }} />
-                <col style={{ width: '110px' }} />
+                <col style={{ width: `${nameColWidth()}px` }} />
+                <col style={{ width: `${typeColWidth()}px` }} />
+                <col style={{ width: `${chanColWidth()}px` }} />
               </colgroup>
               <thead class="dm-files-thead">
                 <tr>
-                  <th class="dm-files-th">文件名</th>
-                  <th class="dm-files-th">类型</th>
-                  <th class="dm-files-th">通道</th>
+                  <th class="dm-files-th dm-files-th--resizable">
+                    文件名
+                    <div class="dm-files-col-resizer" onMouseDown={makeResizeHandler(setNameColWidth, nameColWidth)} />
+                  </th>
+                  <th class="dm-files-th dm-files-th--resizable">
+                    类型
+                    <div class="dm-files-col-resizer" onMouseDown={makeResizeHandler(setTypeColWidth, typeColWidth)} />
+                  </th>
+                  <th class="dm-files-th dm-files-th--resizable">
+                    通道
+                    <div class="dm-files-col-resizer" onMouseDown={makeResizeHandler(setChanColWidth, chanColWidth)} />
+                  </th>
                 </tr>
               </thead>
               <tbody>

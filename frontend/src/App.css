@@ -2209,6 +2209,7 @@ select:focus-visible,
 }
 
 .dm-files-thead th {
+  position: relative;
   padding: 6px 10px;
   text-align: left;
   font-size: 12px;
@@ -2225,6 +2226,23 @@ select:focus-visible,
 
 .dm-files-thead th:last-child {
   border-right: none;
+}
+
+.dm-files-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 1;
+  transition: background 0.15s;
+}
+
+.dm-files-col-resizer:hover,
+.dm-files-col-resizer:active {
+  background: var(--accent);
 }
 
 /* tbody cells */
