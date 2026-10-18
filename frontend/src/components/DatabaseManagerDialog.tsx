@@ -158,6 +158,27 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     clearSelection();
   };
 
+  const [showSidebar, setShowSidebar] = createSignal(false);
+  const sidebarEntry = () => {
+    if (selectedCount() !== 1) return null;
+    const ids = selectedIds();
+    return entries().find((e) => ids.has(e.id)) ?? null;
+  };
+
+  // 当选中的文件不再是恰好 1 个，或该文件已被删除时，自动关闭 sidebar
+  createEffect(() => {
+    if (showSidebar() && !sidebarEntry()) {
+      setShowSidebar(false);
+    }
+  });
+
+  const handleToggleSidebar = () => {
+    if (selectedCount() !== 1) return;
+    setShowSidebar((v) => !v);
+  };
+
+  const handleCloseSidebar = () => setShowSidebar(false);
+
   const handleImport = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
@@ -199,7 +220,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      if (showHelp()) {
+      if (showSidebar()) {
+        handleCloseSidebar();
+      } else if (showHelp()) {
         closeHelp();
       } else {
         closeWithAnimation();
@@ -261,7 +284,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       </div>
       <div class="dm-toolbar-sep" />
       <div class="dm-toolbar__group">
-        <ToolbarIcon title="属性" onClick={() => {}} disabled={!hasEntries()}>
+        <ToolbarIcon title="属性" onClick={handleToggleSidebar} disabled={selectedCount() !== 1}>
           <Info size={16} />
         </ToolbarIcon>
       </div>
@@ -293,79 +316,115 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         </div>
       </Show>
       <Show when={hasEntries()}>
-        <table class="dm-files-table" onClick={() => clearSelection()}>
-          <colgroup>
-            <col style={{ width: '160px' }} />
-            <col style={{ width: '52px' }} />
-            <col />
-          </colgroup>
-          <thead class="dm-files-thead">
-            <tr>
-              <th class="dm-files-th">文件名</th>
-              <th class="dm-files-th">类型</th>
-              <th class="dm-files-th">关联通道</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={entries()}>
-              {(entry, idx) => (
-                <tr
-                  class="dm-files-row"
-                  classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRowClick(entry.id, idx(), e);
-                  }}
-                >
-                  <td class="dm-files-cell dm-files-cell--name">
-                    <span class="dm-files-icon">
-                      <File size={14} />
-                    </span>
-                    {entry.name}
-                  </td>
-                  <td class="dm-files-cell dm-files-cell--type">
-                    <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
-                      {entry.type.toUpperCase()}
-                    </span>
-                  </td>
-                  <td class="dm-files-cell dm-files-cell--channel">
-                    <input
-                      type="number"
-                      class="dm-channel-input"
-                      min="0"
-                      max="15"
-                      value={entry.busId}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        const i = idx();
-                        const v = parseInt(e.currentTarget.value, 10);
-                        if (!isNaN(v) && v >= 0 && v <= 15) {
-                          setEntries((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...next[i], busId: v };
-                            return next;
-                          });
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const i = idx();
-                        const v = parseInt(e.currentTarget.value, 10);
-                        if (isNaN(v) || v < 0) {
-                          setEntries((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...next[i], busId: 0 };
-                            return next;
-                          });
-                        }
-                      }}
-                      title="该 DBC 数据库绑定的 CAN 通道编号"
-                    />
-                  </td>
+        <div class="dm-files-body">
+          <div class="dm-files-table-wrap">
+            <table class="dm-files-table" onClick={() => clearSelection()}>
+              <colgroup>
+                <col style={{ width: '160px' }} />
+                <col style={{ width: '52px' }} />
+                <col />
+              </colgroup>
+              <thead class="dm-files-thead">
+                <tr>
+                  <th class="dm-files-th">文件名</th>
+                  <th class="dm-files-th">类型</th>
+                  <th class="dm-files-th">关联通道</th>
                 </tr>
-              )}
-            </For>
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                <For each={entries()}>
+                  {(entry, idx) => (
+                    <tr
+                      class="dm-files-row"
+                      classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(entry.id, idx(), e);
+                      }}
+                    >
+                      <td class="dm-files-cell dm-files-cell--name">
+                        <span class="dm-files-icon">
+                          <File size={14} />
+                        </span>
+                        {entry.name}
+                      </td>
+                      <td class="dm-files-cell dm-files-cell--type">
+                        <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
+                          {entry.type.toUpperCase()}
+                        </span>
+                      </td>
+                      <td class="dm-files-cell dm-files-cell--channel">
+                        <input
+                          type="number"
+                          class="dm-channel-input"
+                          min="0"
+                          max="15"
+                          value={entry.busId}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const i = idx();
+                            const v = parseInt(e.currentTarget.value, 10);
+                            if (!isNaN(v) && v >= 0 && v <= 15) {
+                              setEntries((prev) => {
+                                const next = [...prev];
+                                next[i] = { ...next[i], busId: v };
+                                return next;
+                              });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const i = idx();
+                            const v = parseInt(e.currentTarget.value, 10);
+                            if (isNaN(v) || v < 0) {
+                              setEntries((prev) => {
+                                const next = [...prev];
+                                next[i] = { ...next[i], busId: 0 };
+                                return next;
+                              });
+                            }
+                          }}
+                          title="该 DBC 数据库绑定的 CAN 通道编号"
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </For>
+              </tbody>
+            </table>
+          </div>
+          <Show when={showSidebar() && sidebarEntry()}>
+            {(entry) => (
+              <div class="dm-sidebar">
+                <div class="dm-sidebar__header">
+                  <span class="dm-sidebar__title">文件属性</span>
+                  <button class="dm-sidebar__close" onClick={handleCloseSidebar} aria-label="关闭属性面板">
+                    <X size={12} />
+                  </button>
+                </div>
+                <div class="dm-sidebar__body">
+                  <div class="dm-sidebar__icon">
+                    <File size={28} strokeWidth={1.2} />
+                  </div>
+                  <div class="dm-sidebar__name">{entry().name}</div>
+                  <div class="dm-sidebar__field">
+                    <span class="dm-sidebar__label">类型</span>
+                    <span class={`dm-files-badge${entry().type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
+                      {entry().type.toUpperCase()}
+                    </span>
+                  </div>
+                  <div class="dm-sidebar__field">
+                    <span class="dm-sidebar__label">绑定通道</span>
+                    <span class="dm-sidebar__value">CAN {entry().busId}</span>
+                  </div>
+                  <div class="dm-sidebar__field">
+                    <span class="dm-sidebar__label">完整路径</span>
+                    <span class="dm-sidebar__path">{entry().path}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Show>
+        </div>
       </Show>
     </div>
   );
