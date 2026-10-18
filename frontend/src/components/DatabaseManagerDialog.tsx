@@ -598,22 +598,20 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                               {(detail) => (
                                 <div class="dm-tree">
                                   <For each={detail().messages}>
-                                    {(msg) => {
-                                      const msgOpen = isMsgExpanded(entry.id, msg.canId);
-                                      return (
+                                    {(msg) => (
                                         <div class="dm-tree-group">
                                           <div
                                             class="dm-tree-msg"
-                                            onClick={() => toggleMsgExpand(msg.canId, entry.id)}
+                                            onClick={(e) => { e.stopPropagation(); toggleMsgExpand(msg.canId, entry.id); }}
                                           >
                                             <span class="dm-tree-arrow">
-                                              {msgOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                              {isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                             </span>
                                             <span class="dm-tree-msg__name">{msg.name}</span>
                                             <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
                                             <span class="dm-tree-msg__meta">dlc:{msg.dlc} {msg.sender}</span>
                                           </div>
-                                          <Show when={msgOpen}>
+                                          <Show when={isMsgExpanded(entry.id, msg.canId)}>
                                             <div class="dm-tree-signals">
                                               <For each={msg.signals}>
                                                 {(sig) => (
@@ -633,8 +631,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                             </div>
                                           </Show>
                                         </div>
-                                      );
-                                    }}
+                                    )}
                                   </For>
                                 </div>
                               )}
