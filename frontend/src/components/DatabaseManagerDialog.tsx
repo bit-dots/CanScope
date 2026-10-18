@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, ChevronDown } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -202,10 +202,17 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       return;
     }
     const cell = (e.currentTarget as HTMLElement).closest('td');
-    if (cell) {
-      const rect = cell.getBoundingClientRect();
-      setChannelDropdown({ entryId, rect: { top: rect.bottom, left: rect.left, width: rect.width } });
-    }
+    if (!cell || !dialogRef) return;
+    const cellRect = cell.getBoundingClientRect();
+    const dialogRect = dialogRef.getBoundingClientRect();
+    setChannelDropdown({
+      entryId,
+      rect: {
+        top: cellRect.bottom - dialogRect.top + 4,
+        left: cellRect.left - dialogRect.left,
+        width: cellRect.width,
+      },
+    });
   };
 
   const closeChannelDropdown = () => setChannelDropdown(null);
@@ -443,16 +450,21 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                       </td>
                       <td
                         class="dm-files-cell dm-files-cell--channel"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleChannelDropdown(entry.id, e);
-                        }}
                       >
-                        <span class="dm-channel-display">
-                          {entry.busIds.length > 0
-                            ? entry.busIds.map((id) => `CAN ${id}`).join(', ')
-                            : '未绑定'}
-                        </span>
+                        <div
+                          class="dm-channel-trigger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleChannelDropdown(entry.id, e);
+                          }}
+                        >
+                          <span class="dm-channel-display">
+                            {entry.busIds.length > 0
+                              ? entry.busIds.map((id) => `CAN ${id}`).join(', ')
+                              : '未绑定'}
+                          </span>
+                          <ChevronDown class="dm-channel-chevron" size={12} />
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -468,7 +480,6 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                 <div
                   class="dm-channel-drop"
                   style={{
-                    position: 'fixed',
                     top: `${dd().rect.top}px`,
                     left: `${dd().rect.left}px`,
                     width: `${dd().rect.width}px`,
