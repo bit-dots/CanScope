@@ -192,6 +192,41 @@ fn get_dbc_info(state: State<AppState>) -> Result<Option<DbcTreeInfo>, String> {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcDetailInfo {
+    messages: Vec<DbcMessageDetail>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcMessageDetail {
+    can_id: u32,
+    name: String,
+    dlc: u8,
+    sender: String,
+    signal_count: usize,
+    signals: Vec<DbcSignalInfo>,
+}
+
+#[tauri::command]
+fn get_dbc_detail(path: String) -> Result<DbcDetailInfo, String> {
+    let dbc = canscope_dbc::parse_dbc(&path).map_err(|e| format!("Failed to parse DBC: {}", e))?;
+    let messages: Vec<DbcMessageDetail> = dbc
+        .messages
+        .iter()
+        .map(|m| DbcMessageDetail {
+            can_id: m.can_id,
+            name: m.name.clone(),
+            dlc: m.dlc,
+            sender: m.sender.clone(),
+            signal_count: m.signals.len(),
+            signals: m.signals.iter().map(DbcSignalInfo::from).collect(),
+        })
+        .collect();
+    Ok(DbcDetailInfo { messages })
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct FrameInfo {
     timestamp: f64,
     bus_id: u8,
@@ -1194,6 +1229,7 @@ pub fn run() {
             reload_all_dbc,
             load_dbc,
             get_dbc_info,
+            get_dbc_detail,
             get_batch,
             playback_control,
             get_playback_state,

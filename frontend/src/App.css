@@ -2391,6 +2391,150 @@ select:focus-visible,
   cursor: pointer;
 }
 
+/* ── Tree expand / DBC detail ────────── */
+.dm-tree-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  margin: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dm-tree-expand:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dm-tree-expand--invisible {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dm-tree-row {
+  background: var(--bg-tertiary);
+}
+
+.dm-tree-cell {
+  padding: 0 !important;
+  border-bottom: 2px solid var(--border) !important;
+}
+
+.dm-tree {
+  padding: 4px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dm-tree-loading {
+  padding: 12px 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.dm-tree-group {
+  /* message group wrapper */
+}
+
+.dm-tree-msg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 20px 3px 32px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.08s;
+}
+
+.dm-tree-msg:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.dm-tree-arrow {
+  display: flex;
+  align-items: center;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.dm-tree-msg__name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dm-tree-msg__id {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.dm-tree-msg__meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.dm-tree-signals {
+  padding: 0 0 2px 0;
+}
+
+.dm-tree-sig {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 20px 2px 56px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: background 0.08s;
+}
+
+.dm-tree-sig:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.dm-tree-sig__name {
+  color: var(--text-primary);
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.dm-tree-sig__bits {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.dm-tree-sig__order {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.dm-tree-sig__range {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.dm-tree-sig__unit {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
 .dm-files-badge {
   display: inline-block;
   padding: 2px 7px;

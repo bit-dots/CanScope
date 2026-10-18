@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, ChevronDown } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, ChevronDown, ChevronRight } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -8,6 +8,30 @@ export interface DatabaseEntry {
   path: string;
   type: 'dbc' | 'ldf';
   busIds: number[];
+}
+
+interface DbcSignalDetail {
+  name: string;
+  startBit: number;
+  bitLength: number;
+  byteOrder: string;
+  unit: string;
+  min: number | null;
+  max: number | null;
+  multiplexer: string;
+}
+
+interface DbcMessageDetail {
+  canId: number;
+  name: string;
+  dlc: number;
+  sender: string;
+  signalCount: number;
+  signals: DbcSignalDetail[];
+}
+
+interface DbcDetail {
+  messages: DbcMessageDetail[];
 }
 
 interface DatabaseManagerProps {
@@ -190,6 +214,42 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   };
 
   const [showSidebar, setShowSidebar] = createSignal(false);
+
+  const [expandedIds, setExpandedIds] = createSignal<Set<string>>(new Set());
+  const [expandedMsgKeys, setExpandedMsgKeys] = createSignal<Set<string>>(new Set());
+  const [dbcDetails, setDbcDetails] = createSignal<Record<string, DbcDetail>>({});
+
+  const toggleExpand = async (entry: DatabaseEntry) => {
+    const ids = expandedIds();
+    const next = new Set(ids);
+    if (next.has(entry.id)) {
+      next.delete(entry.id);
+      setExpandedIds(next);
+    } else {
+      next.add(entry.id);
+      setExpandedIds(next);
+      if (entry.type === 'dbc' && !dbcDetails()[entry.path]) {
+        try {
+          const detail = await invoke<DbcDetail>('get_dbc_detail', { path: entry.path });
+          setDbcDetails((prev) => ({ ...prev, [entry.path]: detail }));
+        } catch (e) {
+          console.error('Failed to get DBC detail:', e);
+        }
+      }
+    }
+  };
+
+  const toggleMsgExpand = (canId: number, entryId: string) => {
+    const key = `${entryId}::${canId}`;
+    setExpandedMsgKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const isExpanded = (id: string) => expandedIds().has(id);
+  const isMsgExpanded = (entryId: string, canId: number) => expandedMsgKeys().has(`${entryId}::${canId}`);
 
   interface ChannelDropdownState {
     entryId: string;
@@ -477,50 +537,114 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                <For each={entries()}>
+              <For each={entries()}>
                   {(entry, idx) => (
-                    <tr
-                      class="dm-files-row"
-                      classList={{ 'dm-files-row--selected': isSelected(entry.id) }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRowClick(entry.id, idx(), e);
-                      }}
-                    >
-                      <td class="dm-files-cell dm-files-cell--name">
-                        <span class="dm-files-icon">
-                          <File size={14} />
-                        </span>
-                        {entry.name}
-                      </td>
-                      <td class="dm-files-cell dm-files-cell--type">
-                        <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
-                          {entry.type.toUpperCase()}
-                        </span>
-                      </td>
-                      <td
-                        class="dm-files-cell dm-files-cell--channel"
+                    <tbody>
+                      <tr
+                        class="dm-files-row"
+                        classList={{ 'dm-files-row--selected': isSelected(entry.id), 'dm-files-row--expanded': isExpanded(entry.id) }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRowClick(entry.id, idx(), e);
+                        }}
                       >
-                        <div
-                          class="dm-channel-trigger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleChannelDropdown(entry.id, e);
-                          }}
-                        >
-                          <span class="dm-channel-display">
-                            {entry.busIds.length > 0
-                              ? entry.busIds.map((id) => `CAN ${id}`).join(', ')
-                              : '未绑定'}
+                        <td class="dm-files-cell dm-files-cell--name">
+                          <button
+                            class="dm-tree-expand"
+                            classList={{ 'dm-tree-expand--invisible': entry.type !== 'dbc' }}
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(entry); }}
+                            aria-label={isExpanded(entry.id) ? '折叠' : '展开'}
+                          >
+                            <Show when={entry.type === 'dbc'} fallback={<span class="dm-tree-expand--spacer" />}>
+                              {isExpanded(entry.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </Show>
+                          </button>
+                          <span class="dm-files-icon">
+                            <File size={14} />
                           </span>
-                          <ChevronDown class="dm-channel-chevron" size={12} />
-                        </div>
-                      </td>
-                    </tr>
+                          {entry.name}
+                        </td>
+                        <td class="dm-files-cell dm-files-cell--type">
+                          <span class={`dm-files-badge${entry.type === 'dbc' ? ' dm-files-badge--dbc' : ' dm-files-badge--ldf'}`}>
+                            {entry.type.toUpperCase()}
+                          </span>
+                        </td>
+                        <td
+                          class="dm-files-cell dm-files-cell--channel"
+                        >
+                          <div
+                            class="dm-channel-trigger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleChannelDropdown(entry.id, e);
+                            }}
+                          >
+                            <span class="dm-channel-display">
+                              {entry.busIds.length > 0
+                                ? entry.busIds.map((id) => `CAN ${id}`).join(', ')
+                                : '未绑定'}
+                            </span>
+                            <ChevronDown class="dm-channel-chevron" size={12} />
+                          </div>
+                        </td>
+                      </tr>
+                      <Show when={isExpanded(entry.id) && entry.type === 'dbc'}>
+                        <tr class="dm-tree-row">
+                          <td colspan="3" class="dm-tree-cell">
+                            <Show
+                              when={dbcDetails()[entry.path]}
+                              fallback={<div class="dm-tree-loading">解析中...</div>}
+                            >
+                              {(detail) => (
+                                <div class="dm-tree">
+                                  <For each={detail().messages}>
+                                    {(msg) => {
+                                      const msgOpen = isMsgExpanded(entry.id, msg.canId);
+                                      return (
+                                        <div class="dm-tree-group">
+                                          <div
+                                            class="dm-tree-msg"
+                                            onClick={() => toggleMsgExpand(msg.canId, entry.id)}
+                                          >
+                                            <span class="dm-tree-arrow">
+                                              {msgOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                            </span>
+                                            <span class="dm-tree-msg__name">{msg.name}</span>
+                                            <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
+                                            <span class="dm-tree-msg__meta">dlc:{msg.dlc} {msg.sender}</span>
+                                          </div>
+                                          <Show when={msgOpen}>
+                                            <div class="dm-tree-signals">
+                                              <For each={msg.signals}>
+                                                {(sig) => (
+                                                  <div class="dm-tree-sig">
+                                                    <span class="dm-tree-sig__name">{sig.name}</span>
+                                                    <span class="dm-tree-sig__bits">[{sig.startBit}|{sig.bitLength}]</span>
+                                                    <span class="dm-tree-sig__order">{sig.byteOrder}</span>
+                                                    <Show when={sig.min != null && sig.max != null}>
+                                                      <span class="dm-tree-sig__range">{sig.min}..{sig.max}</span>
+                                                    </Show>
+                                                    <Show when={sig.unit}>
+                                                      <span class="dm-tree-sig__unit">{sig.unit}</span>
+                                                    </Show>
+                                                  </div>
+                                                )}
+                                              </For>
+                                            </div>
+                                          </Show>
+                                        </div>
+                                      );
+                                    }}
+                                  </For>
+                                </div>
+                              )}
+                            </Show>
+                          </td>
+                        </tr>
+                      </Show>
+                    </tbody>
                   )}
                 </For>
-              </tbody>
             </table>
           </div>
           <Show when={channelDropdown()}>
