@@ -408,6 +408,10 @@ function App() {
       }
     }
 
+    // 同步更新工程状态中的 DBC 绑定列表
+    const bindings = entries.map((e) => ({ busId: e.busId, path: e.path }));
+    setProject((prev) => prev ? { ...prev, dbcBindings: bindings } : null);
+
     // LDF import — not yet implemented on backend, skip for now
     const ldfPaths = entries
       .filter((e) => e.type === 'ldf')
