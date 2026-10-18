@@ -134,6 +134,13 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     }
   };
 
+  const handleRemove = () => {
+    const ids = selectedIds();
+    if (ids.size === 0) return;
+    setEntries((prev) => prev.filter((e) => !ids.has(e.id)));
+    clearSelection();
+  };
+
   const handleImport = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
@@ -228,7 +235,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         <ToolbarIcon title="添加文件" onClick={handleImport}>
           <FilePlus size={16} />
         </ToolbarIcon>
-        <ToolbarIcon title="移除文件" onClick={() => {}} disabled={!hasEntries()}>
+        <ToolbarIcon title="移除选中文件" onClick={handleRemove} disabled={selectedCount() === 0}>
           <FileX size={16} />
         </ToolbarIcon>
         <ToolbarIcon title="刷新" onClick={() => {}} disabled={!hasEntries()}>
