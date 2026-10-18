@@ -537,7 +537,9 @@ fn playlist_add(
     let path_buf = PathBuf::from(&path);
     let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
 
-    let file_name = path_buf
+    // 解析为规范绝对路径（消除 ..、符号链接等），失败则退化为原路径
+    let canonical_path = std::fs::canonicalize(&path_buf).unwrap_or_else(|_| path_buf.clone());
+    let file_name = canonical_path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
@@ -547,7 +549,7 @@ fn playlist_add(
     let entry = PlaylistEntry {
         engine,
         file_name,
-        file_path: path.clone(),
+        file_path: canonical_path.to_string_lossy().to_string(),
         enabled: true,
         global_start_offset: 0.0,
         global_end_offset: None,
@@ -557,6 +559,14 @@ fn playlist_add(
 
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
+        // 检查重复：双方都规范化为绝对路径后比较，避免不同路径指向同一文件
+        if playlist.entries().iter().any(|e| {
+            let existing = PathBuf::from(&e.file_path);
+            let existing_canonical = std::fs::canonicalize(&existing).unwrap_or(existing);
+            existing_canonical == canonical_path
+        }) {
+            return Err(format!("文件已存在：{}", path));
+        }
         let was_playing = playlist.state() == PlaybackState::Playing;
         playlist.add_entry(entry);
         if was_playing {
@@ -569,7 +579,7 @@ fn playlist_add(
         let info = build_playlist_info(&playlist);
 
         let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
-        *file_path = Some(path_buf);
+        *file_path = Some(canonical_path);
 
         *engine_guard = Some(playlist);
         Ok(info)

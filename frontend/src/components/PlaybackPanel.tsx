@@ -243,12 +243,25 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       if (!selected) return;
 
       const paths = Array.isArray(selected) ? selected : [selected];
+      const duplicates: string[] = [];
       for (const path of paths) {
         if (typeof path === 'string') {
-          await invoke('playlist_add', { path });
+          try {
+            await invoke('playlist_add', { path });
+          } catch (e) {
+            const msg = String(e);
+            if (msg.includes('文件已存在')) {
+              duplicates.push(path);
+            } else {
+              console.error('Failed to add file:', e);
+            }
+          }
         }
       }
       props.onRefreshPlaylist();
+      if (duplicates.length > 0) {
+        alert(`以下文件已存在，已跳过：\n${duplicates.join('\n')}`);
+      }
     } catch (e) {
       console.error('Failed to add file:', e);
     }
