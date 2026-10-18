@@ -148,8 +148,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     }
   };
 
-  const handleDropdownOutsideClick = (_e: MouseEvent) => {
-    if (channelDropdown()) {
+  let channelDropRef: HTMLDivElement | undefined;
+
+  const handleDropdownOutsideClick = (e: MouseEvent) => {
+    if (channelDropdown() && channelDropRef && !channelDropRef.contains(e.target as Node)) {
       closeChannelDropdown();
     }
   };
@@ -481,6 +483,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
               if (!entry) return null;
               return (
                 <div
+                  ref={channelDropRef}
                   class="dm-channel-drop"
                   style={{
                     top: `${dd().rect.top}px`,
