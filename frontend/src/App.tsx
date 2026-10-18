@@ -398,6 +398,9 @@ function App() {
   const handleDatabaseManagerConfirm = async (entries: Array<{ id: string; name: string; path: string; type: string; busId: number }>) => {
     setShowDatabaseManager(false);
 
+    // 先清空引擎中所有已加载的 DBC，再按最新列表逐条加载
+    await invoke('clear_all_dbc');
+
     // Load all DBC entries with their assigned bus IDs
     for (const entry of entries) {
       if (entry.type === 'dbc') {

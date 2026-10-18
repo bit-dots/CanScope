@@ -287,6 +287,13 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
 }
 
 #[tauri::command]
+fn clear_all_dbc(state: State<AppState>) -> Result<(), String> {
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    dbc_map.clear();
+    Ok(())
+}
+
+#[tauri::command]
 fn load_dbc(
     path: String,
     bus_id: u8,
@@ -1157,6 +1164,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            clear_all_dbc,
             load_dbc,
             get_dbc_info,
             get_batch,
