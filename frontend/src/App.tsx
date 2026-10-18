@@ -447,16 +447,15 @@ function App() {
 
   const handlePlaybackControl = async (action: string) => {
     try {
+      const prevState = playbackState();
       const state: string = await invoke('playback_control', { action });
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
+        if (prevState === 'stopped') setFrames([]);
         startPolling();
       } else {
         stopPolling();
-        if (state === 'stopped') {
-          setFrames([]);
-        }
       }
     } catch (e) {
       console.error('playback_control failed:', e);

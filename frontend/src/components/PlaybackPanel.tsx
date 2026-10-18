@@ -1,7 +1,7 @@
 import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
-import { Play, Pause, Square, Gauge, Repeat, FilePlus, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
+import { Play, Pause, Square, Gauge, Repeat, FilePlusCorner, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
 import type { PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -642,7 +642,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           aria-label="添加文件"
           onClick={handleAddFile}
         >
-          <FilePlus size={14} />
+          <FilePlusCorner size={14} />
         </button>
         <button
           class="playback-panel__tool-btn"
@@ -719,7 +719,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           <div class="playback-panel__file-list-empty">
             暂无回放文件
             <br />
-            点击工具栏 <FilePlus size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
+            点击工具栏 <FilePlusCorner size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
           </div>
         </Show>
         <Show when={files().length > 0}>
