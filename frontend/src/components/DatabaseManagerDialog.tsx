@@ -139,6 +139,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   onCleanup(() => {
     document.removeEventListener('click', handleHelpOutsideClick);
+    document.removeEventListener('click', handleDropdownOutsideClick);
   });
 
   const handleHelpOutsideClick = (e: MouseEvent) => {
@@ -146,6 +147,20 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       closeHelp();
     }
   };
+
+  const handleDropdownOutsideClick = (_e: MouseEvent) => {
+    if (channelDropdown()) {
+      closeChannelDropdown();
+    }
+  };
+
+  createEffect(() => {
+    if (channelDropdown()) {
+      document.addEventListener('click', handleDropdownOutsideClick, true);
+    } else {
+      document.removeEventListener('click', handleDropdownOutsideClick, true);
+    }
+  });
 
   const handleRemove = () => {
     const ids = selectedIds();
@@ -173,6 +188,45 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   };
 
   const [showSidebar, setShowSidebar] = createSignal(false);
+
+  interface ChannelDropdownState {
+    entryId: string;
+    rect: { top: number; left: number; width: number };
+  }
+  const [channelDropdown, setChannelDropdown] = createSignal<ChannelDropdownState | null>(null);
+
+  const toggleChannelDropdown = (entryId: string, e: MouseEvent) => {
+    e.stopPropagation();
+    if (channelDropdown()?.entryId === entryId) {
+      setChannelDropdown(null);
+      return;
+    }
+    const cell = (e.currentTarget as HTMLElement).closest('td');
+    if (cell) {
+      const rect = cell.getBoundingClientRect();
+      setChannelDropdown({ entryId, rect: { top: rect.bottom, left: rect.left, width: rect.width } });
+    }
+  };
+
+  const closeChannelDropdown = () => setChannelDropdown(null);
+
+  const isChannelChecked = (entryId: string, busId: number) => {
+    const entry = entries().find((e) => e.id === entryId);
+    return entry ? entry.busIds.includes(busId) : false;
+  };
+
+  const toggleChannel = (entryId: string, busId: number) => {
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.id !== entryId) return e;
+        const has = e.busIds.includes(busId);
+        const next = has
+          ? e.busIds.filter((id) => id !== busId)
+          : [...e.busIds, busId].sort((a, b) => a - b);
+        return { ...e, busIds: next.length > 0 ? next : [0] };
+      })
+    );
+  };
   const sidebarEntry = () => {
     if (selectedCount() !== 1) return null;
     const ids = selectedIds();
@@ -252,7 +306,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      if (showSidebar()) {
+      if (channelDropdown()) {
+        closeChannelDropdown();
+      } else if (showSidebar()) {
         handleCloseSidebar();
       } else if (showHelp()) {
         closeHelp();
@@ -385,42 +441,18 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                           {entry.type.toUpperCase()}
                         </span>
                       </td>
-                      <td class="dm-files-cell dm-files-cell--channel">
-                        <input
-                          type="text"
-                          class="dm-channel-input"
-                          value={entry.busIds.join(', ')}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            const i = idx();
-                            const raw = e.currentTarget.value;
-                            const ids = raw
-                              .split(',')
-                              .map((s) => parseInt(s.trim(), 10))
-                              .filter((n) => !isNaN(n) && n >= 0 && n <= 15);
-                            const unique = [...new Set(ids)].sort((a, b) => a - b);
-                            if (unique.length > 0) {
-                              setEntries((prev) => {
-                                const next = [...prev];
-                                next[i] = { ...next[i], busIds: unique };
-                                return next;
-                              });
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const i = idx();
-                            const raw = e.currentTarget.value;
-                            if (raw.trim() === '') {
-                              setEntries((prev) => {
-                                const next = [...prev];
-                                next[i] = { ...next[i], busIds: [0] };
-                                return next;
-                              });
-                              e.currentTarget.value = '0';
-                            }
-                          }}
-                          title="绑定通道编号（逗号分隔，如 1, 3, 5）"
-                        />
+                      <td
+                        class="dm-files-cell dm-files-cell--channel"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleChannelDropdown(entry.id, e);
+                        }}
+                      >
+                        <span class="dm-channel-display">
+                          {entry.busIds.length > 0
+                            ? entry.busIds.map((id) => `CAN ${id}`).join(', ')
+                            : '未绑定'}
+                        </span>
                       </td>
                     </tr>
                   )}
@@ -428,6 +460,38 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
               </tbody>
             </table>
           </div>
+          <Show when={channelDropdown()}>
+            {(dd) => {
+              const entry = entries().find((e) => e.id === dd().entryId);
+              if (!entry) return null;
+              return (
+                <div
+                  class="dm-channel-drop"
+                  style={{
+                    position: 'fixed',
+                    top: `${dd().rect.top}px`,
+                    left: `${dd().rect.left}px`,
+                    width: `${dd().rect.width}px`,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <For each={Array.from({ length: 16 }, (_, i) => i)}>
+                    {(busId) => (
+                      <label class="dm-channel-drop__item">
+                        <input
+                          type="checkbox"
+                          class="dm-channel-drop__check"
+                          checked={isChannelChecked(entry.id, busId)}
+                          onChange={() => toggleChannel(entry.id, busId)}
+                        />
+                        <span>CAN {busId}</span>
+                      </label>
+                    )}
+                  </For>
+                </div>
+              );
+            }}
+          </Show>
           <Show when={showSidebar() && sidebarEntry()}>
             {(entry) => (
               <div class="dm-sidebar">

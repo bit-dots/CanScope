@@ -2295,23 +2295,66 @@ select:focus-visible,
   opacity: 0.25;
 }
 
-.dm-channel-input {
-  width: 100%;
-  height: 26px;
-  padding: 0 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-input);
-  color: var(--fg);
-  font-size: 12px;
+.dm-channel-display {
+  display: block;
+  font-size: 11px;
+  color: var(--text-primary);
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+  line-height: 1.5;
 }
 
-.dm-channel-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+.dm-files-cell--channel {
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.dm-channel-display:hover {
+  color: var(--accent);
+}
+
+.dm-channel-drop {
+  position: fixed;
+  z-index: 1000;
+  margin-top: 4px;
+  background: var(--bg-secondary, #1a1a2e);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  min-width: 160px;
+}
+
+.dm-channel-drop__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.dm-channel-drop__item:hover {
+  background: var(--bg-hover);
+}
+
+.dm-channel-drop__check {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .dm-files-badge {
