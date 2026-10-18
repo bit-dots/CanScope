@@ -382,11 +382,16 @@ function App() {
     setShowDatabaseManager(true);
   };
 
-  const handleDatabaseManagerConfirm = async (entries: Array<{ id: string; name: string; path: string; type: string; busId: number }>) => {
+  const handleDatabaseManagerConfirm = async (entries: Array<{ id: string; name: string; path: string; type: string; busIds: number[] }>) => {
     setShowDatabaseManager(false);
 
-    // 原子替换：在一次调用中完成所有 DBC 的解析和替换，零空窗
-    const bindings = entries.map((e) => ({ busId: e.busId, path: e.path }));
+    // 将多通道条目展开为扁平的 {busId, path} 列表
+    const bindings: { busId: number; path: string }[] = [];
+    for (const entry of entries) {
+      for (const busId of entry.busIds) {
+        bindings.push({ busId, path: entry.path });
+      }
+    }
     try {
       await invoke('reload_all_dbc', { bindings });
       const tree: DbcTreeInfo | null = await invoke('get_dbc_info');

@@ -7,7 +7,7 @@ export interface DatabaseEntry {
   name: string;
   path: string;
   type: 'dbc' | 'ldf';
-  busId: number;
+  busIds: number[];
 }
 
 interface DatabaseManagerProps {
@@ -64,13 +64,25 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     setTimeout(() => props.onConfirm(entries()), 200);
   };
 
+  // 将扁平的 {busId, path} 列表按路径分组，合并同一文件的多通道绑定
+  const groupedBindings = new Map<string, number[]>();
+  for (const b of props.initialBindings) {
+    if (!groupedBindings.has(b.path)) {
+      groupedBindings.set(b.path, []);
+    }
+    const ids = groupedBindings.get(b.path)!;
+    if (!ids.includes(b.busId)) {
+      ids.push(b.busId);
+    }
+  }
+
   const [entries, setEntries] = createSignal<DatabaseEntry[]>(
-    props.initialBindings.map((b) => ({
+    [...groupedBindings.entries()].map(([path, busIds]) => ({
       id: nextId(),
-      name: getFileName(b.path),
-      path: b.path,
-      type: getFileType(b.path),
-      busId: b.busId,
+      name: getFileName(path),
+      path,
+      type: getFileType(path),
+      busIds: busIds.sort((a, b) => a - b),
     }))
   );
   const [showHelp, setShowHelp] = createSignal(false);
@@ -148,10 +160,12 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     const selected = entries().filter((e) => ids.has(e.id));
     for (const entry of selected) {
       if (entry.type === 'dbc') {
-        try {
-          await invoke('load_dbc', { path: entry.path, busId: entry.busId });
-        } catch (e) {
-          console.error('Failed to refresh DBC:', entry.name, e);
+        for (const busId of entry.busIds) {
+          try {
+            await invoke('load_dbc', { path: entry.path, busId });
+          } catch (e) {
+            console.error('Failed to refresh DBC:', entry.name, busId, e);
+          }
         }
       }
     }
@@ -201,17 +215,29 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
       if (!selected) return;
 
       const paths = Array.isArray(selected) ? selected : [selected];
-      const existingPaths = new Set(entries().map((e) => e.path));
+      const existingMap = new Map(entries().map((e) => [e.path, e]));
       const newEntries: DatabaseEntry[] = [];
 
       for (const path of paths) {
-        if (typeof path === 'string' && !existingPaths.has(path)) {
+        if (typeof path !== 'string') continue;
+        const existing = existingMap.get(path);
+        if (existing) {
+          if (!existing.busIds.includes(1)) {
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.path === path
+                  ? { ...e, busIds: [...e.busIds, 1].sort((a, b) => a - b) }
+                  : e
+              )
+            );
+          }
+        } else {
           newEntries.push({
             id: nextId(),
             name: getFileName(path),
             path,
             type: getFileType(path),
-            busId: 1,
+            busIds: [1],
           });
         }
       }
@@ -326,15 +352,15 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
           <div class="dm-files-table-wrap">
             <table class="dm-files-table" onClick={() => clearSelection()}>
               <colgroup>
-                <col style={{ width: '160px' }} />
+                <col style={{ width: '164px' }} />
                 <col style={{ width: '52px' }} />
-                <col />
+                <col style={{ width: '110px' }} />
               </colgroup>
               <thead class="dm-files-thead">
                 <tr>
                   <th class="dm-files-th">文件名</th>
                   <th class="dm-files-th">类型</th>
-                  <th class="dm-files-th">关联通道</th>
+                  <th class="dm-files-th">通道</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,35 +387,39 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                       </td>
                       <td class="dm-files-cell dm-files-cell--channel">
                         <input
-                          type="number"
+                          type="text"
                           class="dm-channel-input"
-                          min="0"
-                          max="15"
-                          value={entry.busId}
+                          value={entry.busIds.join(', ')}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
                             const i = idx();
-                            const v = parseInt(e.currentTarget.value, 10);
-                            if (!isNaN(v) && v >= 0 && v <= 15) {
+                            const raw = e.currentTarget.value;
+                            const ids = raw
+                              .split(',')
+                              .map((s) => parseInt(s.trim(), 10))
+                              .filter((n) => !isNaN(n) && n >= 0 && n <= 15);
+                            const unique = [...new Set(ids)].sort((a, b) => a - b);
+                            if (unique.length > 0) {
                               setEntries((prev) => {
                                 const next = [...prev];
-                                next[i] = { ...next[i], busId: v };
+                                next[i] = { ...next[i], busIds: unique };
                                 return next;
                               });
                             }
                           }}
                           onBlur={(e) => {
                             const i = idx();
-                            const v = parseInt(e.currentTarget.value, 10);
-                            if (isNaN(v) || v < 0) {
+                            const raw = e.currentTarget.value;
+                            if (raw.trim() === '') {
                               setEntries((prev) => {
                                 const next = [...prev];
-                                next[i] = { ...next[i], busId: 0 };
+                                next[i] = { ...next[i], busIds: [0] };
                                 return next;
                               });
+                              e.currentTarget.value = '0';
                             }
                           }}
-                          title="该 DBC 数据库绑定的 CAN 通道编号"
+                          title="绑定通道编号（逗号分隔，如 1, 3, 5）"
                         />
                       </td>
                     </tr>
@@ -420,7 +450,13 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                   </div>
                   <div class="dm-sidebar__field">
                     <span class="dm-sidebar__label">绑定通道</span>
-                    <span class="dm-sidebar__value">CAN {entry().busId}</span>
+                    <div class="dm-sidebar__channels">
+                      <For each={entry().busIds}>
+                        {(busId) => (
+                          <span class="dm-sidebar__channel">CAN {busId}</span>
+                        )}
+                      </For>
+                    </div>
                   </div>
                   <div class="dm-sidebar__field">
                     <span class="dm-sidebar__label">完整路径</span>
