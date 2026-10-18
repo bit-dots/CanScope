@@ -1,4 +1,5 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 import { FilePlus, FileX, RefreshCw, Info, Eraser, CircleHelp, X, File, Database } from 'lucide-solid';
 
 export interface DatabaseEntry {
@@ -141,6 +142,22 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     clearSelection();
   };
 
+  const handleRefresh = async () => {
+    const ids = selectedIds();
+    if (ids.size === 0) return;
+    const selected = entries().filter((e) => ids.has(e.id));
+    for (const entry of selected) {
+      if (entry.type === 'dbc') {
+        try {
+          await invoke('load_dbc', { path: entry.path, busId: entry.busId });
+        } catch (e) {
+          console.error('Failed to refresh DBC:', entry.name, e);
+        }
+      }
+    }
+    clearSelection();
+  };
+
   const handleImport = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
@@ -238,7 +255,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         <ToolbarIcon title="移除选中文件" onClick={handleRemove} disabled={selectedCount() === 0}>
           <FileX size={16} />
         </ToolbarIcon>
-        <ToolbarIcon title="刷新" onClick={() => {}} disabled={!hasEntries()}>
+        <ToolbarIcon title="刷新选中文件" onClick={handleRefresh} disabled={selectedCount() === 0}>
           <RefreshCw size={16} />
         </ToolbarIcon>
       </div>
