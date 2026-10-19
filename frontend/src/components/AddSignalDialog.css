@@ -275,7 +275,7 @@
   cursor: pointer;
   user-select: none;
   transition: background 0.08s;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
 }
 
 .add-signal-dialog__dbc-root:hover {
