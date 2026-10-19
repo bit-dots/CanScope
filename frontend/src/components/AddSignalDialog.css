@@ -273,63 +273,27 @@
   flex-shrink: 0;
 }
 
-/* ---- 信号行（覆盖 dm-tree-sig，增加可点击选中） ---- */
-.add-signal-dialog__sig {
-  display: flex;
-  align-items: center;
-  padding: 2px 12px;
-  font-size: 11px;
+/* ---- 信号行选中/已有状态（叠加到 dm-tree-sig 上） ---- */
+.add-signal-dialog__right-tree .dm-tree-sig {
   cursor: pointer;
-  gap: 6px;
-  transition: background 0.1s ease;
-  border-bottom: 1px solid var(--border);
-}
-
-.add-signal-dialog__sig:hover {
-  background: var(--bg-secondary);
 }
 
 .add-signal-dialog__sig--selected {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary)) !important;
 }
 
 .add-signal-dialog__sig--selected:hover {
-  background: color-mix(in srgb, var(--accent) 20%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-primary)) !important;
 }
 
 .add-signal-dialog__sig--existing {
   opacity: 0.5;
-  cursor: default;
+  cursor: default !important;
+  pointer-events: none;
 }
 
 .add-signal-dialog__sig--existing:hover {
-  background: transparent;
-}
-
-.add-signal-dialog__sig-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.add-signal-dialog__sig-bits {
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  font-size: 10px;
-}
-
-.add-signal-dialog__sig-order {
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  font-size: 10px;
-}
-
-.add-signal-dialog__sig-unit {
-  color: var(--accent);
-  font-size: 10px;
+  background: transparent !important;
 }
 
 /* 复用 dm-tree 的通用树样式 */

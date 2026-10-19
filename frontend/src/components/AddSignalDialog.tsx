@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { X, ChevronRight, ChevronDown, File, Layers, Mail, Cpu } from 'lucide-solid';
+import { X, ChevronRight, ChevronDown, File, Layers, Mail, Cpu, Activity } from 'lucide-solid';
 import type { DbcBinding, ChartSignal } from '../types';
 import './AddSignalDialog.css';
 
@@ -148,7 +148,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
     setTimeout(() => props.onConfirm(selectedSignals()), 150);
   };
 
-  // ---- 渲染信号行 ----
+  // ---- 渲染信号行（匹配 dm-tree-sig 结构） ----
   const renderSignalRow = (
     sig: DbcSignalDetail,
     canId: number,
@@ -157,25 +157,26 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
     const selected = isSelected(canId, sig.name);
     return (
       <div
-        class="add-signal-dialog__sig"
+        class="dm-tree-sig"
         classList={{
           'add-signal-dialog__sig--selected': selected,
           'add-signal-dialog__sig--existing': existing,
         }}
         onClick={() => toggleSignal(canId, sig.name, sig.unit)}
       >
-        <span class="add-signal-dialog__sig-name">
-          {existing ? '✓ ' : selected ? '● ' : ''}
-          {sig.name}
+        <span class="dm-tree-sig__name">
+          <Activity size={12} class="dm-tree-sig__icon" />
+          {' '}{existing ? '✓ ' : selected ? '● ' : ''}{sig.name}
         </span>
-        <span class="add-signal-dialog__sig-bits">
+        <span class="dm-tree-sig__bits">
           [{sig.startBit}|{sig.bitLength}]
         </span>
-        <span class="add-signal-dialog__sig-order">
-          {sig.byteOrder === 'Intel' ? 'LE' : 'BE'}
-        </span>
+        <span class="dm-tree-sig__order">{sig.byteOrder}</span>
+        <Show when={sig.min != null && sig.max != null}>
+          <span class="dm-tree-sig__range">{sig.min}..{sig.max}</span>
+        </Show>
         <Show when={sig.unit}>
-          <span class="add-signal-dialog__sig-unit">{sig.unit}</span>
+          <span class="dm-tree-sig__unit">{sig.unit}</span>
         </Show>
       </div>
     );
@@ -291,6 +292,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                       <File size={12} class="add-signal-dialog__dbc-icon" />
                       <span>{getFileName(selectedDbcPath()!)}</span>
                     </div>
+                    <div class="dm-tree-cell">
                     <div class="dm-tree">
                       {/* ---- Messages 区块 ---- */}
                       <div class="dm-tree-section">
@@ -471,6 +473,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                           </Show>
                         </div>
                       </Show>
+                    </div>
                     </div>
                   </div>
                 )}
