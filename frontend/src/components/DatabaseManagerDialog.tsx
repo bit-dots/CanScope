@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, ChevronDown, ChevronRight } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, Layers, ChevronDown, ChevronRight } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -635,6 +635,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                       <span class="dm-tree-arrow">
                                         {isSectionExpanded(entry.id, 'messages') ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                       </span>
+                                      <Layers size={12} class="dm-tree-section__icon" />
                                       <span class="dm-tree-section__label">Messages</span>
                                       <span class="dm-tree-section__count">{detail().messages.length}</span>
                                     </div>
@@ -688,6 +689,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                         <span class="dm-tree-arrow">
                                           {isSectionExpanded(entry.id, 'nodes') ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                         </span>
+                                        <Layers size={12} class="dm-tree-section__icon" />
                                         <span class="dm-tree-section__label">Network Nodes</span>
                                         <span class="dm-tree-section__count">{detail().nodes.length}</span>
                                       </div>
