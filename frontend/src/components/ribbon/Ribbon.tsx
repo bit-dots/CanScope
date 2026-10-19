@@ -1,5 +1,5 @@
 import { Component, createSignal, For } from 'solid-js';
-import { Database, FilePlay, FolderOpen } from 'lucide-solid';
+import { Database, FilePlay, FolderOpen, ChartLine } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
 import Backstage from './Backstage';
@@ -62,13 +62,6 @@ const IconMonitor: Component = () => (
     <rect x="2" y="3" width="20" height="14" rx="2" />
     <line x1="8" y1="21" x2="16" y2="21" />
     <line x1="12" y1="17" x2="12" y2="21" />
-  </svg>
-);
-
-const IconChart: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <polyline points="3 20 9 12 13 16 21 6" />
-    <polyline points="17 6 21 6 21 10" />
   </svg>
 );
 
@@ -232,7 +225,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
             <RibbonGroup label="报文">
               <RibbonButton icon={<IconSend />} label="报文发送" onClick={props.onOpenSendPanel} />
               <RibbonButton icon={<IconMonitor />} label="报文监控" onClick={props.onOpenMonitorPanel} />
-              <RibbonButton icon={<IconChart />} label="曲线" onClick={props.onOpenChartPanel} />
+              <RibbonButton icon={<ChartLine size={16} />} label="曲线" onClick={props.onOpenChartPanel} />
             </RibbonGroup>
 
             <RibbonGroup label="记录与回放">
@@ -269,7 +262,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
           <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="布局预设">
               <RibbonButton icon={<IconMonitor />} label="默认布局" onClick={() => {}} />
-              <RibbonButton icon={<IconChart />} label="分析布局" onClick={() => {}} />
+              <RibbonButton icon={<ChartLine size={16} />} label="分析布局" onClick={() => {}} />
               <RibbonButton icon={<IconSend />} label="调试布局" onClick={() => {}} />
             </RibbonGroup>
             <RibbonGroup label="布局管理">
