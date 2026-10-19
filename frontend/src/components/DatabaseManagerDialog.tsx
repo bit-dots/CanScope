@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, Layers, Mail, Activity, ChevronDown, ChevronRight } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, Layers, Mail, Activity, Cpu, ChevronDown, ChevronRight } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -706,7 +706,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                   ? (isNodeExpanded(entry.id, node.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
                                                   : null}
                                               </span>
-                                              <span class="dm-tree-node__name">{node.name}</span>
+                                              <span class="dm-tree-node__name"><Cpu size={12} class="dm-tree-node__icon" /> {node.name}</span>
                                               <span class="dm-tree-node__meta">{node.messageCount} msgs · {node.signalCount} sigs</span>
                                             </div>
                                             <Show when={isNodeExpanded(entry.id, node.name)}>

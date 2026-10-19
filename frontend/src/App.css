@@ -2477,6 +2477,7 @@ select:focus-visible,
 }
 
 .dm-tree-msg__icon {
+  display: inline;
   margin-right: 5px;
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -2520,6 +2521,7 @@ select:focus-visible,
 }
 
 .dm-tree-sig__icon {
+  display: inline;
   margin-right: 4px;
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -2587,6 +2589,7 @@ select:focus-visible,
 }
 
 .dm-tree-section__icon {
+  display: inline;
   margin-right: 6px;
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -2621,6 +2624,14 @@ select:focus-visible,
 .dm-tree-node__name {
   font-weight: 600;
   color: #7dd3fc;
+}
+
+.dm-tree-node__icon {
+  display: inline;
+  margin-right: 5px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  vertical-align: -1px;
 }
 
 .dm-tree-node__meta {
