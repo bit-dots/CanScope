@@ -226,6 +226,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
   const [expandedIds, setExpandedIds] = createSignal<Set<string>>(new Set());
   const [expandedMsgKeys, setExpandedMsgKeys] = createSignal<Set<string>>(new Set());
   const [expandedNodeKeys, setExpandedNodeKeys] = createSignal<Set<string>>(new Set());
+  const [expandedSectionKeys, setExpandedSectionKeys] = createSignal<Set<string>>(new Set());
   const [dbcDetails, setDbcDetails] = createSignal<Record<string, DbcDetail>>({});
 
   const toggleExpand = async (entry: DatabaseEntry) => {
@@ -266,9 +267,19 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     });
   };
 
+  const toggleSectionExpand = (sectionName: string, entryId: string) => {
+    const key = `${entryId}::${sectionName}`;
+    setExpandedSectionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const isExpanded = (id: string) => expandedIds().has(id);
   const isMsgExpanded = (entryId: string, canId: number) => expandedMsgKeys().has(`${entryId}::${canId}`);
   const isNodeExpanded = (entryId: string, nodeName: string) => expandedNodeKeys().has(`${entryId}::${nodeName}`);
+  const isSectionExpanded = (entryId: string, sectionName: string) => expandedSectionKeys().has(`${entryId}::${sectionName}`);
 
   interface ChannelDropdownState {
     entryId: string;
@@ -617,11 +628,18 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                               {(detail) => (
                                 <div class="dm-tree">
                                   <div class="dm-tree-section">
-                                    <div class="dm-tree-section__header">
-                                      <span>Messages</span>
+                                    <div
+                                      class="dm-tree-section__header"
+                                      onClick={(e) => { e.stopPropagation(); toggleSectionExpand('messages', entry.id); }}
+                                    >
+                                      <span class="dm-tree-arrow">
+                                        {isSectionExpanded(entry.id, 'messages') ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                      </span>
+                                      <span class="dm-tree-section__label">Messages</span>
                                       <span class="dm-tree-section__count">{detail().messages.length}</span>
                                     </div>
-                                    <For each={detail().messages}>
+                                    <Show when={isSectionExpanded(entry.id, 'messages')}>
+                                      <For each={detail().messages}>
                                       {(msg) => (
                                         <div class="dm-tree-group">
                                           <div
@@ -657,13 +675,21 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                         </div>
                                       )}
                                     </For>
+                                    </Show>
                                   </div>
                                   <Show when={detail().nodes.length > 0}>
                                     <div class="dm-tree-section">
-                                      <div class="dm-tree-section__header">
-                                        <span>Network Nodes</span>
+                                      <div
+                                        class="dm-tree-section__header"
+                                        onClick={(e) => { e.stopPropagation(); toggleSectionExpand('nodes', entry.id); }}
+                                      >
+                                        <span class="dm-tree-arrow">
+                                          {isSectionExpanded(entry.id, 'nodes') ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                        </span>
+                                        <span class="dm-tree-section__label">Network Nodes</span>
                                         <span class="dm-tree-section__count">{detail().nodes.length}</span>
                                       </div>
+                                      <Show when={isSectionExpanded(entry.id, 'nodes')}>
                                       <For each={detail().nodes}>
                                         {(node) => (
                                           <div class="dm-tree-group">
@@ -720,6 +746,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                           </div>
                                         )}
                                       </For>
+                                      </Show>
                                     </div>
                                   </Show>
                                 </div>
