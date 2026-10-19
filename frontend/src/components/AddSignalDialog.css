@@ -261,16 +261,39 @@
   color: var(--text-secondary);
 }
 
-.add-signal-dialog__right-dbc-name {
+/* ---- DBC 树根节点 ---- */
+.add-signal-dialog__dbc-root {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 5px 20px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.08s;
   border-bottom: 1px solid var(--border);
+}
+
+.add-signal-dialog__dbc-root:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.add-signal-dialog__dbc-root-icon {
   flex-shrink: 0;
+  color: var(--accent);
+}
+
+.add-signal-dialog__dbc-root-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- DBC 子级容器（缩进偏移） ---- */
+.add-signal-dialog__dbc-children {
+  padding-left: 16px;
 }
 
 /* ---- 信号行选中/已有状态（叠加到 dm-tree-sig 上） ---- */

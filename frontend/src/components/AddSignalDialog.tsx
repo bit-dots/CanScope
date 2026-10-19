@@ -78,6 +78,9 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
   const [expandedMsgs, setExpandedMsgs] = createSignal<Set<number>>(new Set());
   const [expandedNodes, setExpandedNodes] = createSignal<Set<string>>(new Set());
 
+  // ---- DBC 根节点展开/折叠 ----
+  const [dbcExpanded, setDbcExpanded] = createSignal(true);
+
   // ---- 已选信号 ----
   const [selectedSignals, setSelectedSignals] = createSignal<ChartSignal[]>([]);
 
@@ -288,90 +291,33 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
               >
                 {(detail) => (
                   <div class="add-signal-dialog__right-tree">
-                    <div class="add-signal-dialog__right-dbc-name">
-                      <File size={12} class="add-signal-dialog__dbc-icon" />
-                      <span>{getFileName(selectedDbcPath()!)}</span>
-                    </div>
                     <div class="dm-tree-cell">
                     <div class="dm-tree">
-                      {/* ---- Messages 区块 ---- */}
-                      <div class="dm-tree-section">
-                        <div
-                          class="dm-tree-section__header"
-                          onClick={() => {
-                            const key = 'messages';
-                            setExpandedSection((prev) => {
-                              const next = new Set<string>(prev);
-                              if (next.has(key)) next.delete(key);
-                              else next.add(key);
-                              return next;
-                            });
-                          }}
-                        >
-                          <span class="dm-tree-arrow">
-                            {expandedSection().has('messages')
-                              ? <ChevronDown size={12} />
-                              : <ChevronRight size={12} />}
-                          </span>
-                          <Layers size={12} class="dm-tree-section__icon" />
-                          <span class="dm-tree-section__label">Messages</span>
-                          <span class="dm-tree-section__count">
-                            {detail().messages.length}
-                          </span>
-                        </div>
-                        <Show when={expandedSection().has('messages')}>
-                          <For each={detail().messages}>
-                            {(msg) => (
-                              <div class="dm-tree-group">
-                                <div
-                                  class="dm-tree-msg"
-                                  onClick={() => {
-                                    setExpandedMsgs((prev) => {
-                                      const next = new Set<number>(prev);
-                                      if (next.has(msg.canId)) next.delete(msg.canId);
-                                      else next.add(msg.canId);
-                                      return next;
-                                    });
-                                  }}
-                                >
-                                  <span class="dm-tree-arrow">
-                                    {msg.signalCount > 0
-                                      ? (expandedMsgs().has(msg.canId)
-                                        ? <ChevronDown size={12} />
-                                        : <ChevronRight size={12} />)
-                                      : null}
-                                  </span>
-                                  <span class="dm-tree-msg__name">
-                                    <Mail size={12} class="dm-tree-msg__icon" />
-                                    {' '}{msg.name}
-                                  </span>
-                                  <span class="dm-tree-msg__id">
-                                    (0x{msg.canId.toString(16).toUpperCase()})
-                                  </span>
-                                  <span class="dm-tree-msg__meta">
-                                    dlc:{msg.dlc} {msg.sender}
-                                  </span>
-                                </div>
-                                <Show when={expandedMsgs().has(msg.canId)}>
-                                  <div class="dm-tree-signals">
-                                    <For each={msg.signals}>
-                                      {(sig) => renderSignalRow(sig, msg.canId)}
-                                    </For>
-                                  </div>
-                                </Show>
-                              </div>
-                            )}
-                          </For>
-                        </Show>
+                      {/* ---- DBC 根节点 ---- */}
+                      <div
+                        class="add-signal-dialog__dbc-root"
+                        onClick={() => setDbcExpanded((v) => !v)}
+                      >
+                        <span class="dm-tree-arrow">
+                          {dbcExpanded()
+                            ? <ChevronDown size={12} />
+                            : <ChevronRight size={12} />}
+                        </span>
+                        <File size={12} class="add-signal-dialog__dbc-root-icon" />
+                        <span class="add-signal-dialog__dbc-root-name">
+                          {getFileName(selectedDbcPath()!)}
+                        </span>
                       </div>
 
-                      {/* ---- Network Nodes 区块 ---- */}
-                      <Show when={detail().nodes.length > 0}>
+                      {/* ---- DBC 子级（Messages + Network Nodes） ---- */}
+                      <Show when={dbcExpanded()}>
+                      <div class="add-signal-dialog__dbc-children">
+                        {/* ---- Messages 区块 ---- */}
                         <div class="dm-tree-section">
                           <div
                             class="dm-tree-section__header"
                             onClick={() => {
-                              const key = 'nodes';
+                              const key = 'messages';
                               setExpandedSection((prev) => {
                                 const next = new Set<string>(prev);
                                 if (next.has(key)) next.delete(key);
@@ -381,89 +327,53 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                             }}
                           >
                             <span class="dm-tree-arrow">
-                              {expandedSection().has('nodes')
+                              {expandedSection().has('messages')
                                 ? <ChevronDown size={12} />
                                 : <ChevronRight size={12} />}
                             </span>
                             <Layers size={12} class="dm-tree-section__icon" />
-                            <span class="dm-tree-section__label">Network Nodes</span>
+                            <span class="dm-tree-section__label">Messages</span>
                             <span class="dm-tree-section__count">
-                              {detail().nodes.length}
+                              {detail().messages.length}
                             </span>
                           </div>
-                          <Show when={expandedSection().has('nodes')}>
-                            <For each={detail().nodes}>
-                              {(node) => (
+                          <Show when={expandedSection().has('messages')}>
+                            <For each={detail().messages}>
+                              {(msg) => (
                                 <div class="dm-tree-group">
                                   <div
-                                    class="dm-tree-node"
+                                    class="dm-tree-msg"
                                     onClick={() => {
-                                      setExpandedNodes((prev) => {
-                                        const next = new Set<string>(prev);
-                                        if (next.has(node.name)) next.delete(node.name);
-                                        else next.add(node.name);
+                                      setExpandedMsgs((prev) => {
+                                        const next = new Set<number>(prev);
+                                        if (next.has(msg.canId)) next.delete(msg.canId);
+                                        else next.add(msg.canId);
                                         return next;
                                       });
                                     }}
                                   >
                                     <span class="dm-tree-arrow">
-                                      {node.messageCount > 0
-                                        ? (expandedNodes().has(node.name)
+                                      {msg.signalCount > 0
+                                        ? (expandedMsgs().has(msg.canId)
                                           ? <ChevronDown size={12} />
                                           : <ChevronRight size={12} />)
                                         : null}
                                     </span>
-                                    <span class="dm-tree-node__name">
-                                      <Cpu size={12} class="dm-tree-node__icon" />
-                                      {' '}{node.name}
+                                    <span class="dm-tree-msg__name">
+                                      <Mail size={12} class="dm-tree-msg__icon" />
+                                      {' '}{msg.name}
                                     </span>
-                                    <span class="dm-tree-node__meta">
-                                      {node.messageCount} msgs · {node.signalCount} sigs
+                                    <span class="dm-tree-msg__id">
+                                      (0x{msg.canId.toString(16).toUpperCase()})
+                                    </span>
+                                    <span class="dm-tree-msg__meta">
+                                      dlc:{msg.dlc} {msg.sender}
                                     </span>
                                   </div>
-                                  <Show when={expandedNodes().has(node.name)}>
-                                    <div class="dm-tree-node-messages">
-                                      <For each={node.messages}>
-                                        {(msg) => (
-                                          <div class="dm-tree-group">
-                                            <div
-                                              class="dm-tree-msg dm-tree-msg--nested"
-                                              onClick={() => {
-                                                setExpandedMsgs((prev) => {
-                                                  const next = new Set<number>(prev);
-                                                  if (next.has(msg.canId)) next.delete(msg.canId);
-                                                  else next.add(msg.canId);
-                                                  return next;
-                                                });
-                                              }}
-                                            >
-                                              <span class="dm-tree-arrow">
-                                                {msg.signalCount > 0
-                                                  ? (expandedMsgs().has(msg.canId)
-                                                    ? <ChevronDown size={12} />
-                                                    : <ChevronRight size={12} />)
-                                                  : null}
-                                              </span>
-                                              <span class="dm-tree-msg__name">
-                                                <Mail size={12} class="dm-tree-msg__icon" />
-                                                {' '}{msg.name}
-                                              </span>
-                                              <span class="dm-tree-msg__id">
-                                                (0x{msg.canId.toString(16).toUpperCase()})
-                                              </span>
-                                              <span class="dm-tree-msg__meta">
-                                                dlc:{msg.dlc}
-                                              </span>
-                                            </div>
-                                            <Show when={expandedMsgs().has(msg.canId)}>
-                                              <div class="dm-tree-signals">
-                                                <For each={msg.signals}>
-                                                  {(sig) => renderSignalRow(sig, msg.canId)}
-                                                </For>
-                                              </div>
-                                            </Show>
-                                          </div>
-                                        )}
+                                  <Show when={expandedMsgs().has(msg.canId)}>
+                                    <div class="dm-tree-signals">
+                                      <For each={msg.signals}>
+                                        {(sig) => renderSignalRow(sig, msg.canId)}
                                       </For>
                                     </div>
                                   </Show>
@@ -472,7 +382,117 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                             </For>
                           </Show>
                         </div>
-                      </Show>
+
+                        {/* ---- Network Nodes 区块 ---- */}
+                        <Show when={detail().nodes.length > 0}>
+                          <div class="dm-tree-section">
+                            <div
+                              class="dm-tree-section__header"
+                              onClick={() => {
+                                const key = 'nodes';
+                                setExpandedSection((prev) => {
+                                  const next = new Set<string>(prev);
+                                  if (next.has(key)) next.delete(key);
+                                  else next.add(key);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <span class="dm-tree-arrow">
+                                {expandedSection().has('nodes')
+                                  ? <ChevronDown size={12} />
+                                  : <ChevronRight size={12} />}
+                              </span>
+                              <Layers size={12} class="dm-tree-section__icon" />
+                              <span class="dm-tree-section__label">Network Nodes</span>
+                              <span class="dm-tree-section__count">
+                                {detail().nodes.length}
+                              </span>
+                            </div>
+                            <Show when={expandedSection().has('nodes')}>
+                              <For each={detail().nodes}>
+                                {(node) => (
+                                  <div class="dm-tree-group">
+                                    <div
+                                      class="dm-tree-node"
+                                      onClick={() => {
+                                        setExpandedNodes((prev) => {
+                                          const next = new Set<string>(prev);
+                                          if (next.has(node.name)) next.delete(node.name);
+                                          else next.add(node.name);
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      <span class="dm-tree-arrow">
+                                        {node.messageCount > 0
+                                          ? (expandedNodes().has(node.name)
+                                            ? <ChevronDown size={12} />
+                                            : <ChevronRight size={12} />)
+                                          : null}
+                                      </span>
+                                      <span class="dm-tree-node__name">
+                                        <Cpu size={12} class="dm-tree-node__icon" />
+                                        {' '}{node.name}
+                                      </span>
+                                      <span class="dm-tree-node__meta">
+                                        {node.messageCount} msgs · {node.signalCount} sigs
+                                      </span>
+                                    </div>
+                                    <Show when={expandedNodes().has(node.name)}>
+                                      <div class="dm-tree-node-messages">
+                                        <For each={node.messages}>
+                                          {(msg) => (
+                                            <div class="dm-tree-group">
+                                              <div
+                                                class="dm-tree-msg dm-tree-msg--nested"
+                                                onClick={() => {
+                                                  setExpandedMsgs((prev) => {
+                                                    const next = new Set<number>(prev);
+                                                    if (next.has(msg.canId)) next.delete(msg.canId);
+                                                    else next.add(msg.canId);
+                                                    return next;
+                                                  });
+                                                }}
+                                              >
+                                                <span class="dm-tree-arrow">
+                                                  {msg.signalCount > 0
+                                                    ? (expandedMsgs().has(msg.canId)
+                                                      ? <ChevronDown size={12} />
+                                                      : <ChevronRight size={12} />)
+                                                    : null}
+                                                </span>
+                                                <span class="dm-tree-msg__name">
+                                                  <Mail size={12} class="dm-tree-msg__icon" />
+                                                  {' '}{msg.name}
+                                                </span>
+                                                <span class="dm-tree-msg__id">
+                                                  (0x{msg.canId.toString(16).toUpperCase()})
+                                                </span>
+                                                <span class="dm-tree-msg__meta">
+                                                  dlc:{msg.dlc}
+                                                </span>
+                                              </div>
+                                              <Show when={expandedMsgs().has(msg.canId)}>
+                                                <div class="dm-tree-signals">
+                                                  <For each={msg.signals}>
+                                                    {(sig) => renderSignalRow(sig, msg.canId)}
+                                                  </For>
+                                                </div>
+                                              </Show>
+                                            </div>
+                                          )}
+                                        </For>
+                                      </div>
+                                    </Show>
+                                  </div>
+                                )}
+                              </For>
+                            </Show>
+                          </div>
+                        </Show>
+                      </div>
+                    </Show>
                     </div>
                     </div>
                   </div>
