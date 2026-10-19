@@ -291,8 +291,6 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
               >
                 {(detail) => (
                   <div class="add-signal-dialog__right-tree">
-                    <div class="dm-tree-cell">
-                    <div class="dm-tree">
                       {/* ---- DBC 根节点 ---- */}
                       <div
                         class="add-signal-dialog__dbc-root"
@@ -493,8 +491,6 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                         </Show>
                       </div>
                     </Show>
-                    </div>
-                    </div>
                   </div>
                 )}
               </Show>
