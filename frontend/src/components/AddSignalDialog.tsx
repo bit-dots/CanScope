@@ -217,7 +217,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
               >
                 <For each={channelGroups()}>
                   {([busId, bindings]) => {
-                    const isOpen = expandedChannels().has(busId);
+                    const open = () => expandedChannels().has(busId);
                     return (
                       <div class="add-signal-dialog__channel">
                         <div
@@ -227,7 +227,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                           <ChevronRight
                             size={12}
                             class="add-signal-dialog__channel-arrow"
-                            classList={{ 'add-signal-dialog__channel-arrow--open': isOpen }}
+                            classList={{ 'add-signal-dialog__channel-arrow--open': open() }}
                           />
                           <span class="add-signal-dialog__channel-name">
                             CAN {busId}
@@ -236,7 +236,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                             {bindings.length} DBC
                           </span>
                         </div>
-                        <Show when={isOpen}>
+                        <Show when={open()}>
                           <div class="add-signal-dialog__dbc-list">
                             <For each={bindings}>
                               {(binding) => {
