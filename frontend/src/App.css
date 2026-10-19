@@ -2476,6 +2476,13 @@ select:focus-visible,
   color: var(--text-primary);
 }
 
+.dm-tree-msg__icon {
+  margin-right: 5px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  vertical-align: -1px;
+}
+
 .dm-tree-msg__id {
   font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 11px;
@@ -2510,6 +2517,13 @@ select:focus-visible,
   color: var(--text-primary);
   font-weight: 500;
   min-width: 100px;
+}
+
+.dm-tree-sig__icon {
+  margin-right: 4px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  vertical-align: -1px;
 }
 
 .dm-tree-sig__bits {
@@ -2570,6 +2584,12 @@ select:focus-visible,
 
 .dm-tree-section__label {
   flex: 1;
+}
+
+.dm-tree-section__icon {
+  margin-right: 6px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
 
 .dm-tree-section__count {

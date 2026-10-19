@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onCleanup, onMount, createEffect, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, Layers, ChevronDown, ChevronRight } from 'lucide-solid';
+import { FilePlus, FileX, RefreshCw, Info, Trash2, CircleHelp, X, File, Database, Layers, Mail, Activity, ChevronDown, ChevronRight } from 'lucide-solid';
 
 export interface DatabaseEntry {
   id: string;
@@ -652,7 +652,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                 ? (isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
                                                 : null}
                                             </span>
-                                            <span class="dm-tree-msg__name">{msg.name}</span>
+                                            <span class="dm-tree-msg__name"><Mail size={12} class="dm-tree-msg__icon" /> {msg.name}</span>
                                             <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
                                             <span class="dm-tree-msg__meta">dlc:{msg.dlc} {msg.sender}</span>
                                           </div>
@@ -661,7 +661,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                               <For each={msg.signals}>
                                                 {(sig) => (
                                                   <div class="dm-tree-sig">
-                                                    <span class="dm-tree-sig__name">{sig.name}</span>
+                                                    <span class="dm-tree-sig__name"><Activity size={12} class="dm-tree-sig__icon" /> {sig.name}</span>
                                                     <span class="dm-tree-sig__bits">[{sig.startBit}|{sig.bitLength}]</span>
                                                     <span class="dm-tree-sig__order">{sig.byteOrder}</span>
                                                     <Show when={sig.min != null && sig.max != null}>
@@ -723,7 +723,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                               ? (isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
                                                               : null}
                                                           </span>
-                                                        <span class="dm-tree-msg__name">{msg.name}</span>
+                                                        <span class="dm-tree-msg__name"><Mail size={12} class="dm-tree-msg__icon" /> {msg.name}</span>
                                                         <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
                                                         <span class="dm-tree-msg__meta">dlc:{msg.dlc}</span>
                                                       </div>
@@ -732,7 +732,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                           <For each={msg.signals}>
                                                             {(sig) => (
                                                               <div class="dm-tree-sig">
-                                                                <span class="dm-tree-sig__name">{sig.name}</span>
+                                                                <span class="dm-tree-sig__name"><Activity size={12} class="dm-tree-sig__icon" /> {sig.name}</span>
                                                                 <span class="dm-tree-sig__bits">[{sig.startBit}|{sig.bitLength}]</span>
                                                                 <span class="dm-tree-sig__order">{sig.byteOrder}</span>
                                                                 <Show when={sig.min != null && sig.max != null}>
