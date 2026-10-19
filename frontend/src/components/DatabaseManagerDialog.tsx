@@ -647,7 +647,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                             onClick={(e) => { e.stopPropagation(); toggleMsgExpand(msg.canId, entry.id); }}
                                           >
                                             <span class="dm-tree-arrow">
-                                              {isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                              {msg.signalCount > 0
+                                                ? (isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
+                                                : null}
                                             </span>
                                             <span class="dm-tree-msg__name">{msg.name}</span>
                                             <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
@@ -698,7 +700,9 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                               onClick={(e) => { e.stopPropagation(); toggleNodeExpand(node.name, entry.id); }}
                                             >
                                               <span class="dm-tree-arrow">
-                                                {isNodeExpanded(entry.id, node.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                {node.messageCount > 0
+                                                  ? (isNodeExpanded(entry.id, node.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
+                                                  : null}
                                               </span>
                                               <span class="dm-tree-node__name">{node.name}</span>
                                               <span class="dm-tree-node__meta">{node.messageCount} msgs · {node.signalCount} sigs</span>
@@ -713,8 +717,10 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                         onClick={(e) => { e.stopPropagation(); toggleMsgExpand(msg.canId, entry.id); }}
                                                       >
                                                         <span class="dm-tree-arrow">
-                                                          {isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                                        </span>
+                                                            {msg.signalCount > 0
+                                                              ? (isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
+                                                              : null}
+                                                          </span>
                                                         <span class="dm-tree-msg__name">{msg.name}</span>
                                                         <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
                                                         <span class="dm-tree-msg__meta">dlc:{msg.dlc}</span>
