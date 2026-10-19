@@ -287,6 +287,10 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
               >
                 {(detail) => (
                   <div class="add-signal-dialog__right-tree">
+                    <div class="add-signal-dialog__right-dbc-name">
+                      <File size={12} class="add-signal-dialog__dbc-icon" />
+                      <span>{getFileName(selectedDbcPath()!)}</span>
+                    </div>
                     <div class="dm-tree">
                       {/* ---- Messages 区块 ---- */}
                       <div class="dm-tree-section">

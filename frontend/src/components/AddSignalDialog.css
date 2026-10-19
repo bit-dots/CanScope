@@ -261,6 +261,18 @@
   color: var(--text-secondary);
 }
 
+.add-signal-dialog__right-dbc-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
 /* ---- 信号行（覆盖 dm-tree-sig，增加可点击选中） ---- */
 .add-signal-dialog__sig {
   display: flex;
