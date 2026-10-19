@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
+import { Component, createMemo, createSignal, onMount, onCleanup, createEffect, Show } from 'solid-js';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import {
@@ -9,13 +9,16 @@ import {
   ArrowDown,
   LayoutPanelTop,
 } from 'lucide-solid';
-import type { FrameInfo, ChartSignal } from '../types';
+import type { FrameInfo, ChartSignal, DbcBinding } from '../types';
+import AddSignalDialog from './AddSignalDialog';
 import './SignalChart.css';
 
 interface SignalChartProps {
   frames: FrameInfo[];
   signals: ChartSignal[];
+  dbcBindings: DbcBinding[];
   onRemoveSignal: (s: ChartSignal) => void;
+  onAddSignals: (signals: ChartSignal[]) => void;
   onAddSignal?: () => void;
   onRemoveSelectedSignal?: () => void;
   onClearSignals?: () => void;
@@ -82,6 +85,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
   let plot: uPlot | null = null;
 
   const [cursorInfo, setCursorInfo] = createSignal<CursorInfo>({ timestamp: null, values: [] });
+  const [showAddDialog, setShowAddDialog] = createSignal(false);
 
   const data = createMemo(() => deriveData(props.frames, props.signals));
   const dataPointCount = createMemo(() => data()?.[0]?.length ?? 0);
@@ -248,7 +252,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
 
       {/* ---- 工具栏 ---- */}
       <div class="signal-chart__toolbar">
-        <button class="signal-chart__tool-btn" onClick={() => props.onAddSignal?.()} title="添加信号">
+        <button class="signal-chart__tool-btn" onClick={() => setShowAddDialog(true)} title="添加信号">
           <Plus size={15} strokeWidth={2} />
         </button>
         <button class="signal-chart__tool-btn" onClick={() => props.onRemoveSelectedSignal?.()} title="移除选中信号">
@@ -338,6 +342,18 @@ const SignalChart: Component<SignalChartProps> = (props) => {
           </div>
         </div>
       </div>
+
+      <Show when={showAddDialog()}>
+        <AddSignalDialog
+          dbcBindings={props.dbcBindings}
+          existingSignals={props.signals}
+          onConfirm={(signals) => {
+            props.onAddSignals(signals);
+            setShowAddDialog(false);
+          }}
+          onCancel={() => setShowAddDialog(false)}
+        />
+      </Show>
     </div>
   );
 };

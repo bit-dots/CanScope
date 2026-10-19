@@ -1,0 +1,388 @@
+/* ============================================
+   AddSignalDialog — 添加信号对话框
+   双栏布局：左栏通道+DBC选择，右栏信号树
+   ============================================ */
+
+.add-signal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  animation: add-signal-fade-in 0.15s ease;
+}
+
+@keyframes add-signal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.add-signal-overlay--closing {
+  animation: add-signal-fade-out 0.15s ease forwards;
+}
+
+@keyframes add-signal-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.add-signal-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 720px;
+  max-width: 95vw;
+  height: 520px;
+  max-height: 85vh;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: add-signal-scale-in 0.15s ease;
+}
+
+@keyframes add-signal-scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.add-signal-overlay--closing .add-signal-dialog {
+  animation: add-signal-scale-out 0.15s ease forwards;
+}
+
+@keyframes add-signal-scale-out {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.95); opacity: 0; }
+}
+
+/* ---- 标题栏 ---- */
+.add-signal-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.add-signal-dialog__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.add-signal-dialog__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.add-signal-dialog__close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* ---- 主体：双栏 ---- */
+.add-signal-dialog__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ---- 左栏：通道 + DBC ---- */
+.add-signal-dialog__left {
+  width: 200px;
+  min-width: 160px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.add-signal-dialog__left-header {
+  padding: 8px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.add-signal-dialog__left-list {
+  flex: 1;
+  overflow: auto;
+  font-size: 11px;
+}
+
+.add-signal-dialog__channel {
+  border-bottom: 1px solid var(--border);
+}
+
+.add-signal-dialog__channel-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  gap: 4px;
+  transition: background 0.1s ease;
+}
+
+.add-signal-dialog__channel-header:hover {
+  background: var(--bg-tertiary);
+}
+
+.add-signal-dialog__channel-arrow {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.add-signal-dialog__channel-arrow--open {
+  transform: rotate(90deg);
+}
+
+.add-signal-dialog__channel-name {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.add-signal-dialog__channel-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.add-signal-dialog__dbc-list {
+  overflow: hidden;
+}
+
+.add-signal-dialog__dbc-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 26px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 11px;
+  gap: 4px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.add-signal-dialog__dbc-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.add-signal-dialog__dbc-item--selected {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-secondary));
+  color: var(--accent);
+}
+
+.add-signal-dialog__dbc-item--selected:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-secondary));
+}
+
+.add-signal-dialog__dbc-icon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.add-signal-dialog__dbc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-signal-dialog__empty-left {
+  padding: 20px 10px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ---- 右栏：信号树 ---- */
+.add-signal-dialog__right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.add-signal-dialog__right-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.add-signal-dialog__right-empty-icon {
+  opacity: 0.35;
+}
+
+.add-signal-dialog__right-tree {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.add-signal-dialog__right-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---- 信号行（覆盖 dm-tree-sig，增加可点击选中） ---- */
+.add-signal-dialog__sig {
+  display: flex;
+  align-items: center;
+  padding: 2px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  gap: 6px;
+  transition: background 0.1s ease;
+  border-bottom: 1px solid var(--border);
+}
+
+.add-signal-dialog__sig:hover {
+  background: var(--bg-secondary);
+}
+
+.add-signal-dialog__sig--selected {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+}
+
+.add-signal-dialog__sig--selected:hover {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-primary));
+}
+
+.add-signal-dialog__sig--existing {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.add-signal-dialog__sig--existing:hover {
+  background: transparent;
+}
+
+.add-signal-dialog__sig-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.add-signal-dialog__sig-bits {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.add-signal-dialog__sig-order {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.add-signal-dialog__sig-unit {
+  color: var(--accent);
+  font-size: 10px;
+}
+
+/* 复用 dm-tree 的通用树样式 */
+.add-signal-dialog__right-tree .dm-tree-section {
+  margin-bottom: 2px;
+}
+
+.add-signal-dialog__right-tree .dm-tree-section:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- 底部栏 ---- */
+.add-signal-dialog__footer {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.add-signal-dialog__footer-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.add-signal-dialog__footer-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.add-signal-dialog__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.add-signal-dialog__btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.add-signal-dialog__btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.add-signal-dialog__btn--primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, #fff);
+}
+
+.add-signal-dialog__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

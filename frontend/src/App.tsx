@@ -441,6 +441,18 @@ function App() {
     setChartSignals(prev => [...prev, s]);
   };
 
+  const handleAddSignals = (signals: ChartSignal[]) => {
+    const existingSet = new Set(
+      chartSignals().map((s) => `${s.canId}:${s.signalName}`)
+    );
+    const newSignals = signals.filter(
+      (s) => !existingSet.has(`${s.canId}:${s.signalName}`)
+    );
+    if (newSignals.length > 0) {
+      setChartSignals((prev) => [...prev, ...newSignals]);
+    }
+  };
+
   const handleRemoveSignal = (s: ChartSignal) => {
     setChartSignals(prev => prev.filter(x => !(x.canId === s.canId && x.signalName === s.signalName)));
   };
@@ -702,7 +714,9 @@ function App() {
                       <SignalChart
                         frames={frames()}
                         signals={chartSignals()}
+                        dbcBindings={project()?.dbcBindings ?? []}
                         onRemoveSignal={handleRemoveSignal}
+                        onAddSignals={handleAddSignals}
                       />
                     );
                   case 'message-send':
