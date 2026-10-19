@@ -195,6 +195,7 @@ fn get_dbc_info(state: State<AppState>) -> Result<Option<DbcTreeInfo>, String> {
 #[serde(rename_all = "camelCase")]
 struct DbcDetailInfo {
     messages: Vec<DbcMessageDetail>,
+    nodes: Vec<DbcNodeDetail>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -208,9 +209,21 @@ struct DbcMessageDetail {
     signals: Vec<DbcSignalInfo>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DbcNodeDetail {
+    name: String,
+    message_count: usize,
+    signal_count: usize,
+    messages: Vec<DbcMessageDetail>,
+}
+
 #[tauri::command]
 fn get_dbc_detail(path: String) -> Result<DbcDetailInfo, String> {
+    use std::collections::BTreeMap;
+
     let dbc = canscope_dbc::parse_dbc(&path).map_err(|e| format!("Failed to parse DBC: {}", e))?;
+
     let messages: Vec<DbcMessageDetail> = dbc
         .messages
         .iter()
@@ -223,7 +236,42 @@ fn get_dbc_detail(path: String) -> Result<DbcDetailInfo, String> {
             signals: m.signals.iter().map(DbcSignalInfo::from).collect(),
         })
         .collect();
-    Ok(DbcDetailInfo { messages })
+
+    let mut node_messages: BTreeMap<String, Vec<DbcMessageDetail>> = BTreeMap::new();
+    for m in &dbc.messages {
+        let entry = node_messages.entry(m.sender.clone()).or_default();
+        entry.push(DbcMessageDetail {
+            can_id: m.can_id,
+            name: m.name.clone(),
+            dlc: m.dlc,
+            sender: m.sender.clone(),
+            signal_count: m.signals.len(),
+            signals: m.signals.iter().map(DbcSignalInfo::from).collect(),
+        });
+    }
+
+    let mut nodes: Vec<DbcNodeDetail> = Vec::new();
+    for node_name in &dbc.nodes {
+        let msgs = node_messages.remove(node_name).unwrap_or_default();
+        let signal_count: usize = msgs.iter().map(|m| m.signal_count).sum();
+        nodes.push(DbcNodeDetail {
+            name: node_name.clone(),
+            message_count: msgs.len(),
+            signal_count,
+            messages: msgs,
+        });
+    }
+    for (sender, msgs) in node_messages {
+        let signal_count: usize = msgs.iter().map(|m| m.signal_count).sum();
+        nodes.push(DbcNodeDetail {
+            name: sender,
+            message_count: msgs.len(),
+            signal_count,
+            messages: msgs,
+        });
+    }
+
+    Ok(DbcDetailInfo { messages, nodes })
 }
 
 #[derive(Debug, Clone, Serialize)]

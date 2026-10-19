@@ -2538,6 +2538,80 @@ select:focus-visible,
   opacity: 0.8;
 }
 
+/* ── Section Headers (Messages / Network Nodes) ── */
+.dm-tree-section {
+  margin-bottom: 8px;
+}
+
+.dm-tree-section:last-child {
+  margin-bottom: 0;
+}
+
+.dm-tree-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 20px 5px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.dm-tree-section__count {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0;
+}
+
+/* ── Network Node Rows ── */
+.dm-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 20px 3px 20px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.08s;
+}
+
+.dm-tree-node:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.dm-tree-node__name {
+  font-weight: 600;
+  color: #7dd3fc;
+}
+
+.dm-tree-node__meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+/* ── Node-expanded message list ── */
+.dm-tree-node-messages {
+  padding-bottom: 2px;
+}
+
+/* ── Nested message under a node (extra indent) ── */
+.dm-tree-msg--nested {
+  padding-left: 44px;
+}
+
+.dm-tree-msg--nested + .dm-tree-signals .dm-tree-sig {
+  padding-left: 68px;
+}
+
 .dm-files-badge {
   display: inline-block;
   padding: 2px 7px;

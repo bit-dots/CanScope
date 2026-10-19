@@ -30,8 +30,16 @@ interface DbcMessageDetail {
   signals: DbcSignalDetail[];
 }
 
+interface DbcNodeDetail {
+  name: string;
+  messageCount: number;
+  signalCount: number;
+  messages: DbcMessageDetail[];
+}
+
 interface DbcDetail {
   messages: DbcMessageDetail[];
+  nodes: DbcNodeDetail[];
 }
 
 interface DatabaseManagerProps {
@@ -217,6 +225,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const [expandedIds, setExpandedIds] = createSignal<Set<string>>(new Set());
   const [expandedMsgKeys, setExpandedMsgKeys] = createSignal<Set<string>>(new Set());
+  const [expandedNodeKeys, setExpandedNodeKeys] = createSignal<Set<string>>(new Set());
   const [dbcDetails, setDbcDetails] = createSignal<Record<string, DbcDetail>>({});
 
   const toggleExpand = async (entry: DatabaseEntry) => {
@@ -248,8 +257,18 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     });
   };
 
+  const toggleNodeExpand = (nodeName: string, entryId: string) => {
+    const key = `${entryId}::${nodeName}`;
+    setExpandedNodeKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const isExpanded = (id: string) => expandedIds().has(id);
   const isMsgExpanded = (entryId: string, canId: number) => expandedMsgKeys().has(`${entryId}::${canId}`);
+  const isNodeExpanded = (entryId: string, nodeName: string) => expandedNodeKeys().has(`${entryId}::${nodeName}`);
 
   interface ChannelDropdownState {
     entryId: string;
@@ -597,8 +616,13 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                             >
                               {(detail) => (
                                 <div class="dm-tree">
-                                  <For each={detail().messages}>
-                                    {(msg) => (
+                                  <div class="dm-tree-section">
+                                    <div class="dm-tree-section__header">
+                                      <span>Messages</span>
+                                      <span class="dm-tree-section__count">{detail().messages.length}</span>
+                                    </div>
+                                    <For each={detail().messages}>
+                                      {(msg) => (
                                         <div class="dm-tree-group">
                                           <div
                                             class="dm-tree-msg"
@@ -631,8 +655,73 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                             </div>
                                           </Show>
                                         </div>
-                                    )}
-                                  </For>
+                                      )}
+                                    </For>
+                                  </div>
+                                  <Show when={detail().nodes.length > 0}>
+                                    <div class="dm-tree-section">
+                                      <div class="dm-tree-section__header">
+                                        <span>Network Nodes</span>
+                                        <span class="dm-tree-section__count">{detail().nodes.length}</span>
+                                      </div>
+                                      <For each={detail().nodes}>
+                                        {(node) => (
+                                          <div class="dm-tree-group">
+                                            <div
+                                              class="dm-tree-node"
+                                              onClick={(e) => { e.stopPropagation(); toggleNodeExpand(node.name, entry.id); }}
+                                            >
+                                              <span class="dm-tree-arrow">
+                                                {isNodeExpanded(entry.id, node.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                              </span>
+                                              <span class="dm-tree-node__name">{node.name}</span>
+                                              <span class="dm-tree-node__meta">{node.messageCount} msgs · {node.signalCount} sigs</span>
+                                            </div>
+                                            <Show when={isNodeExpanded(entry.id, node.name)}>
+                                              <div class="dm-tree-node-messages">
+                                                <For each={node.messages}>
+                                                  {(msg) => (
+                                                    <div class="dm-tree-group">
+                                                      <div
+                                                        class="dm-tree-msg dm-tree-msg--nested"
+                                                        onClick={(e) => { e.stopPropagation(); toggleMsgExpand(msg.canId, entry.id); }}
+                                                      >
+                                                        <span class="dm-tree-arrow">
+                                                          {isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                        </span>
+                                                        <span class="dm-tree-msg__name">{msg.name}</span>
+                                                        <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
+                                                        <span class="dm-tree-msg__meta">dlc:{msg.dlc}</span>
+                                                      </div>
+                                                      <Show when={isMsgExpanded(entry.id, msg.canId)}>
+                                                        <div class="dm-tree-signals">
+                                                          <For each={msg.signals}>
+                                                            {(sig) => (
+                                                              <div class="dm-tree-sig">
+                                                                <span class="dm-tree-sig__name">{sig.name}</span>
+                                                                <span class="dm-tree-sig__bits">[{sig.startBit}|{sig.bitLength}]</span>
+                                                                <span class="dm-tree-sig__order">{sig.byteOrder}</span>
+                                                                <Show when={sig.min != null && sig.max != null}>
+                                                                  <span class="dm-tree-sig__range">{sig.min}..{sig.max}</span>
+                                                                </Show>
+                                                                <Show when={sig.unit}>
+                                                                  <span class="dm-tree-sig__unit">{sig.unit}</span>
+                                                                </Show>
+                                                              </div>
+                                                            )}
+                                                          </For>
+                                                        </div>
+                                                      </Show>
+                                                    </div>
+                                                  )}
+                                                </For>
+                                              </div>
+                                            </Show>
+                                          </div>
+                                        )}
+                                      </For>
+                                    </div>
+                                  </Show>
                                 </div>
                               )}
                             </Show>
