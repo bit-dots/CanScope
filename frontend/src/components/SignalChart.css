@@ -72,19 +72,10 @@
   gap: 6px;
 }
 
-.signal-chart__tool-spacer {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
-  margin: 0 4px;
-  flex-shrink: 0;
-}
-
 .signal-chart__tool-separator {
   width: 1px;
   height: 18px;
   background: var(--border);
-  margin: 0 4px;
   flex-shrink: 0;
 }
 
