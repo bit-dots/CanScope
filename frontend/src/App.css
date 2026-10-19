@@ -2595,8 +2595,7 @@ select:focus-visible,
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   cursor: pointer;
   transition: background 0.08s;
   user-select: none;
