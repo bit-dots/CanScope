@@ -75,7 +75,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
   const [dbcDetail, setDbcDetail] = createSignal<DbcDetail | null>(null);
   const [loadingDbc, setLoadingDbc] = createSignal(false);
   const [expandedSection, setExpandedSection] = createSignal<Set<string>>(new Set());
-  const [expandedMsgs, setExpandedMsgs] = createSignal<Set<number>>(new Set());
+  const [expandedMsgs, setExpandedMsgs] = createSignal<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = createSignal<Set<string>>(new Set());
 
   // ---- DBC 根节点展开/折叠 ----
@@ -113,7 +113,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
       const detail = await invoke<DbcDetail>('get_dbc_detail', { path });
       setDbcDetail(detail);
       setExpandedSection(new Set<string>());
-      setExpandedMsgs(new Set<number>());
+      setExpandedMsgs(new Set<string>());
       setExpandedNodes(new Set<string>());
     } catch (e) {
       console.error('Failed to load DBC detail:', e);
@@ -343,16 +343,17 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                     class="dm-tree-msg"
                                     onClick={() => {
                                       setExpandedMsgs((prev) => {
-                                        const next = new Set<number>(prev);
-                                        if (next.has(msg.canId)) next.delete(msg.canId);
-                                        else next.add(msg.canId);
+                                        const next = new Set<string>(prev);
+                                        const key = `m:${msg.canId}`;
+                                        if (next.has(key)) next.delete(key);
+                                        else next.add(key);
                                         return next;
                                       });
                                     }}
                                   >
                                     <span class="dm-tree-arrow">
                                       {msg.signalCount > 0
-                                        ? (expandedMsgs().has(msg.canId)
+                                        ? (expandedMsgs().has(`m:${msg.canId}`)
                                           ? <ChevronDown size={12} />
                                           : <ChevronRight size={12} />)
                                         : null}
@@ -368,7 +369,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                       dlc:{msg.dlc} {msg.sender}
                                     </span>
                                   </div>
-                                  <Show when={expandedMsgs().has(msg.canId)}>
+                                  <Show when={expandedMsgs().has(`m:${msg.canId}`)}>
                                     <div class="dm-tree-signals">
                                       <For each={msg.signals}>
                                         {(sig) => renderSignalRow(sig, msg.canId)}
@@ -446,16 +447,17 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                                 class="dm-tree-msg dm-tree-msg--nested"
                                                 onClick={() => {
                                                   setExpandedMsgs((prev) => {
-                                                    const next = new Set<number>(prev);
-                                                    if (next.has(msg.canId)) next.delete(msg.canId);
-                                                    else next.add(msg.canId);
+                                                    const next = new Set<string>(prev);
+                                                    const key = `n:${msg.canId}`;
+                                                    if (next.has(key)) next.delete(key);
+                                                    else next.add(key);
                                                     return next;
                                                   });
                                                 }}
                                               >
                                                 <span class="dm-tree-arrow">
                                                   {msg.signalCount > 0
-                                                    ? (expandedMsgs().has(msg.canId)
+                                                    ? (expandedMsgs().has(`n:${msg.canId}`)
                                                       ? <ChevronDown size={12} />
                                                       : <ChevronRight size={12} />)
                                                     : null}
@@ -471,7 +473,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                                   dlc:{msg.dlc}
                                                 </span>
                                               </div>
-                                              <Show when={expandedMsgs().has(msg.canId)}>
+                                              <Show when={expandedMsgs().has(`n:${msg.canId}`)}>
                                                 <div class="dm-tree-signals">
                                                   <For each={msg.signals}>
                                                     {(sig) => renderSignalRow(sig, msg.canId)}

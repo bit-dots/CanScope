@@ -259,6 +259,15 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
     });
   };
 
+  const toggleMsgExpandInNode = (canId: number, entryId: string) => {
+    const key = `n:${entryId}::${canId}`;
+    setExpandedMsgKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const toggleNodeExpand = (nodeName: string, entryId: string) => {
     const key = `${entryId}::${nodeName}`;
     setExpandedNodeKeys((prev) => {
@@ -279,6 +288,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const isExpanded = (id: string) => expandedIds().has(id);
   const isMsgExpanded = (entryId: string, canId: number) => expandedMsgKeys().has(`${entryId}::${canId}`);
+  const isMsgExpandedInNode = (entryId: string, canId: number) => expandedMsgKeys().has(`n:${entryId}::${canId}`);
   const isNodeExpanded = (entryId: string, nodeName: string) => expandedNodeKeys().has(`${entryId}::${nodeName}`);
   const isSectionExpanded = (entryId: string, sectionName: string) => expandedSectionKeys().has(`${entryId}::${sectionName}`);
 
@@ -718,18 +728,18 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                                     <div class="dm-tree-group">
                                                       <div
                                                         class="dm-tree-msg dm-tree-msg--nested"
-                                                        onClick={(e) => { e.stopPropagation(); toggleMsgExpand(msg.canId, entry.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); toggleMsgExpandInNode(msg.canId, entry.id); }}
                                                       >
                                                         <span class="dm-tree-arrow">
                                                             {msg.signalCount > 0
-                                                              ? (isMsgExpanded(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
+                                                              ? (isMsgExpandedInNode(entry.id, msg.canId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />)
                                                               : null}
                                                           </span>
                                                         <span class="dm-tree-msg__name"><Mail size={12} class="dm-tree-msg__icon" /> {msg.name}</span>
                                                         <span class="dm-tree-msg__id">(0x{msg.canId.toString(16).toUpperCase()})</span>
                                                         <span class="dm-tree-msg__meta">dlc:{msg.dlc}</span>
                                                       </div>
-                                                      <Show when={isMsgExpanded(entry.id, msg.canId)}>
+                                                      <Show when={isMsgExpandedInNode(entry.id, msg.canId)}>
                                                         <div class="dm-tree-signals">
                                                           <For each={msg.signals}>
                                                             {(sig) => (
