@@ -79,6 +79,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const [visible, setVisible] = createSignal(false);
   const [closing, setClosing] = createSignal(false);
+  const [flashing, setFlashing] = createSignal(false);
 
   onMount(() => {
     if (isDialog()) {
@@ -459,7 +460,8 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
 
   const handleOverlayClick = (e: MouseEvent) => {
     if (isDialog() && dialogRef && !dialogRef.contains(e.target as Node)) {
-      closeWithAnimation();
+      setFlashing(false);
+      requestAnimationFrame(() => setFlashing(true));
     }
   };
 
@@ -889,6 +891,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
         classList={{
           'dm-dialog--visible': visible(),
           'dm-dialog--closing': closing(),
+          'dm-dialog--flashing': flashing(),
         }}
       >
         <div class="dm-titlebar">
