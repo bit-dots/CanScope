@@ -3,7 +3,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import {
   Plus,
-  Minus,
+  X,
   Trash2,
   ArrowUp,
   ArrowDown,
@@ -328,7 +328,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
           onClick={handleRemoveSelected}
           title="移除选中信号"
         >
-          <Minus size={15} strokeWidth={2} />
+          <X size={15} strokeWidth={2} />
         </button>
         <button class="signal-chart__tool-btn" onClick={() => props.onClearSignals?.()} title="清空信号列表">
           <Trash2 size={14} strokeWidth={2} />

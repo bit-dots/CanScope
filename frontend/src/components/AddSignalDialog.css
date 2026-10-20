@@ -303,11 +303,17 @@
 }
 
 .add-signal-dialog__sig--selected {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary)) !important;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-secondary)) !important;
+  border-left: 2px solid var(--accent);
+  padding-left: 18px !important;
+}
+
+.add-signal-dialog__sig--selected .dm-tree-sig__name {
+  color: var(--accent);
 }
 
 .add-signal-dialog__sig--selected:hover {
-  background: color-mix(in srgb, var(--accent) 20%, var(--bg-primary)) !important;
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg-secondary)) !important;
 }
 
 .add-signal-dialog__sig--existing {
