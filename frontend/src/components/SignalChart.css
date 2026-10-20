@@ -1,6 +1,6 @@
 /* ============================================
    SignalChart — 信号曲线图面板
-   Layout: 信号标签栏 → 工具栏 → 图形区 → 底部状态栏
+   Layout: 工具栏 → 内容区(侧栏 + 分隔条 + 图形区) → 底部状态栏
    Design: industrial dark-tech, data-dense, restrained motion
    ============================================ */
 
@@ -11,50 +11,6 @@
   background: var(--bg-primary);
   user-select: none;
   overflow: hidden;
-}
-
-/* ============================================
-   信号标签栏 — 显示已绑定的信号标签
-   ============================================ */
-.signal-chart__tags {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  flex-wrap: wrap;
-  min-height: 30px;
-  flex-shrink: 0;
-}
-
-.signal-chart__tags-label {
-  color: var(--text-secondary);
-  margin-right: 2px;
-  font-weight: 600;
-}
-
-.signal-chart__tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-family: var(--font-sans);
-}
-
-.signal-chart__tag-close {
-  width: 10px;
-  height: 10px;
-  cursor: pointer;
-  opacity: 0.6;
-  flex-shrink: 0;
-  transition: opacity 0.12s ease;
-}
-
-.signal-chart__tag-close:hover {
-  opacity: 1;
 }
 
 /* ============================================
@@ -129,13 +85,193 @@
 }
 
 /* ============================================
+   内容区：侧栏 + 分隔条 + 图形区
+   ============================================ */
+.signal-chart__content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ============================================
+   侧栏 — 信号列表
+   ============================================ */
+.signal-chart__sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.signal-chart__sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+}
+
+.signal-chart__sidebar-count {
+  background: var(--bg-tertiary);
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  min-width: 16px;
+  text-align: center;
+}
+
+.signal-chart__sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.signal-chart__sidebar-empty {
+  padding: 16px 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-family: var(--font-sans);
+}
+
+/* ============================================
+   信号行 — 双行布局
+   ============================================ */
+.signal-chart__sig-row {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.signal-chart__sig-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.signal-chart__sig-row--selected {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
+  border-left: 2px solid var(--accent);
+  padding-left: 6px;
+}
+
+.signal-chart__sig-row--hidden {
+  opacity: 0.45;
+}
+
+.signal-chart__sig-row-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.signal-chart__sig-dot {
+  font-size: 8px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.signal-chart__sig-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.signal-chart__sig-canid {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.signal-chart__sig-eye {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.signal-chart__sig-eye:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.signal-chart__sig-row-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+  padding-left: 12px;
+}
+
+.signal-chart__sig-value {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.signal-chart__sig-unit {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+.signal-chart__sig-range {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  opacity: 0.65;
+  margin-left: auto;
+}
+
+/* ============================================
+   拖拽分隔条
+   ============================================ */
+.signal-chart__splitter {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s ease;
+}
+
+.signal-chart__splitter:hover {
+  background: var(--accent);
+}
+
+/* ============================================
    图形区 — uPlot 渲染容器
    ============================================ */
 .signal-chart__plot {
   flex: 1;
   overflow: hidden;
   position: relative;
-  min-height: 0;
+  min-width: 0;
 }
 
 /* ============================================

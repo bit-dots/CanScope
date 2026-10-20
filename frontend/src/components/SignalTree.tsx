@@ -57,12 +57,12 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
   const isChartSignal = (canId: number, signalName: string) =>
     props.chartSignals.some(s => s.canId === canId && s.signalName === signalName);
 
-  const toggleSignalChart = (canId: number, signalName: string, unit: string) => {
+  const toggleSignalChart = (canId: number, signalName: string, unit: string, min: number | null, max: number | null) => {
     const existing = props.chartSignals.find(s => s.canId === canId && s.signalName === signalName);
     if (existing) {
       props.onRemoveSignal(existing);
     } else {
-      props.onSelectSignal({ canId, signalName, unit });
+      props.onSelectSignal({ canId, signalName, unit, min, max, visible: true });
     }
   };
 
@@ -148,7 +148,7 @@ const SignalTree: Component<SignalTreeProps> = (props) => {
                           const color = chartIdx >= 0 ? COLORS[chartIdx % COLORS.length] : null;
                           return (
                         <tr
-                          onClick={() => toggleSignalChart(msg.canId, sig.name, sig.unit)}
+                          onClick={() => toggleSignalChart(msg.canId, sig.name, sig.unit, sig.min, sig.max)}
                           class="signal-tree__sig-row"
                           style={color ? { background: color + '14' } : {}}
                         >

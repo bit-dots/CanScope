@@ -97,6 +97,9 @@ export interface ChartSignal {
   canId: number;
   signalName: string;
   unit: string;
+  min: number | null;
+  max: number | null;
+  visible: boolean;
 }
 
 export function parseCanId(input: string): number | null {
@@ -147,6 +150,9 @@ export interface ChartSignalJson {
   canId: number;
   signalName: string;
   unit: string;
+  min: number | null;
+  max: number | null;
+  visible: boolean;
 }
 
 export interface UiLayoutJson {

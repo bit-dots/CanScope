@@ -129,14 +129,14 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
   const isSelected = (canId: number, sigName: string) =>
     selectedSignals().some((s) => s.canId === canId && s.signalName === sigName);
 
-  const toggleSignal = (canId: number, sigName: string, unit: string) => {
+  const toggleSignal = (canId: number, sigName: string, unit: string, min: number | null, max: number | null) => {
     if (isExisting(canId, sigName)) return;
     setSelectedSignals((prev) => {
       const idx = prev.findIndex((s) => s.canId === canId && s.signalName === sigName);
       if (idx >= 0) {
         return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
       }
-      return [...prev, { canId, signalName: sigName, unit }];
+      return [...prev, { canId, signalName: sigName, unit, min, max, visible: true }];
     });
   };
 
@@ -165,7 +165,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
           'add-signal-dialog__sig--selected': selected,
           'add-signal-dialog__sig--existing': existing,
         }}
-        onClick={() => toggleSignal(canId, sig.name, sig.unit)}
+        onClick={() => toggleSignal(canId, sig.name, sig.unit, sig.min, sig.max)}
       >
         <span class="dm-tree-sig__name">
           <Activity size={12} class="dm-tree-sig__icon" />

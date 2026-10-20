@@ -224,7 +224,7 @@ function App() {
       }
       if (proj.chartSignals && proj.chartSignals.length > 0) {
         setChartSignals(
-          proj.chartSignals.map(s => ({ canId: s.canId, signalName: s.signalName, unit: s.unit }))
+          proj.chartSignals.map(s => ({ canId: s.canId, signalName: s.signalName, unit: s.unit, min: s.min ?? null, max: s.max ?? null, visible: s.visible ?? true }))
         );
       }
 
@@ -309,6 +309,9 @@ function App() {
         canId: s.canId,
         signalName: s.signalName,
         unit: s.unit,
+        min: s.min,
+        max: s.max,
+        visible: s.visible,
       })),
       uiLayout: {
         panelWidth: 260,
