@@ -39,10 +39,35 @@ interface LatestValue {
   timestamp: number;
 }
 
-const COLORS = ['#38BFA7', '#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF922B'];
-
 function signalKey(s: ChartSignal): string {
   return `${s.canId}:${s.signalName}`;
+}
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0;
+  }
+  return hash;
+}
+
+function getSignalColor(signal: ChartSignal): string {
+  const hash = hashString(signalKey(signal));
+  const hue = ((Math.abs(hash) * 0.618033988749895) % 1) * 360;
+  return hslToHex(hue, 0.72, 0.58);
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  return '#' + [f(0), f(8), f(4)].map(v => 
+    Math.round(v * 255).toString(16).padStart(2, '0')
+  ).join('');
 }
 
 function formatHex(id: number): string {
@@ -132,9 +157,6 @@ const SignalChart: Component<SignalChartProps> = (props) => {
     return map;
   });
 
-  const signalColorIndex = (s: ChartSignal) =>
-    props.signals.findIndex(x => x.canId === s.canId && x.signalName === s.signalName);
-
   const toggleVisibility = (e: MouseEvent, key: string) => {
     e.stopPropagation();
     setHiddenKeys(prev => {
@@ -177,8 +199,8 @@ const SignalChart: Component<SignalChartProps> = (props) => {
         show: true,
         size: 4.5,
         width: 1.2,
-        stroke: (_u, seriesIdx) => COLORS[seriesIdx % COLORS.length] + 'CC',
-        fill: (_u, seriesIdx) => COLORS[seriesIdx % COLORS.length] + '33',
+        stroke: (_u, seriesIdx) => getSignalColor(sigs[seriesIdx - 1]) + 'CC',
+        fill: (_u, seriesIdx) => getSignalColor(sigs[seriesIdx - 1]) + '33',
       },
     },
     legend: { show: true, live: false },
@@ -207,9 +229,9 @@ const SignalChart: Component<SignalChartProps> = (props) => {
       {},
       ...sigs.map((s) => ({
         label: `${s.signalName}${s.unit ? ` (${s.unit})` : ''}`,
-        stroke: COLORS[signalColorIndex(s) % COLORS.length],
+        stroke: getSignalColor(s),
         width: 1.8,
-        fill: COLORS[signalColorIndex(s) % COLORS.length] + '14',
+        fill: getSignalColor(s) + '14',
         points: { show: false },
         value: (_self: uPlot, rawValue: number | null) =>
           rawValue == null ? '\u2014' : rawValue.toFixed(3) + (s.unit ? ` ${s.unit}` : ''),
@@ -363,13 +385,12 @@ const SignalChart: Component<SignalChartProps> = (props) => {
             </div>
             <div class="signal-chart__sidebar-list">
               <For each={props.signals}>
-                {(s, i) => {
+                {(s) => {
                   const key = signalKey(s);
                   const hidden = hiddenKeys().has(key);
                   const isSelected = key === selectedKey();
                   const lv = latestValues().get(key);
-                  const ci = i();
-                  const color = COLORS[ci % COLORS.length];
+                  const color = getSignalColor(s);
                   const hasRange = s.min != null && s.max != null;
                   return (
                     <div
@@ -480,13 +501,12 @@ const SignalChart: Component<SignalChartProps> = (props) => {
               <div class="signal-chart__status-item">
                 {visibleSignals().map((s, i) => {
                   const v = cursorInfo().values[i];
-                  const ci = signalColorIndex(s);
                   return (
                     <>
                       {i > 0 && <span class="signal-chart__status-label" style="margin: 0 6px;">|</span>}
                       <span
                         class="signal-chart__status-value"
-                        style={{ color: v != null ? COLORS[ci % COLORS.length] : undefined }}
+                        style={{ color: v != null ? getSignalColor(s) : undefined }}
                       >
                         {s.signalName}={v != null ? v.toFixed(3) : '\u2014'}
                         {s.unit && v != null ? ` ${s.unit}` : ''}
