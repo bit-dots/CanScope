@@ -7,7 +7,7 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
-  LayoutPanelTop,
+  PanelLeft,
   Eye,
   EyeOff,
 } from 'lucide-solid';
@@ -104,6 +104,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
   const [selectedKey, setSelectedKey] = createSignal<string | null>(null);
   const [hiddenKeys, setHiddenKeys] = createSignal<Set<string>>(new Set());
   const [sidebarWidth, setSidebarWidth] = createSignal(220);
+  const [sidebarVisible, setSidebarVisible] = createSignal(true);
 
   const visibleSignals = createMemo(() =>
     props.signals.filter(s => !hiddenKeys().has(signalKey(s)))
@@ -156,6 +157,8 @@ const SignalChart: Component<SignalChartProps> = (props) => {
     if (signal) props.onRemoveSignal(signal);
     setSelectedKey(null);
   };
+
+  const toggleSidebar = () => setSidebarVisible(prev => !prev);
 
   const clearPlot = () => {
     if (plot) {
@@ -340,74 +343,81 @@ const SignalChart: Component<SignalChartProps> = (props) => {
           <ArrowDown size={14} strokeWidth={2} />
         </button>
 
-        <button class="signal-chart__tool-btn" onClick={() => props.onLayout?.()} title="布局">
-          <LayoutPanelTop size={14} strokeWidth={2} />
+        <button
+          class="signal-chart__tool-btn"
+          classList={{ 'signal-chart__tool-btn--active': sidebarVisible() }}
+          onClick={toggleSidebar}
+          title={sidebarVisible() ? '隐藏侧栏' : '显示侧栏'}
+        >
+          <PanelLeft size={14} strokeWidth={2} />
         </button>
       </div>
 
       {/* ---- 内容区：侧栏 + 拖拽分隔条 + 图形区 ---- */}
       <div class="signal-chart__content">
-        <div class="signal-chart__sidebar" style={{ width: sidebarWidth() + 'px' }}>
-          <div class="signal-chart__sidebar-header">
-            <span>信号</span>
-            <span class="signal-chart__sidebar-count">{props.signals.length}</span>
-          </div>
-          <div class="signal-chart__sidebar-list">
-            <For each={props.signals}>
-              {(s, i) => {
-                const key = signalKey(s);
-                const hidden = hiddenKeys().has(key);
-                const isSelected = key === selectedKey();
-                const lv = latestValues().get(key);
-                const ci = i();
-                const color = COLORS[ci % COLORS.length];
-                const hasRange = s.min != null && s.max != null;
-                return (
-                  <div
-                    class="signal-chart__sig-row"
-                    classList={{
-                      'signal-chart__sig-row--selected': isSelected,
-                      'signal-chart__sig-row--hidden': hidden,
-                    }}
-                    onClick={() => handleSelect(key)}
-                  >
-                    <div class="signal-chart__sig-row-top">
-                      <span
-                        class="signal-chart__sig-dot"
-                        style={{ color }}
-                      >
-                        ●
-                      </span>
-                      <span class="signal-chart__sig-name">{s.signalName}</span>
-                      <span class="signal-chart__sig-canid">{formatHex(s.canId)}</span>
-                      <button
-                        class="signal-chart__sig-eye"
-                        onClick={(e) => toggleVisibility(e, key)}
-                        title={hidden ? '显示曲线' : '隐藏曲线'}
-                      >
-                        {hidden ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </button>
+        <Show when={sidebarVisible()}>
+          <div class="signal-chart__sidebar" style={{ width: sidebarWidth() + 'px' }}>
+            <div class="signal-chart__sidebar-header">
+              <span>信号</span>
+              <span class="signal-chart__sidebar-count">{props.signals.length}</span>
+            </div>
+            <div class="signal-chart__sidebar-list">
+              <For each={props.signals}>
+                {(s, i) => {
+                  const key = signalKey(s);
+                  const hidden = hiddenKeys().has(key);
+                  const isSelected = key === selectedKey();
+                  const lv = latestValues().get(key);
+                  const ci = i();
+                  const color = COLORS[ci % COLORS.length];
+                  const hasRange = s.min != null && s.max != null;
+                  return (
+                    <div
+                      class="signal-chart__sig-row"
+                      classList={{
+                        'signal-chart__sig-row--selected': isSelected,
+                        'signal-chart__sig-row--hidden': hidden,
+                      }}
+                      onClick={() => handleSelect(key)}
+                    >
+                      <div class="signal-chart__sig-row-top">
+                        <span
+                          class="signal-chart__sig-dot"
+                          style={{ color }}
+                        >
+                          ●
+                        </span>
+                        <span class="signal-chart__sig-name">{s.signalName}</span>
+                        <span class="signal-chart__sig-canid">{formatHex(s.canId)}</span>
+                        <button
+                          class="signal-chart__sig-eye"
+                          onClick={(e) => toggleVisibility(e, key)}
+                          title={hidden ? '显示曲线' : '隐藏曲线'}
+                        >
+                          {hidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      </div>
+                      <div class="signal-chart__sig-row-bottom">
+                        <span class="signal-chart__sig-value">
+                          {lv ? lv.value.toFixed(3) : '\u2014'}
+                        </span>
+                        <span class="signal-chart__sig-unit">{s.unit || ''}</span>
+                        {hasRange && (
+                          <span class="signal-chart__sig-range">[{s.min} .. {s.max}]</span>
+                        )}
+                      </div>
                     </div>
-                    <div class="signal-chart__sig-row-bottom">
-                      <span class="signal-chart__sig-value">
-                        {lv ? lv.value.toFixed(3) : '\u2014'}
-                      </span>
-                      <span class="signal-chart__sig-unit">{s.unit || ''}</span>
-                      {hasRange && (
-                        <span class="signal-chart__sig-range">[{s.min} .. {s.max}]</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              }}
-            </For>
-            {props.signals.length === 0 && (
-              <div class="signal-chart__sidebar-empty">暂无信号</div>
-            )}
+                  );
+                }}
+              </For>
+              {props.signals.length === 0 && (
+                <div class="signal-chart__sidebar-empty">暂无信号</div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div ref={splitterRef} class="signal-chart__splitter" onMouseDown={onSplitterDown} />
+          <div ref={splitterRef} class="signal-chart__splitter" onMouseDown={onSplitterDown} />
+        </Show>
 
         <div ref={containerRef} class="signal-chart__plot">
           {visibleSignals().length === 0 && props.signals.length > 0 && (
