@@ -702,7 +702,7 @@ const DatabaseManagerDialog: Component<DatabaseManagerProps> = (props) => {
                                           {isSectionExpanded(entry.id, 'nodes') ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                         </span>
                                         <Layers size={12} class="dm-tree-section__icon" />
-                                        <span class="dm-tree-section__label">Network Nodes</span>
+                                        <span class="dm-tree-section__label">Network nodes</span>
                                         <span class="dm-tree-section__count">{detail().nodes.length}</span>
                                       </div>
                                       <Show when={isSectionExpanded(entry.id, 'nodes')}>
