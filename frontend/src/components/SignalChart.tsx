@@ -8,6 +8,7 @@ import {
   ArrowUp,
   ArrowDown,
   PanelLeft,
+  Circle,
   Eye,
   EyeOff,
 } from 'lucide-solid';
@@ -53,10 +54,9 @@ function hashString(str: string): number {
   return hash;
 }
 
-function getSignalColor(signal: ChartSignal): string {
+function getAnchorHue(signal: ChartSignal): number {
   const hash = hashString(signalKey(signal));
-  const hue = ((Math.abs(hash) * 0.618033988749895) % 1) * 360;
-  return hslToHex(hue, 0.72, 0.58);
+  return ((Math.abs(hash) * 0.618033988749895) % 1) * 360;
 }
 
 function hslToHex(h: number, s: number, l: number): string {
@@ -68,6 +68,35 @@ function hslToHex(h: number, s: number, l: number): string {
   return '#' + [f(0), f(8), f(4)].map(v => 
     Math.round(v * 255).toString(16).padStart(2, '0')
   ).join('');
+}
+
+function deconflictHues(signals: ChartSignal[], minGap = 25): number[] {
+  const n = signals.length;
+  if (n <= 1) return signals.map(getAnchorHue);
+  if (n * minGap > 360) minGap = Math.floor(360 / n);
+
+  const indexed = signals.map((s, i) => ({ i, hue: getAnchorHue(s) }));
+  indexed.sort((a, b) => a.hue - b.hue);
+
+  const placed = new Array<number>(n);
+  placed[indexed[0].i] = indexed[0].hue;
+
+  for (let j = 1; j < n; j++) {
+    const prevPlaced = placed[indexed[j - 1].i];
+    placed[indexed[j].i] = Math.max(indexed[j].hue, prevPlaced + minGap);
+  }
+
+  // fix wrap-around: last placed + minGap must be ≤ first placed + 360
+  const lastPlaced = placed[indexed[n - 1].i];
+  const firstPlaced = placed[indexed[0].i];
+  const overflow = lastPlaced + minGap - (firstPlaced + 360);
+  if (overflow > 0) {
+    for (let j = 0; j < n; j++) {
+      placed[indexed[j].i] -= overflow;
+    }
+  }
+
+  return placed;
 }
 
 function formatHex(id: number): string {
@@ -135,6 +164,15 @@ const SignalChart: Component<SignalChartProps> = (props) => {
     props.signals.filter(s => !hiddenKeys().has(signalKey(s)))
   );
 
+  const signalColorMap = createMemo(() => {
+    const hues = deconflictHues(props.signals);
+    const map = new Map<string, string>();
+    for (let i = 0; i < props.signals.length; i++) {
+      map.set(signalKey(props.signals[i]), hslToHex(hues[i], 0.72, 0.58));
+    }
+    return map;
+  });
+
   const data = createMemo(() => deriveData(props.frames, visibleSignals()));
   const dataPointCount = createMemo(() => data()?.[0]?.length ?? 0);
 
@@ -199,8 +237,8 @@ const SignalChart: Component<SignalChartProps> = (props) => {
         show: true,
         size: 4.5,
         width: 1.2,
-        stroke: (_u, seriesIdx) => getSignalColor(sigs[seriesIdx - 1]) + 'CC',
-        fill: (_u, seriesIdx) => getSignalColor(sigs[seriesIdx - 1]) + '33',
+        stroke: (_u, seriesIdx) => signalColorMap().get(signalKey(sigs[seriesIdx - 1])) + 'CC',
+        fill: (_u, seriesIdx) => signalColorMap().get(signalKey(sigs[seriesIdx - 1])) + '33',
       },
     },
     legend: { show: true, live: false },
@@ -229,9 +267,9 @@ const SignalChart: Component<SignalChartProps> = (props) => {
       {},
       ...sigs.map((s) => ({
         label: `${s.signalName}${s.unit ? ` (${s.unit})` : ''}`,
-        stroke: getSignalColor(s),
+        stroke: signalColorMap().get(signalKey(s)),
         width: 1.8,
-        fill: getSignalColor(s) + '14',
+        fill: signalColorMap().get(signalKey(s)) + '14',
         points: { show: false },
         value: (_self: uPlot, rawValue: number | null) =>
           rawValue == null ? '\u2014' : rawValue.toFixed(3) + (s.unit ? ` ${s.unit}` : ''),
@@ -390,7 +428,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
                   const hidden = hiddenKeys().has(key);
                   const isSelected = key === selectedKey();
                   const lv = latestValues().get(key);
-                  const color = getSignalColor(s);
+                  const color = signalColorMap().get(key);
                   const hasRange = s.min != null && s.max != null;
                   return (
                     <div
@@ -404,9 +442,9 @@ const SignalChart: Component<SignalChartProps> = (props) => {
                       <div class="signal-chart__sig-row-top">
                         <span
                           class="signal-chart__sig-dot"
-                          style={{ color }}
+                          style={{ color, opacity: hidden ? 0.35 : 1 }}
                         >
-                          ●
+                          <Circle size={12} fill="currentColor" stroke="none" />
                         </span>
                         <span class="signal-chart__sig-name">{s.signalName}</span>
                         <span class="signal-chart__sig-canid">{formatHex(s.canId)}</span>
@@ -506,7 +544,7 @@ const SignalChart: Component<SignalChartProps> = (props) => {
                       {i > 0 && <span class="signal-chart__status-label" style="margin: 0 6px;">|</span>}
                       <span
                         class="signal-chart__status-value"
-                        style={{ color: v != null ? getSignalColor(s) : undefined }}
+                        style={{ color: v != null ? signalColorMap().get(signalKey(s)) : undefined }}
                       >
                         {s.signalName}={v != null ? v.toFixed(3) : '\u2014'}
                         {s.unit && v != null ? ` ${s.unit}` : ''}

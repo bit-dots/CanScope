@@ -176,9 +176,9 @@
 }
 
 .signal-chart__sig-dot {
-  font-size: 8px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  line-height: 1;
 }
 
 .signal-chart__sig-name {
