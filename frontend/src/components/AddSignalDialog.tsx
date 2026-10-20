@@ -403,7 +403,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                   : <ChevronRight size={12} />}
                               </span>
                               <Layers size={12} class="dm-tree-section__icon" />
-                              <span class="dm-tree-section__label">Network Nodes</span>
+                              <span class="dm-tree-section__label">Network nodes</span>
                               <span class="dm-tree-section__count">
                                 {detail().nodes.length}
                               </span>
