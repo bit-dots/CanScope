@@ -503,7 +503,7 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
         {/* ---- 底部栏 ---- */}
         <div class="add-signal-dialog__footer">
           <span class="add-signal-dialog__footer-info">
-            已添加 {selectedSignals().length} 个信号
+            已选中 {selectedSignals().length} 个信号
           </span>
           <div class="add-signal-dialog__footer-actions">
             <button
