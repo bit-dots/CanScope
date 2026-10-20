@@ -171,9 +171,17 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
           'add-signal-dialog__sig--selected': selected,
           'add-signal-dialog__sig--existing': existing,
         }}
+        style={selected ? {
+          background: 'rgba(217, 119, 6, 0.25)',
+          'border-left': '4px solid #D97706',
+          'border-radius': '0 3px 3px 0',
+        } : undefined}
         onClick={() => toggleSignal(canId, sig.name, sig.unit, sig.min, sig.max)}
       >
-        <span class="dm-tree-sig__name">
+        <span
+          class="dm-tree-sig__name"
+          style={selected ? { color: '#FBBF24', 'font-weight': '600' } : undefined}
+        >
           <Activity size={12} class="dm-tree-sig__icon" />
           {' '}{existing ? '✓ ' : selected ? '● ' : ''}{sig.name}
         </span>
@@ -343,7 +351,9 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                           </div>
                           <Show when={expandedSection().has('messages')}>
                             <For each={detail().messages}>
-                              {(msg) => (
+                              {(msg) => {
+                                selectedSignals();
+                                return (
                                 <div class="dm-tree-group">
                                   <div
                                     class="dm-tree-msg"
@@ -383,7 +393,8 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                     </div>
                                   </Show>
                                 </div>
-                              )}
+                              );
+                              }}
                             </For>
                           </Show>
                         </div>
@@ -416,7 +427,9 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                             </div>
                             <Show when={expandedSection().has('nodes')}>
                               <For each={detail().nodes}>
-                                {(node) => (
+                                {(node) => {
+                                  selectedSignals();
+                                  return (
                                   <div class="dm-tree-group">
                                     <div
                                       class="dm-tree-node"
@@ -447,7 +460,9 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                     <Show when={expandedNodes().has(node.name)}>
                                       <div class="dm-tree-node-messages">
                                         <For each={node.messages}>
-                                          {(msg) => (
+                                          {(msg) => {
+                                            selectedSignals();
+                                            return (
                                             <div class="dm-tree-group">
                                               <div
                                                 class="dm-tree-msg dm-tree-msg--nested"
@@ -487,12 +502,14 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
                                                 </div>
                                               </Show>
                                             </div>
-                                          )}
+                                          );
+                                          }}
                                         </For>
                                       </div>
                                     </Show>
                                   </div>
-                                )}
+                                );
+                                }}
                               </For>
                             </Show>
                           </div>
