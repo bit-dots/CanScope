@@ -513,6 +513,9 @@ const SignalChart: Component<SignalChartProps> = (props) => {
             props.onAddSignals(signals);
             setShowAddDialog(false);
           }}
+          onApply={(signals) => {
+            props.onAddSignals(signals);
+          }}
           onCancel={() => setShowAddDialog(false)}
         />
       </Show>

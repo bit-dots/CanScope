@@ -48,6 +48,7 @@ interface AddSignalDialogProps {
   dbcBindings: DbcBinding[];
   existingSignals: ChartSignal[];
   onConfirm: (signals: ChartSignal[]) => void;
+  onApply: (signals: ChartSignal[]) => void;
   onCancel: () => void;
 }
 
@@ -149,6 +150,11 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
   const handleConfirm = () => {
     setClosing(true);
     setTimeout(() => props.onConfirm(selectedSignals()), 150);
+  };
+
+  const handleApply = () => {
+    props.onApply(selectedSignals());
+    setSelectedSignals([]);
   };
 
   // ---- 渲染信号行（匹配 dm-tree-sig 结构） ----
@@ -507,18 +513,18 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
           </span>
           <div class="add-signal-dialog__footer-actions">
             <button
-              class="add-signal-dialog__btn"
-              disabled={selectedSignals().length === 0}
-              onClick={() => setSelectedSignals([])}
-            >
-              清空
-            </button>
-            <button
               class="add-signal-dialog__btn add-signal-dialog__btn--primary"
               disabled={selectedSignals().length === 0}
               onClick={handleConfirm}
             >
               确定
+            </button>
+            <button
+              class="add-signal-dialog__btn"
+              disabled={selectedSignals().length === 0}
+              onClick={handleApply}
+            >
+              应用
             </button>
             <button class="add-signal-dialog__btn" onClick={handleClose}>
               取消
