@@ -97,7 +97,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   const [selectedFileAnchor, setSelectedFileAnchor] = createSignal<number | null>(null);
 
   // 全局时间轴 hover 提示
-  const [timelineHover, setTimelineHover] = createSignal<{ time: number; left: number } | null>(null);
+  const [timelineHover, setTimelineHover] = createSignal<{ time: number; x: number; y: number } | null>(null);
 
   // 回放设置模态框
   const [showSettings, setShowSettings] = createSignal(false);
@@ -942,7 +942,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             if (!dur) { setTimelineHover(null); return; }
             const rect = timelineRef.getBoundingClientRect();
             const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            setTimelineHover({ time: ratio * dur, left: e.clientX - rect.left });
+            setTimelineHover({ time: ratio * dur, x: rect.left + ratio * rect.width, y: rect.top });
           }}
           onMouseLeave={() => setTimelineHover(null)}
         >
@@ -955,14 +955,6 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             classList={{ 'playback-panel__timeline-thumb--active': isDragging() }}
             style={{ left: `${progress() * 100}%` }}
           />
-          <Show when={timelineHover()}>
-            <div
-              class="playback-panel__timeline-tooltip"
-              style={{ left: `${timelineHover()!.left}px` }}
-            >
-              {formatTime(timelineHover()!.time)}
-            </div>
-          </Show>
         </div>
         <div class="playback-panel__footer-info">
           <span class="playback-panel__footer-time">{formatTime(currentTime())}</span>
@@ -971,6 +963,23 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
           </span>
         </div>
       </div>
+
+      {/* 全局时间轴 hover 提示 — Portal 避免被 overflow:hidden 裁剪 */}
+      <Portal>
+        <Show when={timelineHover()}>
+          <div
+            class="playback-panel__timeline-tooltip"
+            style={{
+              left: `${timelineHover()!.x}px`,
+              top: `${timelineHover()!.y}px`,
+              position: 'fixed',
+              transform: 'translate(-50%, calc(-100% - 6px))',
+            }}
+          >
+            {formatTime(timelineHover()!.time)}
+          </div>
+        </Show>
+      </Portal>
 
       {/* 回放设置模态框 */}
       <Show when={showSettings()}>
