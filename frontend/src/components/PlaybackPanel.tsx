@@ -935,7 +935,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             title="拖拽设置播放结束点"
                           />
                           {/* Hover 时间提示 */}
-                          <Show when={hoverTip()?.fileIndex === index()}>
+                          <Show when={hoverTip()?.fileIndex === index() && !fileTimelineDrag()}>
                             <div
                               class="playback-panel__file-timeline-tip"
                               style={{ left: `${hoverTip()!.left}px` }}

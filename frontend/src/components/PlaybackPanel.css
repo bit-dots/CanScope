@@ -396,8 +396,12 @@
   background: var(--bg-tertiary);
   border-radius: 3px;
   position: relative;
-  cursor: default;
+  cursor: pointer;
   overflow: visible;
+}
+
+.playback-panel__file-timeline:hover {
+  background: color-mix(in srgb, var(--bg-tertiary) 85%, var(--accent));
 }
 
 .playback-panel__file-timeline--dragging {
@@ -406,6 +410,11 @@
 
 .playback-panel__file-timeline--seeking {
   cursor: ew-resize;
+}
+
+/* 拖拽跳转时取消游标过渡动画，避免滞后感 */
+.playback-panel__file-timeline--seeking .playback-panel__file-timeline-cursor--left {
+  transition: none;
 }
 
 .playback-panel__file-timeline-range {
