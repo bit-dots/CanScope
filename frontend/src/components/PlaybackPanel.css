@@ -413,27 +413,28 @@
   pointer-events: none;
 }
 
-/* 游标竖线 — 左=播放位置(绿) / 右=用户自定义终点(蓝) */
+/* 游标圆点 — 左=播放位置(绿) / 右=用户自定义终点(蓝) */
 .playback-panel__file-timeline-cursor {
   position: absolute;
-  top: -2px;
-  height: calc(100% + 4px);
-  width: 2px;
-  border-radius: 1px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
   pointer-events: none;
   z-index: 3;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .playback-panel__file-timeline-cursor--left {
   background: var(--success);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--success) 50%, transparent);
   transition: left 0.15s linear;
 }
 
 .playback-panel__file-timeline-cursor--right {
   background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 /* 已完成文件 — 淡色通栏 */
