@@ -113,9 +113,10 @@ impl AscReader {
         })
     }
 
-    /// 解析一行 ASC CAN 帧。
+    /// 解析一行 ASC CAN 帧（支持标准 CAN 和 CAN FD）。
     ///
-    /// 格式：`<timestamp> <channel> <can_id>[x] Rx|Tx d|r <dlc> [<hex_byte>...]`
+    /// 标准 CAN 格式：`<timestamp> <channel> <can_id>[x] Rx|Tx d|r <dlc> [<hex_byte>...]`
+    /// CAN FD 格式：  `<timestamp> CANFD <channel> <can_id>[x] Rx|Tx <BRS> <ESI> d|r <dlc> <byte_count> [<hex_byte>...]`
     ///
     /// - `can_id` 后缀 `x` 表示扩展帧；标准帧无后缀
     /// - `d` = data frame, `r` = remote frame
@@ -127,6 +128,19 @@ impl AscReader {
 
         let timestamp: f64 = parts[0].parse().map_err(|_| ())?;
 
+        // parts[1] 可能是 channel 号，也可能是 "CANFD" 标记
+        let is_fd = parts[1].eq_ignore_ascii_case("CANFD");
+
+        if is_fd {
+            // CAN FD 格式 (parts 索引加 1)
+            Self::parse_canfd_line(timestamp, &parts)
+        } else {
+            // 标准 CAN 格式
+            Self::parse_standard_can_line(timestamp, &parts)
+        }
+    }
+
+    fn parse_standard_can_line(timestamp: f64, parts: &[&str]) -> Result<CanFrame, ()> {
         let bus_id: u8 = parts[1].parse::<u8>().map_err(|_| ())?.saturating_sub(1);
 
         let can_id_str = parts[2];
@@ -141,7 +155,7 @@ impl AscReader {
         let direction = parts[3];
         let is_tx = direction.eq_ignore_ascii_case("Tx");
 
-        let (is_remote, is_fd) = match parts[4] {
+        let (is_remote, _is_fd) = match parts[4] {
             "d" => (false, false),
             "r" => (true, false),
             _ => return Err(()),
@@ -171,7 +185,61 @@ impl AscReader {
             can_id,
             is_extended,
             is_remote,
-            is_fd,
+            is_fd: false,
+            is_tx,
+            dlc,
+            data,
+        })
+    }
+
+    fn parse_canfd_line(timestamp: f64, parts: &[&str]) -> Result<CanFrame, ()> {
+        // 格式: <ts> CANFD <channel> <can_id> <Rx|Tx> <BRS> <ESI> d|r <dlc> <byte_count> <data...>
+        // parts: [0]=ts [1]=CANFD [2]=ch [3]=id [4]=dir [5]=BRS [6]=ESI [7]=d/r [8]=dlc [9]=byte_cnt
+        if parts.len() < 10 {
+            return Err(());
+        }
+
+        let bus_id: u8 = parts[2].parse::<u8>().map_err(|_| ())?.saturating_sub(1);
+
+        let can_id_str = parts[3];
+        let (can_id, is_extended) = if let Some(ext_id) = can_id_str.strip_suffix('x') {
+            (u32::from_str_radix(ext_id, 16).map_err(|_| ())?, true)
+        } else {
+            let id = u32::from_str_radix(can_id_str, 16).map_err(|_| ())?;
+            let is_ext = id > 0x7FF;
+            (id, is_ext)
+        };
+
+        let direction = parts[4];
+        let is_tx = direction.eq_ignore_ascii_case("Tx");
+
+        let is_remote = parts[7].eq_ignore_ascii_case("r");
+
+        let dlc: u8 = parts[8].parse().map_err(|_| ())?;
+        let byte_count: usize = parts[9].parse().map_err(|_| ())?;
+
+        let expected_data_parts = if is_remote { 0 } else { byte_count };
+        let data_start = 10;
+
+        if parts.len() < data_start + expected_data_parts {
+            return Err(());
+        }
+
+        let mut data = [0u8; 64];
+        for (i, hex_str) in parts[data_start..data_start + expected_data_parts]
+            .iter()
+            .enumerate()
+        {
+            data[i] = u8::from_str_radix(hex_str, 16).map_err(|_| ())?;
+        }
+
+        Ok(CanFrame {
+            timestamp,
+            bus_id,
+            can_id,
+            is_extended,
+            is_remote,
+            is_fd: true,
             is_tx,
             dlc,
             data,
