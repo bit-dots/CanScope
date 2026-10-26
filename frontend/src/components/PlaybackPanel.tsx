@@ -460,6 +460,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     const initialOffset = handle === 'start' ? file.playStartOffset : (file.playEndOffset ?? fileDuration);
     setDraggingOffset({ fileIndex, handle });
     setDragPreview({ fileIndex, handle, offset: initialOffset });
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
 
     const onMove = (ev: MouseEvent) => {
       const rect = bar.getBoundingClientRect();
@@ -482,9 +484,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     const onUp = async () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
 
       const preview = dragPreview();
-      if (!preview) { setDraggingOffset(null); return; }
+      if (!preview) {
+        setDraggingOffset(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        return;
+      }
 
       const newOffset = preview.offset;
       let startOffset = file.playStartOffset;
