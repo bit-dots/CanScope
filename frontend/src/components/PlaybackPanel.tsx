@@ -347,6 +347,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   // 文件时间轴点击/拖拽 → 移动 start 游标
   const handleFileTimelineMouseDown = (e: MouseEvent, fileIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
     const file = files()[fileIndex];
     if (!file || file.duration == null || file.duration === 0) return;
 
@@ -383,16 +385,22 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
         setDraggingOffset(null);
         return;
       }
-      const newStart = preview.offset;
-      setDraggingOffset(null);
-      setDragPreview(null);
-      const endOffset = file.playEndOffset ?? fileDuration;
-      await invoke('playlist_set_offset', {
-        index: fileIndex,
-        playStartOffset: newStart,
-        playEndOffset: endOffset,
-      });
-      props.onRefreshPlaylist();
+
+      const newStart = Math.max(0, Math.min(preview.offset, (file.playEndOffset ?? fileDuration) - 0.1));
+
+      try {
+        await invoke('playlist_set_offset', {
+          index: preview.fileIndex,
+          playStartOffset: newStart,
+          playEndOffset: file.playEndOffset ?? fileDuration,
+        });
+        props.onRefreshPlaylist();
+      } catch (err) {
+        console.error('Failed to set start offset:', err);
+      } finally {
+        setDraggingOffset(null);
+        setDragPreview(null);
+      }
     };
 
     window.addEventListener('mousemove', onMove);
