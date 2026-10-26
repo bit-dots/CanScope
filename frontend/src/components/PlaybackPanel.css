@@ -390,11 +390,11 @@
   text-overflow: ellipsis;
 }
 
-/* ---- 单文件时间轴 ---- */
+/* ---- 单文件时间轴 (仿播放器进度条) ---- */
 .playback-panel__file-timeline {
-  height: 10px;
+  height: 14px;
   background: var(--bg-tertiary);
-  border-radius: 3px;
+  border-radius: 7px;
   position: relative;
   cursor: pointer;
   overflow: visible;
@@ -412,42 +412,42 @@
   cursor: ew-resize;
 }
 
-/* 拖拽跳转时取消游标过渡动画，避免滞后感 */
-.playback-panel__file-timeline--seeking .playback-panel__file-timeline-cursor--left {
+/* 进度条填充 — 从左游标到右游标之间的范围 */
+.playback-panel__file-timeline-fill {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 5px;
+  pointer-events: none;
   transition: none;
 }
 
-.playback-panel__file-timeline-range {
-  position: absolute;
-  top: 1px;
-  height: calc(100% - 2px);
-  background: color-mix(in srgb, var(--accent) 50%, transparent);
-  border-radius: 2px;
-  pointer-events: none;
-}
-
-/* 游标圆点 — 左=播放位置(绿) / 右=用户自定义终点(蓝) */
-.playback-panel__file-timeline-cursor {
+/* 游标圆点 (thumb) — 仿播放器进度条 thumb，始终可见，可拖动 */
+.playback-panel__file-timeline-thumb {
   position: absolute;
   top: 50%;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
+  background: var(--accent);
   border: 2px solid var(--bg-secondary);
-  pointer-events: none;
+  cursor: col-resize;
   z-index: 3;
   transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.playback-panel__file-timeline-cursor--left {
-  background: var(--success);
-  box-shadow: 0 0 5px color-mix(in srgb, var(--success) 50%, transparent);
-  transition: left 0.15s linear;
+.playback-panel__file-timeline-thumb:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
-.playback-panel__file-timeline-cursor--right {
-  background: var(--accent);
-  box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 50%, transparent);
+.playback-panel__file-timeline-thumb--active {
+  transform: translate(-50%, -50%) scale(1.25) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 100%, white 15%);
 }
 
 /* 已完成文件 — 淡色通栏 */
@@ -456,7 +456,7 @@
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--success) 8%, transparent);
-  border-radius: 3px;
+  border-radius: 7px;
   pointer-events: none;
 }
 
@@ -487,29 +487,6 @@
 /* 用户自定义了范围 — 标签高亮 */
 .playback-panel__file-timeline-label--custom {
   color: var(--accent);
-}
-
-.playback-panel__file-timeline-handle {
-  position: absolute;
-  top: 0;
-  width: 6px;
-  height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  cursor: col-resize;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  transform: translateX(-50%);
-}
-
-.playback-panel__row:hover .playback-panel__file-timeline-handle {
-  opacity: 1;
-}
-
-.playback-panel__file-timeline-handle:hover {
-  opacity: 1 !important;
-  width: 8px;
-  background: color-mix(in srgb, var(--accent) 100%, white 20%);
 }
 
 .playback-panel__file-timeline-tip {

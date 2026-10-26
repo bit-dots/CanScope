@@ -347,24 +347,18 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   // 文件时间轴点击/拖拽跳转
   const handleFileTimelineMouseDown = (e: MouseEvent, fileIndex: number) => {
-    e.stopPropagation();
-    e.preventDefault();
-
     const file = files()[fileIndex];
     if (!file || file.duration == null || file.duration === 0) return;
 
     const bar = (e.currentTarget as HTMLElement).closest('.playback-panel__file-timeline') as HTMLElement | null;
     if (!bar) return;
 
-    const computeFileOffset = (ev: MouseEvent): number => {
+    const computeTimestamp = (ev: MouseEvent): number => {
       const rect = bar.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-      const rawOffset = ratio * file.duration!;
+      const fileOffset = ratio * file.duration!;
       const end = file.playEndOffset ?? file.duration!;
-      return Math.max(file.playStartOffset, Math.min(rawOffset, end));
-    };
-
-    const computeGlobalTime = (fileOffset: number): number => {
+      const clamped = Math.max(file.playStartOffset, Math.min(fileOffset, end));
       const fls = files();
       let globalTime = 0;
       for (let i = 0; i < fileIndex; i++) {
@@ -372,33 +366,26 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
         if (!f.enabled) continue;
         globalTime += (f.playEndOffset ?? f.duration ?? 0) - f.playStartOffset;
       }
-      return globalTime + (fileOffset - file.playStartOffset);
+      return globalTime + (clamped - file.playStartOffset);
     };
 
-    const initialOffset = computeFileOffset(e);
-    const initialGlobal = computeGlobalTime(initialOffset);
-    setCurrentTime(initialGlobal);
+    const ts = computeTimestamp(e);
+    setCurrentTime(ts);
     setFileTimelineDrag({ fileIndex });
 
-    const onMove = (ev: MouseEvent) => {
-      const offset = computeFileOffset(ev);
-      const global = computeGlobalTime(offset);
-      setCurrentTime(global);
+    const onMouseMove = (ev: MouseEvent) => {
+      setCurrentTime(computeTimestamp(ev));
     };
-
-    const onUp = (ev: MouseEvent) => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-
-      const finalOffset = computeFileOffset(ev);
-      const finalGlobal = computeGlobalTime(finalOffset);
-      setCurrentTime(finalGlobal);
-      props.onSeek(finalGlobal);
+    const onMouseUp = (ev: MouseEvent) => {
       setFileTimelineDrag(null);
+      const finalTs = computeTimestamp(ev);
+      setCurrentTime(finalTs);
+      props.onSeek(finalTs);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     };
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   };
 
   // 列宽拖拽调整
@@ -864,86 +851,62 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                         onMouseMove={(e) => handleTimelineMouseMove(e, index())}
                         onMouseLeave={handleTimelineMouseLeave}
                       >
-                        <Show when={file.duration != null && file.duration > 0}>
-                          {/* 有效播放范围 */}
-                          <div
-                            class="playback-panel__file-timeline-range"
-                            style={{
-                              left: `${(file.playStartOffset / file.duration!) * 100}%`,
-                              width: `${(((file.playEndOffset ?? file.duration!) - file.playStartOffset) / file.duration!) * 100}%`,
-                            }}
-                          />
-                          {/* 左游标圆点 — 播放时跟随 currentTime，拖拽 handle/时间轴时跟随鼠标 */}
-                          {(() => {
-                            const dp = dragPreview();
-                            const ftDrag = fileTimelineDrag();
-                            let leftPct: number;
-                            if (dp && dp.fileIndex === index() && dp.handle === 'start') {
-                              leftPct = (dp.offset / file.duration!) * 100;
-                            } else if (ftDrag && ftDrag.fileIndex === index()) {
-                              const info = getFilePlayheadInfo(index());
-                              leftPct = info.state === 'none' ? -1 : info.percent;
-                            } else if (props.playbackState !== 'stopped') {
-                              const info = getFilePlayheadInfo(index());
-                              leftPct = info.state === 'none' || info.state === 'pending' ? -1 : info.percent;
-                            } else {
-                              leftPct = (file.playStartOffset / file.duration!) * 100;
-                            }
-                            return leftPct > 0 ? (
+                        {(() => {
+                          if (file.duration == null || file.duration <= 0) return null;
+                          const dp = dragPreview();
+                          const effStart =
+                            dp?.fileIndex === index() && dp?.handle === 'start'
+                              ? dp.offset
+                              : file.playStartOffset;
+                          const effEnd =
+                            dp?.fileIndex === index() && dp?.handle === 'end'
+                              ? dp.offset
+                              : (file.playEndOffset ?? file.duration);
+                          const isDraggingThis = draggingOffset()?.fileIndex === index();
+                          return (
+                            <>
+                              {/* 进度条填充 — 跟随游标实时更新 */}
                               <div
-                                class="playback-panel__file-timeline-cursor playback-panel__file-timeline-cursor--left"
-                                style={{ left: `${leftPct}%` }}
+                                class="playback-panel__file-timeline-fill"
+                                style={{
+                                  left: `${(effStart / file.duration) * 100}%`,
+                                  width: `${((effEnd - effStart) / file.duration) * 100}%`,
+                                }}
                               />
-                            ) : null;
-                          })()}
-                          {/* 右游标圆点 — 拖拽右 handle 时跟随鼠标，否则仅在用户自定义过终点时显示 */}
-                          {(() => {
-                            const dp = dragPreview();
-                            const rightOff =
-                              dp?.fileIndex === index() && dp.handle === 'end'
-                                ? dp.offset
-                                : (file.playEndOffset ?? file.duration!);
-                            const showRight =
-                              (dp?.fileIndex === index() && dp.handle === 'end') ||
-                              (file.playEndOffset != null && file.playEndOffset !== file.duration);
-                            return showRight ? (
+                              {/* 左游标 — 开始位置，可拖动 */}
                               <div
-                                class="playback-panel__file-timeline-cursor playback-panel__file-timeline-cursor--right"
-                                style={{ left: `${(rightOff / file.duration!) * 100}%` }}
+                                class="playback-panel__file-timeline-thumb playback-panel__file-timeline-thumb--start"
+                                classList={{
+                                  'playback-panel__file-timeline-thumb--active':
+                                    isDraggingThis && draggingOffset()!.handle === 'start',
+                                }}
+                                style={{ left: `${(effStart / file.duration) * 100}%` }}
+                                onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
+                                title="拖拽设置播放起始点"
                               />
-                            ) : null;
-                          })()}
-                          {/* 拖拽手柄 */}
-                          <div
-                            class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--start"
-                            style={{
-                              left: `${((dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'start'
-                                ? dragPreview()!.offset
-                                : file.playStartOffset) / file.duration!) * 100}%`,
-                            }}
-                            onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
-                            title="拖拽设置播放起始点"
-                          />
-                          <div
-                            class="playback-panel__file-timeline-handle playback-panel__file-timeline-handle--end"
-                            style={{
-                              left: `${(((dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'end'
-                                ? dragPreview()!.offset
-                                : (file.playEndOffset ?? file.duration!)) / file.duration!) * 100) - 0.5}%`,
-                            }}
-                            onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
-                            title="拖拽设置播放结束点"
-                          />
-                          {/* Hover 时间提示 */}
-                          <Show when={hoverTip()?.fileIndex === index() && !fileTimelineDrag()}>
-                            <div
-                              class="playback-panel__file-timeline-tip"
-                              style={{ left: `${hoverTip()!.left}px` }}
-                            >
-                              {formatTime(hoverTip()!.time)}
-                            </div>
-                          </Show>
-                        </Show>
+                              {/* 右游标 — 结束位置，可拖动 */}
+                              <div
+                                class="playback-panel__file-timeline-thumb playback-panel__file-timeline-thumb--end"
+                                classList={{
+                                  'playback-panel__file-timeline-thumb--active':
+                                    isDraggingThis && draggingOffset()!.handle === 'end',
+                                }}
+                                style={{ left: `${(effEnd / file.duration) * 100}%` }}
+                                onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'end')}
+                                title="拖拽设置播放结束点"
+                              />
+                              {/* Hover 时间提示 */}
+                              <Show when={hoverTip()?.fileIndex === index() && !fileTimelineDrag()}>
+                                <div
+                                  class="playback-panel__file-timeline-tip"
+                                  style={{ left: `${hoverTip()!.left}px` }}
+                                >
+                                  {formatTime(hoverTip()!.time)}
+                                </div>
+                              </Show>
+                            </>
+                          );
+                        })()}
                       </div>
                       {/* 时间范围标签 — 拖拽时带毫秒，松手后恢复时分秒 */}
                       {(() => {
