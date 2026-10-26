@@ -404,6 +404,10 @@
   cursor: col-resize;
 }
 
+.playback-panel__file-timeline--seeking {
+  cursor: ew-resize;
+}
+
 .playback-panel__file-timeline-range {
   position: absolute;
   top: 1px;
