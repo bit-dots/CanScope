@@ -330,7 +330,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   } | null>(null);
 
   // 文件时间轴拖拽跳转
-  const [fileTimelineDrag, setFileTimelineDrag] = createSignal<{ fileIndex: number } | null>(null);
+  const [fileTimelineDrag, _setFileTimelineDrag] = createSignal<{ fileIndex: number } | null>(null);
 
   // 时间轴 hover 时间提示
   const [hoverTip, setHoverTip] = createSignal<{ fileIndex: number; time: number; left: number } | null>(null);
@@ -345,47 +345,58 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   const handleTimelineMouseLeave = () => setHoverTip(null);
 
-  // 文件时间轴点击/拖拽跳转
+  // 文件时间轴点击/拖拽 → 移动 start 游标
   const handleFileTimelineMouseDown = (e: MouseEvent, fileIndex: number) => {
     const file = files()[fileIndex];
     if (!file || file.duration == null || file.duration === 0) return;
 
     const bar = (e.currentTarget as HTMLElement).closest('.playback-panel__file-timeline') as HTMLElement | null;
     if (!bar) return;
+    const fileDuration = file.duration;
 
-    const computeTimestamp = (ev: MouseEvent): number => {
+    const computeOffset = (ev: MouseEvent): number => {
       const rect = bar.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-      const fileOffset = ratio * file.duration!;
-      const end = file.playEndOffset ?? file.duration!;
-      const clamped = Math.max(file.playStartOffset, Math.min(fileOffset, end));
-      const fls = files();
-      let globalTime = 0;
-      for (let i = 0; i < fileIndex; i++) {
-        const f = fls[i];
-        if (!f.enabled) continue;
-        globalTime += (f.playEndOffset ?? f.duration ?? 0) - f.playStartOffset;
+      const raw = ratio * fileDuration;
+      const end = file.playEndOffset ?? fileDuration;
+      return Math.min(raw, Math.max(0, end - 0.1));
+    };
+
+    const initialOffset = computeOffset(e);
+    setDraggingOffset({ fileIndex, handle: 'start' });
+    setDragPreview({ fileIndex, handle: 'start', offset: initialOffset });
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev: MouseEvent) => {
+      setDragPreview({ fileIndex, handle: 'start', offset: computeOffset(ev) });
+    };
+
+    const onUp = async () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      const preview = dragPreview();
+      if (!preview) {
+        setDraggingOffset(null);
+        return;
       }
-      return globalTime + (clamped - file.playStartOffset);
+      const newStart = preview.offset;
+      setDraggingOffset(null);
+      setDragPreview(null);
+      const endOffset = file.playEndOffset ?? fileDuration;
+      await invoke('playlist_set_offset', {
+        index: fileIndex,
+        playStartOffset: newStart,
+        playEndOffset: endOffset,
+      });
+      props.onRefreshPlaylist();
     };
 
-    const ts = computeTimestamp(e);
-    setCurrentTime(ts);
-    setFileTimelineDrag({ fileIndex });
-
-    const onMouseMove = (ev: MouseEvent) => {
-      setCurrentTime(computeTimestamp(ev));
-    };
-    const onMouseUp = (ev: MouseEvent) => {
-      setFileTimelineDrag(null);
-      const finalTs = computeTimestamp(ev);
-      setCurrentTime(finalTs);
-      props.onSeek(finalTs);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
   // 列宽拖拽调整
@@ -905,7 +916,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                                 title="拖拽设置播放结束点"
                               />
                               {/* Hover 时间提示 */}
-                              <Show when={hoverTip()?.fileIndex === index() && !fileTimelineDrag()}>
+                              <Show when={hoverTip()?.fileIndex === index() && !fileTimelineDrag() && !draggingOffset()}>
                                 <div
                                   class="playback-panel__file-timeline-tip"
                                   style={{ left: `${hoverTip()!.left}px` }}

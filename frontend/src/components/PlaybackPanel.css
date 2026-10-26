@@ -419,7 +419,7 @@
   height: calc(100% - 2px);
   background: color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 3px;
-  pointer-events: none;
+  z-index: 1;
   transition: none;
 }
 
