@@ -389,6 +389,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [displayedFrames, setDisplayedFrames] = createSignal<FrameInfo[]>([]);
   const [flattenedRows, setFlattenedRows] = createSignal<FlatRow[]>([]);
 
+  let _cachedFramesLength = 0;
+  let _filterFingerprint = '';
+  let _flatIdxArray: number[] = [];
+
   createEffect(() => {
     const ft = filterTime().trim().toLowerCase();
     const fc = filterChannel().trim().toLowerCase();
@@ -399,6 +403,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const fn = filterName().trim().toLowerCase();
 
     const paused = isPaused();
+    const fp = `${ft}|${fc}|${fi}|${fy}|${fd}|${fx}|${fn}|${paused}`;
 
     let frames: FrameInfo[];
     if (!ft && !fc && !fi && !fy && !fd && !fx && !fn && !paused) {
@@ -430,29 +435,69 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         });
     }
 
-    setDisplayedFrames(frames);
+    const isAppendOnly = fp === _filterFingerprint && frames.length > _cachedFramesLength && frames === props.frames;
 
-    const expanded = expandedFrames();
-    const rows: FlatRow[] = [];
-    for (let i = 0; i < frames.length; i++) {
-        rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
-        if (expanded.has(i)) {
+    if (isAppendOnly) {
+      const expanded = expandedFrames();
+      setDisplayedFrames(frames);
+
+      setFlattenedRows(prev => {
+        const nextRows = [...prev];
+        let flatIdx = nextRows.length;
+        for (let i = _cachedFramesLength; i < frames.length; i++) {
+          _flatIdxArray[i] = flatIdx;
+          nextRows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
+          flatIdx++;
+          if (expanded.has(i)) {
             const sigs = frames[i].signals;
             if (sigs && sigs.length > 0) {
-                for (const sig of sigs) {
-                    rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
-                }
+              for (const sig of sigs) {
+                nextRows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
+                flatIdx++;
+              }
             }
+          }
         }
+        return nextRows;
+      });
+    } else {
+      const expanded = expandedFrames();
+      setDisplayedFrames(frames);
+
+      const rows: FlatRow[] = [];
+      _flatIdxArray = new Array(frames.length);
+      let flatIdx = 0;
+      for (let i = 0; i < frames.length; i++) {
+        _flatIdxArray[i] = flatIdx;
+        rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
+        flatIdx++;
+        if (expanded.has(i)) {
+          const sigs = frames[i].signals;
+          if (sigs && sigs.length > 0) {
+            for (const sig of sigs) {
+              rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
+              flatIdx++;
+            }
+          }
+        }
+      }
+      setFlattenedRows(rows);
     }
-    setFlattenedRows(rows);
+
+    _cachedFramesLength = frames.length;
+    _filterFingerprint = fp;
   });
 
   const flatIndexOfDisplayIdx = (displayIdx: number): number => {
+    if (displayIdx < _flatIdxArray.length) {
+      return _flatIdxArray[displayIdx];
+    }
     const expanded = expandedFrames();
     const frames = displayedFrames();
-    let flatIdx = 0;
-    for (let i = 0; i < displayIdx; i++) {
+    let flatIdx = _flatIdxArray.length > 0
+      ? _flatIdxArray[_flatIdxArray.length - 1] + 1
+      : 0;
+    for (let i = _flatIdxArray.length; i < displayIdx; i++) {
       flatIdx++;
       if (expanded.has(i)) {
         const sigs = frames[i]?.signals;

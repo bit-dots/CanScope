@@ -75,15 +75,31 @@ function App() {
   });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
+  let frameBuffer: FrameInfo[] = [];
+  let flushCounter = 0;
+  const BATCH_SIZE = 5;
+
+  const flushFrameBuffer = () => {
+    if (frameBuffer.length === 0) return;
+    setFrames(prev => [...prev, ...frameBuffer]);
+    frameBuffer = [];
+    flushCounter = 0;
+  };
 
   const startPolling = () => {
     if (playbackTimer) return;
+    frameBuffer = [];
+    flushCounter = 0;
     const interval = Math.max(10, Math.round(100 / speed()));
     playbackTimer = setInterval(async () => {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
-          setFrames(prev => [...prev, ...batch]);
+          frameBuffer.push(...batch);
+          flushCounter++;
+          if (flushCounter >= BATCH_SIZE) {
+            flushFrameBuffer();
+          }
         }
       } catch (e) {
         console.error('get_batch failed:', e);
@@ -96,6 +112,7 @@ function App() {
       clearInterval(playbackTimer);
       playbackTimer = null;
     }
+    flushFrameBuffer();
   };
 
   onCleanup(() => stopPolling());
@@ -421,6 +438,7 @@ function App() {
     try {
       const wasPlaying = playbackState() === 'playing';
       if (wasPlaying) stopPolling();
+      frameBuffer = []; flushCounter = 0;
       await invoke('seek_to', { timestamp });
       setFrames([]);
       const batch: FrameInfo[] = await invoke('get_batch');
@@ -467,6 +485,7 @@ function App() {
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
+        flushFrameBuffer();
         if (prevState === 'stopped') setFrames([]);
         startPolling();
       } else {
