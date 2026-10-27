@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use canscope_core::CanFrameStream;
 use canscope_dbc::Dbc;
@@ -36,6 +37,8 @@ pub struct PlaylistEngine<S: CanFrameStream> {
     current_entry_index: usize,
     global_time: Option<f64>,
     global_frame_count: u64,
+    pending_frame: Option<PlaybackFrame>,
+    playback_clock: Option<(Instant, f64)>,
 }
 
 impl<S: CanFrameStream> PlaylistEngine<S> {
@@ -49,6 +52,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             current_entry_index: 0,
             global_time: None,
             global_frame_count: 0,
+            pending_frame: None,
+            playback_clock: None,
         }
     }
 
@@ -62,6 +67,11 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     pub fn set_speed(&mut self, speed: f64) {
         self.speed = speed.clamp(0.1, 32.0);
+        if self.state == PlaybackState::Playing {
+            if let Some(timestamp) = self.global_time {
+                self.playback_clock = Some((Instant::now(), timestamp));
+            }
+        }
     }
 
     pub fn set_loop(&mut self, enabled: bool) {
@@ -211,10 +221,18 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             PlaybackState::Stopped => {
                 self.reset_all_entries();
                 self.current_entry_index = self.advance_to_next_enabled(0);
+                self.global_time = None;
+                self.global_frame_count = 0;
+                self.pending_frame = None;
+                self.playback_clock = None;
                 self.state = PlaybackState::Playing;
             }
             PlaybackState::Paused => {
                 self.state = PlaybackState::Playing;
+                let timestamp = self
+                    .global_time
+                    .or_else(|| self.pending_frame.as_ref().map(|frame| frame.timestamp));
+                self.playback_clock = timestamp.map(|timestamp| (Instant::now(), timestamp));
             }
             PlaybackState::Playing => {}
         }
@@ -223,6 +241,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     pub fn pause(&mut self) {
         if self.state == PlaybackState::Playing {
             self.state = PlaybackState::Paused;
+            self.playback_clock = None;
         }
     }
 
@@ -230,6 +249,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         self.state = PlaybackState::Stopped;
         self.global_time = None;
         self.global_frame_count = 0;
+        self.pending_frame = None;
+        self.playback_clock = None;
         self.reset_all_entries();
     }
 
@@ -375,8 +396,79 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         Ok(batch)
     }
 
+    /// Return only frames whose log timestamps have elapsed at the selected playback speed.
+    pub fn next_batch_timed(
+        &mut self,
+        max_count: usize,
+        now: Instant,
+    ) -> Result<Vec<PlaybackFrame>, PlaybackError> {
+        if self.state != PlaybackState::Playing || max_count == 0 {
+            return Ok(Vec::new());
+        }
+
+        if self.playback_clock.is_none() {
+            if let Some(frame) = self.pending_frame.take() {
+                self.playback_clock = Some((now, frame.timestamp));
+                self.global_time = Some(frame.timestamp);
+                self.global_frame_count += 1;
+                return Ok(vec![frame]);
+            }
+
+            let Some(frame) = self.next_batch(1)?.into_iter().next() else {
+                return Ok(Vec::new());
+            };
+            self.playback_clock = Some((now, frame.timestamp));
+            return Ok(vec![frame]);
+        }
+
+        let (clock_started, media_started) = self.playback_clock.expect("clock was initialized");
+        let elapsed = now.saturating_duration_since(clock_started).as_secs_f64();
+        let mut playback_time = media_started + elapsed * self.speed;
+        let mut batch = Vec::with_capacity(max_count.min(1024));
+
+        while batch.len() < max_count.min(1024) {
+            if self.pending_frame.is_none() {
+                let last_emitted_time = self.global_time;
+                let Some(frame) = self.next_batch(1)?.into_iter().next() else {
+                    break;
+                };
+                self.pending_frame = Some(frame);
+                self.global_frame_count = self.global_frame_count.saturating_sub(1);
+                self.global_time = batch
+                    .last()
+                    .map(|frame: &PlaybackFrame| frame.timestamp)
+                    .or(last_emitted_time);
+            }
+
+            let frame = self
+                .pending_frame
+                .as_ref()
+                .expect("pending frame was loaded");
+            if self.global_time.is_some_and(|last| frame.timestamp < last) {
+                self.playback_clock = Some((now, frame.timestamp));
+                playback_time = frame.timestamp;
+            }
+            if frame.timestamp > playback_time {
+                break;
+            }
+
+            let frame = self.pending_frame.take().expect("pending frame was loaded");
+            self.global_time = Some(frame.timestamp);
+            self.global_frame_count += 1;
+            batch.push(frame);
+        }
+
+        if self.state == PlaybackState::Stopped {
+            self.playback_clock = None;
+        }
+
+        Ok(batch)
+    }
+
     /// 在全局时间线上定位到指定时间戳
     pub fn seek_to(&mut self, global_timestamp: f64) -> Result<(), PlaybackError> {
+        self.pending_frame = None;
+        self.playback_clock = None;
         self.global_time = Some(global_timestamp);
 
         for (i, entry) in self.entries.iter_mut().enumerate() {
@@ -413,6 +505,12 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     /// 前进一帧
     pub fn step_forward(&mut self) -> Result<Option<PlaybackFrame>, PlaybackError> {
+        self.playback_clock = None;
+        if let Some(frame) = self.pending_frame.take() {
+            self.global_time = Some(frame.timestamp);
+            self.global_frame_count += 1;
+            return Ok(Some(frame));
+        }
         if self.entries.is_empty() {
             return Ok(None);
         }
@@ -468,6 +566,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     /// 后退一帧
     pub fn step_back(&mut self) -> Result<Option<PlaybackFrame>, PlaybackError> {
+        self.playback_clock = None;
+        self.pending_frame = None;
         if self.entries.is_empty() {
             return Ok(None);
         }
@@ -534,6 +634,7 @@ mod tests {
     use super::*;
     use canscope_core::{CanFrame, FileFormat, SeekError, SourceType, StreamMetadata};
     use std::path::PathBuf;
+    use std::time::Duration;
 
     struct MockStream {
         frames: Vec<CanFrame>,
@@ -653,6 +754,55 @@ mod tests {
         assert_eq!(batch[2].can_id, 0x200);
         assert!(batch[2].timestamp >= 2.0);
         assert_eq!(batch[3].can_id, 0x201);
+    }
+
+    #[test]
+    fn timed_playback_releases_frames_by_timestamp() {
+        let stream = MockStream::new(
+            vec![
+                make_frame(0.0, 0x100),
+                make_frame(0.02, 0x101),
+                make_frame(0.04, 0x102),
+                make_frame(0.06, 0x103),
+            ],
+            "2026-01-01T10:00:00",
+            Some(0.06),
+        );
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(stream),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.play();
+
+        let start = Instant::now();
+        let first = engine.next_batch_timed(100, start).unwrap();
+        assert_eq!(
+            first.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x100]
+        );
+
+        let second = engine
+            .next_batch_timed(100, start + Duration::from_millis(50))
+            .unwrap();
+        assert_eq!(
+            second.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x101, 0x102]
+        );
+
+        let third = engine
+            .next_batch_timed(100, start + Duration::from_millis(100))
+            .unwrap();
+        assert_eq!(
+            third.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x103]
+        );
     }
 
     #[test]

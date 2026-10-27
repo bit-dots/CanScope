@@ -15,8 +15,8 @@ interface FrameTableProps {
   onRequestPage: (offset: number, limit: number) => Promise<void>;
   totalFrameCount: number;
   isPlaying: boolean;
-  onAutoScrollChange: (enabled: boolean) => void;
   onMonitorRefreshRateChange: (rate: number) => void;
+  onMaxFramesChange: (maxFrames: number) => void;
   hasDbc?: boolean;
   onClear?: () => void;
   onSelectMessage?: (canId: number) => void;
@@ -112,19 +112,20 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
 
   const handleApplySettings = (s: FrameTableSettings) => {
+    if (s.autoScroll && !settings().autoScroll) setIsFollowingPlayback(true);
     setSettings(s);
     saveSettings(props.projectName, s);
     setTimeFormat(s.timeFormat);
-    props.onAutoScrollChange(s.autoScroll);
     props.onMonitorRefreshRateChange(s.monitorRefreshRate);
+    props.onMaxFramesChange(s.maxFrames);
   };
 
   const handleAutoScrollToggle = () => {
     const s = settings();
     const updated = { ...s, autoScroll: !s.autoScroll };
+    if (updated.autoScroll) setIsFollowingPlayback(true);
     setSettings(updated);
     saveSettings(props.projectName, updated);
-    props.onAutoScrollChange(updated.autoScroll);
   };
 
   // ---- 变化字节高亮 ----
@@ -397,12 +398,14 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const [displayedFrames, setDisplayedFrames] = createSignal<FrameInfo[]>([]);
   const [flattenedRows, setFlattenedRows] = createSignal<FlatRow[]>([]);
+  const [isFollowingPlayback, setIsFollowingPlayback] = createSignal(true);
 
   let _flatIdxArray: number[] = [];
   let requestedOffset: number | null = null;
   const frameAt = (displayIdx: number) => props.frames[displayIdx - props.frameOffset];
 
   createEffect(() => {
+    if (props.isPlaying) return;
     const targetIndex = Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
     const targetOffset = Math.floor(targetIndex / PAGE_SIZE) * PAGE_SIZE;
     if (targetOffset === props.frameOffset) {
@@ -789,8 +792,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   onMount(() => {
-    props.onAutoScrollChange(settings().autoScroll);
     props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
+    props.onMaxFramesChange(settings().maxFrames);
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
   });
@@ -811,7 +814,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   createEffect(on(
     () => ({
-      enabled: settings().autoScroll && props.isPlaying,
+      enabled: settings().autoScroll && props.isPlaying && isFollowingPlayback(),
       frameCount: props.frames.length,
       offset: props.frameOffset,
       totalCount: props.totalFrameCount,
@@ -825,8 +828,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     },
   ));
 
+  const isAtBottom = () =>
+    containerRef.scrollHeight - containerRef.clientHeight - containerRef.scrollTop <= ROW_HEIGHT * 2;
+
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);
+    setIsFollowingPlayback(isAtBottom());
   };
 
   onMount(() => {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Instant;
 
 use canscope_dbc::{Dbc, DbcMessage, DbcSignal, DecodedSignal};
 use canscope_parser::asc::AscReader;
@@ -554,9 +555,8 @@ fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameI
     if let Some(ref mut playlist) = *engine_guard {
         playlist.set_dbcs(dbc_map.clone());
         let was_playing = playlist.state() == PlaybackState::Playing;
-        let batch_size = (33.0 * playlist.speed()).round().clamp(1.0, 1024.0) as usize;
         let batch = playlist
-            .next_batch(batch_size)
+            .next_batch_timed(1024, Instant::now())
             .map_err(|e| e.to_string())?;
 
         if was_playing && playlist.state() == PlaybackState::Stopped {
@@ -577,17 +577,11 @@ fn get_frame_page(
     can_id: Option<u32>,
     time_start: Option<f64>,
     time_end: Option<f64>,
-    playback_time: Option<f64>,
     state: State<AppState>,
 ) -> Result<FramePage, String> {
     let sources = frame_sources(&state)?;
     let cache_dir = frame_index_dir(&app)?;
     let limit = limit.min(512);
-    let time_end = match (time_end, playback_time) {
-        (Some(filter_end), Some(playback_time)) => Some(filter_end.min(playback_time)),
-        (Some(filter_end), None) => Some(filter_end),
-        (None, playback_time) => playback_time,
-    };
     let mut indexed_sources = Vec::with_capacity(sources.len());
     let mut total_count = 0;
 
@@ -612,13 +606,8 @@ fn get_frame_page(
         indexed_sources.push((reader, source, source_count, local_start, local_end));
     }
 
-    let page_offset = if playback_time.is_some() && total_count > 0 {
-        ((total_count - 1) / 512) * 512
-    } else {
-        offset
-    };
     let mut frames = Vec::with_capacity(limit);
-    let mut skip = page_offset;
+    let mut skip = offset;
 
     for (reader, source, source_count, local_start, local_end) in indexed_sources {
         if skip >= source_count {
@@ -661,7 +650,7 @@ fn get_frame_page(
         })
         .collect();
     Ok(FramePage {
-        offset: page_offset,
+        offset,
         total_count,
         frames,
     })

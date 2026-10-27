@@ -39,8 +39,8 @@ function App() {
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
-  const [frameAutoScroll, setFrameAutoScroll] = createSignal(true);
   const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
+  const [frameMonitorMaxFrames, setFrameMonitorMaxFrames] = createSignal(10000);
   const [loading, setLoading] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<{
     path: string;
@@ -77,7 +77,7 @@ function App() {
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
 
   let frameQueryId = 0;
-  const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
+  const requestFramePage = async (offset: number, limit: number) => {
     const requestId = ++frameQueryId;
     const activeFilter = filter();
     const page: FramePage = await invoke('get_frame_page', {
@@ -86,7 +86,6 @@ function App() {
       canId: parseCanId(activeFilter.canId),
       timeStart: parseTime(activeFilter.timeStart),
       timeEnd: parseTime(activeFilter.timeEnd),
-      playbackTime: playbackTime ?? null,
     });
     if (requestId !== frameQueryId) return;
     setFrames(page.frames);
@@ -107,30 +106,44 @@ function App() {
   });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
+  let playbackPollInFlight = false;
   let lastFrameMonitorRefresh = 0;
+  let pendingTraceFrames: FrameInfo[] = [];
+
+  const flushTraceFrames = () => {
+    if (pendingTraceFrames.length === 0) return;
+    const appended = pendingTraceFrames;
+    pendingTraceFrames = [];
+    const nextFrames = [...frames(), ...appended].slice(-frameMonitorMaxFrames());
+    setFrames(nextFrames);
+    setFrameOffset(0);
+    setFrameTotalCount(nextFrames.length);
+  };
 
   const startPolling = () => {
     if (playbackTimer) return;
     playbackTimer = setInterval(async () => {
+      if (playbackPollInFlight) return;
+      playbackPollInFlight = true;
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
+          pendingTraceFrames.push(...batch);
           setPlaybackFrameCount(prev => prev + batch.length);
-          const timestamp = batch[batch.length - 1].timestamp;
-          setCurrentTime(timestamp);
+          setCurrentTime(batch[batch.length - 1].timestamp);
           const now = Date.now();
           if (
-            frameAutoScroll() &&
+            playbackState() !== 'playing' ||
             now - lastFrameMonitorRefresh >= 1000 / frameMonitorRefreshRate()
           ) {
             lastFrameMonitorRefresh = now;
-            void requestFramePage(0, 512, timestamp).catch((e) => {
-              console.error('Failed to follow playback in frame table:', e);
-            });
+            flushTraceFrames();
           }
         }
       } catch (e) {
         console.error('get_batch failed:', e);
+      } finally {
+        playbackPollInFlight = false;
       }
     }, 33);
   };
@@ -520,9 +533,18 @@ function App() {
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
-        if (prevState === 'stopped') setPlaybackFrameCount(0);
+        if (prevState === 'stopped') {
+          setPlaybackFrameCount(0);
+          pendingTraceFrames = [];
+          frameQueryId++;
+          setFrames([]);
+          setFrameOffset(0);
+          setFrameTotalCount(0);
+          lastFrameMonitorRefresh = 0;
+        }
         startPolling();
       } else {
+        flushTraceFrames();
         stopPolling();
       }
     } catch (e) {
@@ -530,17 +552,15 @@ function App() {
     }
   };
 
-  const handleFrameAutoScrollChange = (enabled: boolean) => {
-    setFrameAutoScroll(enabled);
-    if (enabled && playbackState() === 'playing') {
-      void requestFramePage(0, 512, currentTime()).catch((e) => {
-        console.error('Failed to follow playback in frame table:', e);
-      });
-    }
-  };
-
   const handleFrameMonitorRefreshRateChange = (rate: number) => {
     setFrameMonitorRefreshRate(Math.max(1, Math.min(30, rate)));
+  };
+
+  const handleFrameMonitorMaxFramesChange = (maxFrames: number) => {
+    const limit = Math.max(100, Math.min(1000000, maxFrames));
+    setFrameMonitorMaxFrames(limit);
+    setFrames((current) => current.slice(-limit));
+    setFrameTotalCount((count) => Math.min(count, limit));
   };
 
   const hasSource = () => metadata() !== null;
@@ -549,6 +569,7 @@ function App() {
     // 监听后端播放状态变更事件（如播放完毕自动停止）
     const unlisten = await listen<string>('playback-state-changed', (event) => {
       if (event.payload === 'stopped') {
+        flushTraceFrames();
         stopPolling();
         setPlaybackState('stopped');
       }
@@ -788,8 +809,8 @@ function App() {
                         onRequestPage={requestFramePage}
                         totalFrameCount={frameTotalCount()}
                         isPlaying={playbackState() === 'playing'}
-                        onAutoScrollChange={handleFrameAutoScrollChange}
                         onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}
+                        onMaxFramesChange={handleFrameMonitorMaxFramesChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
