@@ -149,6 +149,64 @@ function deriveData(frames: FrameInfo[], signals: ChartSignal[]): uPlot.AlignedD
   return [timestamps, ...series];
 }
 
+// Incremental-derive cache — avoids full 50k iteration on each frames append
+let _dLastFramesLen = 0;
+let _dLastSigsKey = '';
+let _dTimestamps: number[] = [];
+let _dSeries: (number | null)[][] = [];
+
+function deriveDataIncr(frames: FrameInfo[], signals: ChartSignal[]): uPlot.AlignedData | null {
+  if (signals.length === 0 || frames.length === 0) {
+    _dLastFramesLen = 0;
+    _dLastSigsKey = '';
+    return null;
+  }
+
+  const sigsKey = signals.map(s => `${s.canId}:${s.signalName}`).join('|');
+
+  // Full recompute when signals changed or frames shrunk (seek / restart)
+  if (sigsKey !== _dLastSigsKey || frames.length < _dLastFramesLen) {
+    const result = deriveData(frames, signals);
+    _dLastFramesLen = frames.length;
+    _dLastSigsKey = sigsKey;
+    _dTimestamps = result ? (result[0] as number[]) : [];
+    _dSeries = result ? result.slice(1) as (number | null)[][] : [];
+    return result;
+  }
+
+  if (frames.length === _dLastFramesLen) {
+    // No change — return previous result (memo handles this, but keep as safety)
+    if (_dTimestamps.length === 0) return null;
+    return [_dTimestamps, ..._dSeries];
+  }
+
+  // Incremental: only process newly appended frames
+  const timestamps = [..._dTimestamps];
+  const series = _dSeries.map(s => [...s]);
+
+  for (let fi = _dLastFramesLen; fi < frames.length; fi++) {
+    const frame = frames[fi];
+    if (!frame.signals) continue;
+    for (let i = 0; i < signals.length; i++) {
+      const s = signals[i];
+      if (frame.can_id !== s.canId) continue;
+      const decoded = frame.signals.find(d => d.name === s.signalName);
+      if (decoded !== undefined) {
+        timestamps.push(frame.timestamp);
+        for (let j = 0; j < signals.length; j++) {
+          series[j].push(j === i ? decoded.physical_value : null);
+        }
+      }
+    }
+  }
+
+  _dLastFramesLen = frames.length;
+  _dTimestamps = timestamps;
+  _dSeries = series;
+
+  return [timestamps, ...series];
+}
+
 const SignalChart: Component<SignalChartProps> = (props) => {
   let containerRef!: HTMLDivElement;
   let plot: uPlot | null = null;
@@ -173,16 +231,57 @@ const SignalChart: Component<SignalChartProps> = (props) => {
     return map;
   });
 
-  const data = createMemo(() => deriveData(props.frames, visibleSignals()));
+  const data = createMemo(() => deriveDataIncr(props.frames, visibleSignals()));
   const dataPointCount = createMemo(() => data()?.[0]?.length ?? 0);
 
+  let _lLastFramesLen = 0;
+  let _lLastSigsKey = '';
+  let _lMap = new Map<string, LatestValue>();
+
   const latestValues = createMemo(() => {
-    const map = new Map<string, LatestValue>();
     const frames = props.frames;
-    for (let i = frames.length - 1; i >= 0; i--) {
+    const signals = props.signals;
+
+    if (signals.length === 0 || frames.length === 0) {
+      _lLastFramesLen = 0;
+      _lLastSigsKey = '';
+      return new Map<string, LatestValue>();
+    }
+
+    const sigsKey = signals.map(s => signalKey(s)).join('|');
+
+    // Full recompute when signals changed or frames shrunk (seek / restart)
+    if (sigsKey !== _lLastSigsKey || frames.length < _lLastFramesLen) {
+      const map = new Map<string, LatestValue>();
+      for (let i = frames.length - 1; i >= 0; i--) {
+        const frame = frames[i];
+        if (!frame.signals) continue;
+        for (const s of signals) {
+          const key = signalKey(s);
+          if (map.has(key)) continue;
+          if (frame.can_id !== s.canId) continue;
+          const decoded = frame.signals.find(d => d.name === s.signalName);
+          if (decoded !== undefined) {
+            map.set(key, { value: decoded.physical_value, timestamp: frame.timestamp });
+          }
+        }
+      }
+      _lLastFramesLen = frames.length;
+      _lLastSigsKey = sigsKey;
+      _lMap = map;
+      return map;
+    }
+
+    if (frames.length === _lLastFramesLen) {
+      return _lMap;
+    }
+
+    // Incremental: only scan newly appended frames (reverse order, earliest match wins)
+    const map = new Map(_lMap);
+    for (let i = frames.length - 1; i >= _lLastFramesLen; i--) {
       const frame = frames[i];
       if (!frame.signals) continue;
-      for (const s of props.signals) {
+      for (const s of signals) {
         const key = signalKey(s);
         if (map.has(key)) continue;
         if (frame.can_id !== s.canId) continue;
@@ -192,6 +291,8 @@ const SignalChart: Component<SignalChartProps> = (props) => {
         }
       }
     }
+    _lLastFramesLen = frames.length;
+    _lMap = map;
     return map;
   });
 

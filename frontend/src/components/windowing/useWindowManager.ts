@@ -43,6 +43,10 @@ export function useWindowManager(
 
   let globalDragCleanup: (() => void) | null = null;
   let globalResizeCleanup: (() => void) | null = null;
+  let _wsRectCache: WindowRect = { x: 0, y: 0, width: 0, height: 0 };
+  let _wsViewportCache = { left: 0, top: 0 };
+  let _dragRafPending = false;
+  let _lastDragPos: { clientX: number; clientY: number } | null = null;
 
   // Initialize panels
   for (const def of panelDefs) {
@@ -190,6 +194,12 @@ export function useWindowManager(
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
+    // Cache workspace dims once at drag start — they don't change mid-drag
+    _wsRectCache = getWorkspaceRect();
+    _wsViewportCache = getWorkspaceViewportOffset();
+    _dragRafPending = false;
+    _lastDragPos = null;
+
     // Capture mousemove/mouseup on document so dragging works even when cursor leaves workspace
     const onMouseMove = (e: MouseEvent) => onDrag(e);
     const onMouseUp = () => { endDrag(); };
@@ -236,41 +246,50 @@ export function useWindowManager(
   function onDrag(e: MouseEvent) {
     const panelId = draggingPanelId();
     if (!panelId) return;
+    _lastDragPos = { clientX: e.clientX, clientY: e.clientY };
+    if (_dragRafPending) return;
+    _dragRafPending = true;
+    requestAnimationFrame(() => {
+      _dragRafPending = false;
+      const pos = _lastDragPos;
+      if (!pos) return;
+      const currentPanelId = draggingPanelId();
+      if (!currentPanelId) return;
 
-    const p = state.panels[panelId];
-    if (!p) return;
+      const p = state.panels[currentPanelId];
+      if (!p) return;
 
-    const workspace = getWorkspaceRect();
-    const viewportOffset = getWorkspaceViewportOffset();
-    const offset = dragOffset();
+      const workspace = _wsRectCache;
+      const offset = dragOffset();
 
-    const wsX = e.clientX - viewportOffset.left;
-    const wsY = e.clientY - viewportOffset.top;
-    const newX = wsX - offset.x;
-    const newY = wsY - offset.y;
+      const wsX = pos.clientX - _wsViewportCache.left;
+      const wsY = pos.clientY - _wsViewportCache.top;
+      const newX = wsX - offset.x;
+      const newY = wsY - offset.y;
 
-    const snap = getSnapFromCursor(wsX, wsY, workspace);
+      const snap = getSnapFromCursor(wsX, wsY, workspace);
 
-    // Always update snap preview based on cursor position
-    if (snap !== 'floating') {
-      const snapRect = getSnapRect(snap, workspace);
-      setSnapPreview({ snapState: snap, rect: snapRect });
-    } else {
-      setSnapPreview(null);
-    }
+      if (snap !== 'floating') {
+        const snapRect = getSnapRect(snap, workspace);
+        setSnapPreview({ snapState: snap, rect: snapRect });
+      } else {
+        setSnapPreview(null);
+      }
 
-    // Always update panel position — cursor-driven movement + overflow support
-    const MIN_VISIBLE = 20;
-    setState('panels', panelId, 'window', 'rect', {
-      x: Math.max(-p.window.rect.width + MIN_VISIBLE, Math.min(newX, workspace.width - MIN_VISIBLE)),
-      y: Math.max(-p.window.rect.height + MIN_VISIBLE, Math.min(newY, workspace.height - MIN_VISIBLE)),
-      width: p.window.rect.width,
-      height: p.window.rect.height,
+      const MIN_VISIBLE = 20;
+      setState('panels', currentPanelId, 'window', 'rect', {
+        x: Math.max(-p.window.rect.width + MIN_VISIBLE, Math.min(newX, workspace.width - MIN_VISIBLE)),
+        y: Math.max(-p.window.rect.height + MIN_VISIBLE, Math.min(newY, workspace.height - MIN_VISIBLE)),
+        width: p.window.rect.width,
+        height: p.window.rect.height,
+      });
+      setState('panels', currentPanelId, 'window', 'snapState', 'floating');
     });
-    setState('panels', panelId, 'window', 'snapState', 'floating');
   }
 
   function endDrag() {
+    _dragRafPending = false;
+    _lastDragPos = null;
     const panelId = draggingPanelId();
     if (!panelId) return;
 
