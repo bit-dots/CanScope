@@ -18,14 +18,23 @@ const MONTH_NAMES: [&str; 12] = [
 /// Tauri WebView 的 JS 引擎无法可靠解析 ASC 原始格式，必须标准化。
 fn parse_asc_date(raw: &str) -> Option<String> {
     let parts: Vec<&str> = raw.split_whitespace().collect();
-    if parts.len() != 5 {
+    // 支持两种格式:
+    // 5 部分: "Fri Oct 23 09:41:04.039 2026"
+    // 6 部分: "Fri Oct 23 09:41:04.039 AM 2026"
+    if parts.len() < 5 {
         return None;
     }
-    let month_idx = MONTH_NAMES.iter().position(|&m| m.eq_ignore_ascii_case(parts[1]))?;
+    let month_idx = MONTH_NAMES
+        .iter()
+        .position(|&m| m.eq_ignore_ascii_case(parts[1]))?;
     let month = month_idx + 1;
     let day: u32 = parts[2].parse().ok()?;
     let time = parts[3];
-    let year: u32 = parts[4].parse().ok()?;
+    let year: u32 = if parts.len() >= 6 {
+        parts[5].parse().ok()?
+    } else {
+        parts[4].parse().ok()?
+    };
     Some(format!(
         "{:04}-{:02}-{:02}T{}",
         year, month, day, time
@@ -63,7 +72,7 @@ impl AscReader {
         };
 
         let mut frames = Vec::new();
-        let mut in_triggerblock = false;
+        let mut in_data = false;
         let mut max_bus: u8 = 0;
 
         for (line_num, line_result) in reader.lines().enumerate() {
@@ -79,13 +88,26 @@ impl AscReader {
                 continue;
             }
 
-            if !in_triggerblock {
+            if !in_data {
+                // Header 阶段：跳过已知的 header 行
                 if let Some(date_str) = trimmed.strip_prefix("date ") {
                     metadata.start_time = parse_asc_date(date_str);
-                } else if trimmed.starts_with("Begin Triggerblock") {
-                    in_triggerblock = true;
+                    continue;
                 }
-                continue;
+                if trimmed.starts_with("base ") || trimmed.starts_with("no ") {
+                    continue;
+                }
+                if trimmed.starts_with("Begin Triggerblock") {
+                    in_data = true;
+                    continue;
+                }
+                // 不以关键字开头且首字符为数字 → 无 trigger block 的 ASC，直接进入数据模式
+                if trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                    in_data = true;
+                    // 不回 continue，让下面代码解析本行
+                } else {
+                    continue;
+                }
             }
 
             if trimmed.starts_with("End Triggerblock") {
