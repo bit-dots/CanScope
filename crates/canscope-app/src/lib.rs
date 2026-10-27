@@ -283,6 +283,7 @@ struct FrameInfo {
     is_fd: bool,
     is_tx: bool,
     dlc: u8,
+    #[serde(with = "serde_bytes")]
     data: Vec<u8>,
     signals: Option<Vec<DecodedSignalInfo>>,
 }
