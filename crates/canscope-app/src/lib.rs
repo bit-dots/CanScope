@@ -574,14 +574,19 @@ fn get_frame_page(
     can_id: Option<u32>,
     time_start: Option<f64>,
     time_end: Option<f64>,
+    playback_time: Option<f64>,
     state: State<AppState>,
 ) -> Result<FramePage, String> {
     let sources = frame_sources(&state)?;
     let cache_dir = frame_index_dir(&app)?;
     let limit = limit.min(512);
+    let time_end = match (time_end, playback_time) {
+        (Some(filter_end), Some(playback_time)) => Some(filter_end.min(playback_time)),
+        (Some(filter_end), None) => Some(filter_end),
+        (None, playback_time) => playback_time,
+    };
+    let mut indexed_sources = Vec::with_capacity(sources.len());
     let mut total_count = 0;
-    let mut frames = Vec::with_capacity(limit);
-    let mut skip = offset;
 
     for source in sources {
         let reader =
@@ -601,6 +606,18 @@ fn get_frame_page(
             .query_page(0, 0, can_id, local_start, local_end)
             .map_err(|e| e.to_string())?;
         total_count += source_count;
+        indexed_sources.push((reader, source, source_count, local_start, local_end));
+    }
+
+    let page_offset = if playback_time.is_some() && total_count > 0 {
+        ((total_count - 1) / 512) * 512
+    } else {
+        offset
+    };
+    let mut frames = Vec::with_capacity(limit);
+    let mut skip = page_offset;
+
+    for (reader, source, source_count, local_start, local_end) in indexed_sources {
         if skip >= source_count {
             skip -= source_count;
             continue;
@@ -641,7 +658,7 @@ fn get_frame_page(
         })
         .collect();
     Ok(FramePage {
-        offset,
+        offset: page_offset,
         total_count,
         frames,
     })

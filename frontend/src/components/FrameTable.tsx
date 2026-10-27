@@ -14,6 +14,8 @@ interface FrameTableProps {
   frameOffset: number;
   onRequestPage: (offset: number, limit: number) => Promise<void>;
   totalFrameCount: number;
+  isPlaying: boolean;
+  onAutoScrollChange: (enabled: boolean) => void;
   hasDbc?: boolean;
   onClear?: () => void;
   onSelectMessage?: (canId: number) => void;
@@ -119,6 +121,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const updated = { ...s, autoScroll: !s.autoScroll };
     setSettings(updated);
     saveSettings(props.projectName, updated);
+    props.onAutoScrollChange(updated.autoScroll);
   };
 
   // ---- 变化字节高亮 ----
@@ -783,6 +786,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   onMount(() => {
+    props.onAutoScrollChange(settings().autoScroll);
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
   });
@@ -800,6 +804,22 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     Math.ceil((localScrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
   );
   const visibleRows = () => flattenedRows().slice(startIndex(), endIndex());
+
+  createEffect(on(
+    () => ({
+      enabled: settings().autoScroll && props.isPlaying,
+      frameCount: props.frames.length,
+      offset: props.frameOffset,
+      totalCount: props.totalFrameCount,
+    }),
+    ({ enabled, frameCount }) => {
+      if (!enabled || frameCount === 0) return;
+      requestAnimationFrame(() => {
+        containerRef.scrollTop = containerRef.scrollHeight;
+        setScrollTop(containerRef.scrollTop);
+      });
+    },
+  ));
 
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);

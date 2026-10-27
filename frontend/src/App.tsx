@@ -39,6 +39,7 @@ function App() {
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
+  const [frameAutoScroll, setFrameAutoScroll] = createSignal(true);
   const [loading, setLoading] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<{
     path: string;
@@ -75,7 +76,7 @@ function App() {
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
 
   let frameQueryId = 0;
-  const requestFramePage = async (offset: number, limit: number) => {
+  const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
     const requestId = ++frameQueryId;
     const activeFilter = filter();
     const page: FramePage = await invoke('get_frame_page', {
@@ -84,6 +85,7 @@ function App() {
       canId: parseCanId(activeFilter.canId),
       timeStart: parseTime(activeFilter.timeStart),
       timeEnd: parseTime(activeFilter.timeEnd),
+      playbackTime: playbackTime ?? null,
     });
     if (requestId !== frameQueryId) return;
     setFrames(page.frames);
@@ -113,7 +115,13 @@ function App() {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
           setPlaybackFrameCount(prev => prev + batch.length);
-          setCurrentTime(batch[batch.length - 1].timestamp);
+          const timestamp = batch[batch.length - 1].timestamp;
+          setCurrentTime(timestamp);
+          if (frameAutoScroll()) {
+            void requestFramePage(0, 512, timestamp).catch((e) => {
+              console.error('Failed to follow playback in frame table:', e);
+            });
+          }
         }
       } catch (e) {
         console.error('get_batch failed:', e);
@@ -516,6 +524,15 @@ function App() {
     }
   };
 
+  const handleFrameAutoScrollChange = (enabled: boolean) => {
+    setFrameAutoScroll(enabled);
+    if (enabled && playbackState() === 'playing') {
+      void requestFramePage(0, 512, currentTime()).catch((e) => {
+        console.error('Failed to follow playback in frame table:', e);
+      });
+    }
+  };
+
   const hasSource = () => metadata() !== null;
 
   onMount(async () => {
@@ -760,6 +777,8 @@ function App() {
                         frameOffset={frameOffset()}
                         onRequestPage={requestFramePage}
                         totalFrameCount={frameTotalCount()}
+                        isPlaying={playbackState() === 'playing'}
+                        onAutoScrollChange={handleFrameAutoScrollChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
