@@ -532,8 +532,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use canscope_core::{CanFrame, FileFormat, SeekError, SourceType, StreamMetadata};
     use std::path::PathBuf;
-    use canscope_core::{CanFrame, SeekError, SourceType, FileFormat, StreamMetadata};
 
     struct MockStream {
         frames: Vec<CanFrame>,
@@ -563,13 +563,13 @@ mod tests {
     }
 
     impl CanFrameStream for MockStream {
-        fn next(&mut self) -> Option<CanFrame> {
+        fn next(&mut self) -> Result<Option<CanFrame>, SeekError> {
             if self.cursor >= self.frames.len() {
-                return None;
+                return Ok(None);
             }
             let frame = self.frames[self.cursor].clone();
             self.cursor += 1;
-            Some(frame)
+            Ok(Some(frame))
         }
 
         fn seek(&mut self, timestamp: f64) -> Result<(), SeekError> {

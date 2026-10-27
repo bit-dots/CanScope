@@ -20,4 +20,7 @@ pub enum ParseError {
 
     #[error("seek error: {0}")]
     SeekError(String),
+
+    #[error("frame index error: {0}")]
+    IndexError(String),
 }

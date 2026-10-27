@@ -124,6 +124,10 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
         self.stream.metadata()
     }
 
+    pub fn stream(&self) -> &S {
+        &self.stream
+    }
+
     pub fn progress(&self) -> Option<f64> {
         self.stream.progress()
     }
@@ -159,7 +163,11 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
             SeekError::IoError(_) => PlaybackError::SeekError(e.to_string()),
         })?;
 
-        let frame = match self.stream.next() {
+        let frame = match self
+            .stream
+            .next()
+            .map_err(|e| PlaybackError::SeekError(e.to_string()))?
+        {
             Some(f) => f,
             None => return Ok(None),
         };
@@ -190,7 +198,11 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
         let mut loop_count = 0;
 
         while remaining > 0 {
-            match self.stream.next() {
+            match self
+                .stream
+                .next()
+                .map_err(|e| PlaybackError::SeekError(e.to_string()))?
+            {
                 Some(frame) => {
                     let ts = frame.timestamp;
 
@@ -203,8 +215,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                     self.frame_count += 1;
 
                     let dbc = self.dbcs.get(&frame.bus_id);
-                    let signals = dbc
-                        .and_then(|dbc| dbc.decode_frame(&frame).ok());
+                    let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
 
                     batch.push(PlaybackFrame {
                         timestamp: ts,
@@ -276,13 +287,13 @@ mod tests {
     }
 
     impl CanFrameStream for MockStream {
-        fn next(&mut self) -> Option<CanFrame> {
+        fn next(&mut self) -> Result<Option<CanFrame>, SeekError> {
             if self.cursor >= self.frames.len() {
-                return None;
+                return Ok(None);
             }
             let frame = self.frames[self.cursor].clone();
             self.cursor += 1;
-            Some(frame)
+            Ok(Some(frame))
         }
 
         fn seek(&mut self, timestamp: f64) -> Result<(), SeekError> {

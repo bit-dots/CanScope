@@ -3,9 +3,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use canscope_dbc::{Dbc, DecodedSignal, DbcMessage, DbcSignal};
+use canscope_dbc::{Dbc, DbcMessage, DbcSignal, DecodedSignal};
 use canscope_parser::asc::AscReader;
-use canscope_playback::{PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry};
+use canscope_playback::{
+    PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry,
+};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, State};
 
@@ -316,6 +318,128 @@ struct PlaylistInfo {
     enabled_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FramePage {
+    offset: u64,
+    total_count: u64,
+    frames: Vec<FrameInfo>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartSignalQuery {
+    can_id: u32,
+    signal_name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartData {
+    timestamps: Vec<f64>,
+    series: Vec<Vec<Option<f64>>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FrameIndexProgress {
+    path: String,
+    status: String,
+    processed_frames: u64,
+    message: Option<String>,
+}
+
+#[derive(Clone)]
+struct FrameSource {
+    path: PathBuf,
+    global_offset: f64,
+    duration: Option<f64>,
+}
+
+fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
+    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let Some(playlist) = engine.as_ref() else {
+        return Ok(Vec::new());
+    };
+    Ok(playlist
+        .entries()
+        .iter()
+        .filter(|entry| entry.enabled)
+        .map(|entry| FrameSource {
+            path: PathBuf::from(&entry.file_path),
+            global_offset: entry.global_start_offset,
+            duration: entry.engine.metadata().duration,
+        })
+        .collect())
+}
+
+fn frame_index_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data directory: {}", e))?
+        .join("frame-index");
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create frame index directory: {}", e))?;
+    Ok(dir)
+}
+
+fn open_indexed_asc(app: &tauri::AppHandle, path: &Path) -> Result<AscReader, String> {
+    let cache_dir = frame_index_dir(app)?;
+    let source_path = path.to_string_lossy().to_string();
+    app.emit(
+        "frame-index-progress",
+        FrameIndexProgress {
+            path: source_path.clone(),
+            status: "indexing".into(),
+            processed_frames: 0,
+            message: None,
+        },
+    )
+    .map_err(|e| format!("Failed to notify index progress: {}", e))?;
+
+    match AscReader::open_with_cache_and_progress(path, &cache_dir, |processed_frames| {
+        app.emit(
+            "frame-index-progress",
+            FrameIndexProgress {
+                path: source_path.clone(),
+                status: "indexing".into(),
+                processed_frames,
+                message: None,
+            },
+        )
+        .map_err(|e| e.to_string())
+    }) {
+        Ok(reader) => {
+            app.emit(
+                "frame-index-progress",
+                FrameIndexProgress {
+                    path: source_path,
+                    status: "ready".into(),
+                    processed_frames: reader.frame_count(),
+                    message: None,
+                },
+            )
+            .map_err(|e| format!("Failed to notify index completion: {}", e))?;
+            Ok(reader)
+        }
+        Err(error) => {
+            let message = error.to_string();
+            app.emit(
+                "frame-index-progress",
+                FrameIndexProgress {
+                    path: source_path,
+                    status: "failed".into(),
+                    processed_frames: 0,
+                    message: Some(message.clone()),
+                },
+            )
+            .map_err(|e| format!("{}; failed to notify index error: {}", message, e))?;
+            Err(message)
+        }
+    }
+}
+
 fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
     let files: Vec<PlaylistFileInfo> = playlist
         .entries()
@@ -366,7 +490,10 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         is_tx: f.is_tx,
         dlc: f.dlc,
         data: f.data[..dlc.min(64)].to_vec(),
-        signals: f.signals.as_ref().map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),
+        signals: f
+            .signals
+            .as_ref()
+            .map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),
     }
 }
 
@@ -405,11 +532,7 @@ fn reload_all_dbc(bindings: Vec<DbcBinding>, state: State<AppState>) -> Result<S
 }
 
 #[tauri::command]
-fn load_dbc(
-    path: String,
-    bus_id: u8,
-    state: State<AppState>,
-) -> Result<String, String> {
+fn load_dbc(path: String, bus_id: u8, state: State<AppState>) -> Result<String, String> {
     let dbc = canscope_dbc::parse_dbc(&PathBuf::from(&path)).map_err(|e| e.to_string())?;
     let msg_count = dbc.messages.len();
     let signal_count: usize = dbc.messages.iter().map(|m| m.signals.len()).sum();
@@ -417,7 +540,10 @@ fn load_dbc(
     let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
     dbc_map.insert(bus_id, dbc);
 
-    Ok(format!("Loaded DBC for channel {}: {} messages, {} signals", bus_id, msg_count, signal_count))
+    Ok(format!(
+        "Loaded DBC for channel {}: {} messages, {} signals",
+        bus_id, msg_count, signal_count
+    ))
 }
 
 #[tauri::command]
@@ -441,10 +567,203 @@ fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameI
 }
 
 #[tauri::command]
-fn playback_control(
-    action: String,
+fn get_frame_page(
+    app: tauri::AppHandle,
+    offset: u64,
+    limit: usize,
+    can_id: Option<u32>,
+    time_start: Option<f64>,
+    time_end: Option<f64>,
     state: State<AppState>,
-) -> Result<String, String> {
+) -> Result<FramePage, String> {
+    let sources = frame_sources(&state)?;
+    let cache_dir = frame_index_dir(&app)?;
+    let limit = limit.min(512);
+    let mut total_count = 0;
+    let mut frames = Vec::with_capacity(limit);
+    let mut skip = offset;
+
+    for source in sources {
+        let reader =
+            AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
+        let local_start = time_start.map(|t| (t - source.global_offset).max(0.0));
+        let local_end = time_end
+            .map(|t| t - source.global_offset)
+            .or(source.duration);
+        if local_end.map_or(false, |end| end < 0.0)
+            || local_start
+                .zip(local_end)
+                .map_or(false, |(start, end)| start > end)
+        {
+            continue;
+        }
+        let (source_count, _) = reader
+            .query_page(0, 0, can_id, local_start, local_end)
+            .map_err(|e| e.to_string())?;
+        total_count += source_count;
+        if skip >= source_count {
+            skip -= source_count;
+            continue;
+        }
+        if frames.len() >= limit {
+            continue;
+        }
+        let page_size = (limit - frames.len()).min((source_count - skip) as usize);
+        let (_, mut page) = reader
+            .query_page(skip, page_size, can_id, local_start, local_end)
+            .map_err(|e| e.to_string())?;
+        for frame in &mut page {
+            frame.timestamp += source.global_offset;
+        }
+        frames.extend(page);
+        skip = 0;
+    }
+
+    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    let frames = frames
+        .iter()
+        .map(|frame| {
+            let decoded = dbc_map
+                .get(&frame.bus_id)
+                .and_then(|dbc| dbc.decode_frame(frame).ok());
+            let playback_frame = PlaybackFrame {
+                timestamp: frame.timestamp,
+                bus_id: frame.bus_id,
+                can_id: frame.can_id,
+                is_extended: frame.is_extended,
+                is_fd: frame.is_fd,
+                is_tx: frame.is_tx,
+                dlc: frame.dlc,
+                data: std::sync::Arc::new(frame.data),
+                signals: decoded,
+            };
+            frame_to_info(&playback_frame)
+        })
+        .collect();
+    Ok(FramePage {
+        offset,
+        total_count,
+        frames,
+    })
+}
+
+#[tauri::command]
+fn get_chart_data(
+    app: tauri::AppHandle,
+    signals: Vec<ChartSignalQuery>,
+    time_start: f64,
+    time_end: f64,
+    bucket_count: usize,
+    state: State<AppState>,
+) -> Result<ChartData, String> {
+    if !time_start.is_finite() || !time_end.is_finite() || time_end < time_start {
+        return Err("Invalid chart time range".into());
+    }
+    if signals.is_empty() || bucket_count == 0 {
+        return Ok(ChartData {
+            timestamps: Vec::new(),
+            series: Vec::new(),
+        });
+    }
+    if signals.len() > 64 {
+        return Err("At most 64 signals can be queried at once".into());
+    }
+    let bucket_count = bucket_count.min(4096);
+    let sources = frame_sources(&state)?;
+    let cache_dir = frame_index_dir(&app)?;
+    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?.clone();
+    let span = (time_end - time_start).max(f64::EPSILON);
+    let mut extrema = vec![vec![None::<(f64, f64)>; bucket_count]; signals.len()];
+    let mut signals_by_can_id: HashMap<u32, Vec<usize>> = HashMap::new();
+    for (index, signal) in signals.iter().enumerate() {
+        signals_by_can_id
+            .entry(signal.can_id)
+            .or_default()
+            .push(index);
+    }
+
+    for source in sources {
+        let global_end = source.global_offset + source.duration.unwrap_or(f64::MAX);
+        if time_end < source.global_offset || time_start > global_end {
+            continue;
+        }
+        let local_start = (time_start - source.global_offset).max(0.0);
+        let local_end = (time_end - source.global_offset)
+            .max(0.0)
+            .min(source.duration.unwrap_or(f64::MAX));
+        let reader =
+            AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
+        reader
+            .for_each_frame(local_start, local_end, |mut frame| {
+                frame.timestamp += source.global_offset;
+                let Some(signal_indexes) = signals_by_can_id.get(&frame.can_id) else {
+                    return Ok(());
+                };
+                let Some(decoded_signals) = dbc_map
+                    .get(&frame.bus_id)
+                    .and_then(|dbc| dbc.decode_frame(&frame).ok())
+                else {
+                    return Ok(());
+                };
+                for signal_index in signal_indexes {
+                    let signal = &signals[*signal_index];
+                    let Some(decoded) = decoded_signals
+                        .iter()
+                        .find(|d| d.name == signal.signal_name)
+                    else {
+                        continue;
+                    };
+                    let bucket = (((frame.timestamp - time_start) / span * bucket_count as f64)
+                        .floor() as usize)
+                        .min(bucket_count - 1);
+                    let cell = &mut extrema[*signal_index][bucket];
+                    match cell {
+                        Some((min, max)) => {
+                            *min = min.min(decoded.physical_value);
+                            *max = max.max(decoded.physical_value);
+                        }
+                        None => *cell = Some((decoded.physical_value, decoded.physical_value)),
+                    }
+                }
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
+    let bucket_width = span / bucket_count as f64;
+    let mut points = Vec::new();
+    for (signal_index, buckets) in extrema.into_iter().enumerate() {
+        for (bucket, values) in buckets.into_iter().enumerate() {
+            if let Some((min, max)) = values {
+                let left = time_start + bucket as f64 * bucket_width;
+                points.push((left + bucket_width * 0.25, signal_index, min));
+                if max != min {
+                    points.push((left + bucket_width * 0.75, signal_index, max));
+                }
+            }
+        }
+    }
+    points.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+    let mut timestamps = Vec::new();
+    let mut series: Vec<Vec<Option<f64>>> = (0..signals.len()).map(|_| Vec::new()).collect();
+    for (timestamp, signal_index, value) in points {
+        if timestamps.last().copied() != Some(timestamp) {
+            timestamps.push(timestamp);
+            for values in &mut series {
+                values.push(None);
+            }
+        }
+        if let Some(last) = series[signal_index].last_mut() {
+            *last = Some(value);
+        }
+    }
+
+    Ok(ChartData { timestamps, series })
+}
+
+#[tauri::command]
+fn playback_control(action: String, state: State<AppState>) -> Result<String, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
     if let Some(ref mut playlist) = *engine_guard {
@@ -483,10 +802,7 @@ fn get_playback_state(state: State<AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn seek_to(
-    timestamp: f64,
-    state: State<AppState>,
-) -> Result<(), String> {
+fn seek_to(timestamp: f64, state: State<AppState>) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
         playlist.seek_to(timestamp).map_err(|e| e.to_string())?;
@@ -505,10 +821,7 @@ fn get_progress(state: State<AppState>) -> Result<Option<f64>, String> {
 }
 
 #[tauri::command]
-fn set_speed(
-    speed: f64,
-    state: State<AppState>,
-) -> Result<f64, String> {
+fn set_speed(speed: f64, state: State<AppState>) -> Result<f64, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
         playlist.set_speed(speed);
@@ -529,10 +842,7 @@ fn get_speed(state: State<AppState>) -> Result<f64, String> {
 }
 
 #[tauri::command]
-fn set_loop(
-    enabled: bool,
-    state: State<AppState>,
-) -> Result<bool, String> {
+fn set_loop(enabled: bool, state: State<AppState>) -> Result<bool, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
         playlist.set_loop(enabled);
@@ -580,11 +890,12 @@ fn step_back(state: State<AppState>) -> Result<Option<FrameInfo>, String> {
 
 #[tauri::command]
 fn playlist_add(
+    app: tauri::AppHandle,
     path: String,
     state: State<AppState>,
 ) -> Result<PlaylistInfo, String> {
     let path_buf = PathBuf::from(&path);
-    let reader = AscReader::open(&path_buf).map_err(|e| e.to_string())?;
+    let reader = open_indexed_asc(&app, &path_buf)?;
 
     // 解析为规范绝对路径（消除 ..、符号链接等），失败则退化为原路径
     let canonical_path = std::fs::canonicalize(&path_buf).unwrap_or_else(|_| path_buf.clone());
@@ -658,14 +969,17 @@ fn find_asc_files(folder: &Path) -> Vec<PathBuf> {
     result
 }
 
-fn build_entry_from_path(path: &PathBuf) -> Option<PlaylistEntry<AscReader>> {
-    let reader = AscReader::open(path).ok()?;
+fn build_entry_from_path(
+    path: &PathBuf,
+    app: &tauri::AppHandle,
+) -> Result<PlaylistEntry<AscReader>, String> {
+    let reader = open_indexed_asc(app, path)?;
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
     let engine = PlaybackEngine::new(reader);
-    Some(PlaylistEntry {
+    Ok(PlaylistEntry {
         engine,
         file_name,
         file_path: path.to_string_lossy().to_string(),
@@ -679,6 +993,7 @@ fn build_entry_from_path(path: &PathBuf) -> Option<PlaylistEntry<AscReader>> {
 
 #[tauri::command]
 fn playlist_add_folder(
+    app: tauri::AppHandle,
     folder_path: String,
     state: State<AppState>,
 ) -> Result<PlaylistInfo, String> {
@@ -699,11 +1014,14 @@ fn playlist_add_folder(
         let mut added = 0usize;
 
         for path in &asc_paths {
-            if let Some(entry) = build_entry_from_path(path) {
-                playlist.add_entry(entry);
-                added += 1;
-            } else {
-                eprintln!("跳过无法解析的文件: {}", path.display());
+            match build_entry_from_path(path, &app) {
+                Ok(entry) => {
+                    playlist.add_entry(entry);
+                    added += 1;
+                }
+                Err(error) => {
+                    eprintln!("跳过无法解析的文件 {}: {}", path.display(), error);
+                }
             }
         }
 
@@ -721,14 +1039,17 @@ fn playlist_add_folder(
         let mut added = 0usize;
 
         for path in &asc_paths {
-            if let Some(entry) = build_entry_from_path(path) {
-                if first_added.is_none() {
-                    first_added = Some(path.clone());
+            match build_entry_from_path(path, &app) {
+                Ok(entry) => {
+                    if first_added.is_none() {
+                        first_added = Some(path.clone());
+                    }
+                    playlist.add_entry(entry);
+                    added += 1;
                 }
-                playlist.add_entry(entry);
-                added += 1;
-            } else {
-                eprintln!("跳过无法解析的文件: {}", path.display());
+                Err(error) => {
+                    eprintln!("跳过无法解析的文件 {}: {}", path.display(), error);
+                }
             }
         }
 
@@ -749,10 +1070,7 @@ fn playlist_add_folder(
 }
 
 #[tauri::command]
-fn playlist_remove(
-    index: usize,
-    state: State<AppState>,
-) -> Result<PlaylistInfo, String> {
+fn playlist_remove(index: usize, state: State<AppState>) -> Result<PlaylistInfo, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
         playlist.remove_entry(index);
@@ -1013,10 +1331,7 @@ fn create_project(
 }
 
 #[tauri::command]
-fn save_project(
-    app: tauri::AppHandle,
-    state: State<AppState>,
-) -> Result<String, String> {
+fn save_project(app: tauri::AppHandle, state: State<AppState>) -> Result<String, String> {
     let project_guard = state.project.lock().map_err(|e| e.to_string())?;
     let project = project_guard
         .clone()
@@ -1026,9 +1341,7 @@ fn save_project(
     let save_path = match &*project_path_guard {
         Some(p) => p.clone(),
         None => {
-            return Err(
-                "Project has no file path yet. Use 'Save As' instead.".to_string(),
-            );
+            return Err("Project has no file path yet. Use 'Save As' instead.".to_string());
         }
     };
 
@@ -1085,9 +1398,8 @@ fn open_project(
     state: State<AppState>,
 ) -> Result<ProjectInfo, String> {
     let project_path = PathBuf::from(&path);
-    let json = fs::read_to_string(&project_path).map_err(|e| {
-        format!("Failed to read project file: {}", e)
-    })?;
+    let json = fs::read_to_string(&project_path)
+        .map_err(|e| format!("Failed to read project file: {}", e))?;
     let mut project: ProjectConfig =
         serde_json::from_str(&json).map_err(|e| format!("Invalid project file: {}", e))?;
 
@@ -1100,7 +1412,7 @@ fn open_project(
             ));
         }
 
-        let reader = AscReader::open(&log_path).map_err(|e| e.to_string())?;
+        let reader = open_indexed_asc(&app, &log_path)?;
 
         let entry = PlaylistEntry {
             engine: PlaybackEngine::new(reader),
@@ -1112,8 +1424,8 @@ fn open_project(
             enabled: true,
             global_start_offset: 0.0,
             global_end_offset: None,
-        play_start_offset: 0.0,
-        play_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
         };
 
         let mut playlist = PlaylistEngine::new();
@@ -1221,10 +1533,7 @@ fn update_project_state(
 }
 
 #[tauri::command]
-fn set_project_can_log(
-    can_log_path: String,
-    state: State<AppState>,
-) -> Result<(), String> {
+fn set_project_can_log(can_log_path: String, state: State<AppState>) -> Result<(), String> {
     let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut project) = *project_guard {
         project.can_log_path = Some(can_log_path);
@@ -1290,6 +1599,8 @@ pub fn run() {
             get_dbc_info,
             get_dbc_detail,
             get_batch,
+            get_frame_page,
+            get_chart_data,
             playback_control,
             get_playback_state,
             seek_to,

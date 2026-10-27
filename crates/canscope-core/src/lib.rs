@@ -49,14 +49,9 @@ impl CanFrame {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SourceType {
     /// 来自文件的离线数据
-    File {
-        path: PathBuf,
-        format: FileFormat,
-    },
+    File { path: PathBuf, format: FileFormat },
     /// 来自硬件适配器的实时数据
-    Live {
-        adapter: String,
-    },
+    Live { adapter: String },
 }
 
 /// 总线/通道类型。
@@ -122,11 +117,7 @@ pub enum SeekError {
 
     /// 请求的时间戳超出数据范围
     #[error("timestamp {requested} is out of range [{min}, {max}]")]
-    OutOfRange {
-        requested: f64,
-        min: f64,
-        max: f64,
-    },
+    OutOfRange { requested: f64, min: f64, max: f64 },
 
     /// Seek 过程发生 I/O 错误
     #[error("seek failed: {0}")]
@@ -141,7 +132,7 @@ pub enum SeekError {
 /// Phase 1 只有文件源实现；Phase 3 添加实时硬件源。
 pub trait CanFrameStream: Send + Sync {
     /// 获取下一帧。返回 `None` 表示数据流已结束。
-    fn next(&mut self) -> Option<CanFrame>;
+    fn next(&mut self) -> Result<Option<CanFrame>, SeekError>;
 
     /// 定位到指定时间偏移（秒）。
     ///

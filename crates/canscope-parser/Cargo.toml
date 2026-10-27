@@ -7,3 +7,4 @@ description = "CAN 日志文件格式解析器（ASC/CSV/BLF/TRC）"
 [dependencies]
 canscope-core.workspace = true
 thiserror.workspace = true
+rusqlite = { version = "0.37", features = ["bundled"] }

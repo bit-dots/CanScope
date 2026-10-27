@@ -11,6 +11,8 @@ import FrameTableSettingsDialog from './FrameTableSettingsDialog';
 
 interface FrameTableProps {
   frames: FrameInfo[];
+  frameOffset: number;
+  onRequestPage: (offset: number, limit: number) => Promise<void>;
   totalFrameCount: number;
   hasDbc?: boolean;
   onClear?: () => void;
@@ -23,6 +25,7 @@ interface FrameTableProps {
 
 const ROW_HEIGHT = 28;
 const OVERSCAN = 20;
+const PAGE_SIZE = 512;
 
 interface ColumnDef {
   key: string;
@@ -122,21 +125,24 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [flashingBytes, setFlashingBytes] = createSignal<Record<string, boolean>>({});
   const canIdPrevData = new Map<number, number[]>();
   let processedCount = 0;
+  let processedOffset = -1;
 
   createEffect(on(
-    () => ({ len: props.frames.length, enabled: settings().highlightChanges, paused: isPaused() }),
-    ({ len, enabled, paused }) => {
-      if (len < processedCount) {
+    () => ({ len: props.frames.length, offset: props.frameOffset, enabled: settings().highlightChanges, paused: isPaused() }),
+    ({ len, offset, enabled, paused }) => {
+      if (offset !== processedOffset || len < processedCount) {
         processedCount = 0;
         canIdPrevData.clear();
         setFlashingBytes({});
       }
+      processedOffset = offset;
       if (!enabled || paused) {
         processedCount = len;
         return;
       }
       for (let i = processedCount; i < len; i++) {
         const frame = props.frames[i];
+        const absoluteIndex = offset + i;
         const prev = canIdPrevData.get(frame.can_id);
         const dlc = frame.dlc;
         if (prev) {
@@ -144,11 +150,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           const minLen = Math.min(prev.length, dlc);
           for (let b = 0; b < minLen; b++) {
             if (prev[b] !== frame.data[b]) {
-              changed[`${i}-${b}`] = true;
+              changed[`${absoluteIndex}-${b}`] = true;
             }
           }
           for (let b = minLen; b < dlc; b++) {
-            changed[`${i}-${b}`] = true;
+            changed[`${absoluteIndex}-${b}`] = true;
           }
           const keys = Object.keys(changed);
           if (keys.length > 0) {
@@ -167,9 +173,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       processedCount = len;
     },
   ));
-
-  const pauseSnapshot = createSignal(0);
-  const [pausedCount, setPausedCount] = pauseSnapshot;
 
   // ---- 列宽状态 ----
   const initWidths: Record<string, number> = {};
@@ -245,7 +248,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const propertyTree = (): TreeNode[] => {
     const idx = selectedRow();
     if (idx === null) return [];
-    const frame = displayedFrames()[idx];
+    const frame = frameAt(idx);
     if (!frame) return [];
 
     const isBrs = (frame as any).is_brs as boolean | undefined;
@@ -389,9 +392,23 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [displayedFrames, setDisplayedFrames] = createSignal<FrameInfo[]>([]);
   const [flattenedRows, setFlattenedRows] = createSignal<FlatRow[]>([]);
 
-  let _cachedFramesLength = 0;
-  let _filterFingerprint = '';
   let _flatIdxArray: number[] = [];
+  let requestedOffset: number | null = null;
+  const frameAt = (displayIdx: number) => props.frames[displayIdx - props.frameOffset];
+
+  createEffect(() => {
+    const targetIndex = Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
+    const targetOffset = Math.floor(targetIndex / PAGE_SIZE) * PAGE_SIZE;
+    if (targetOffset === props.frameOffset) {
+      requestedOffset = null;
+    } else if (targetOffset !== requestedOffset && targetOffset < props.totalFrameCount) {
+      requestedOffset = targetOffset;
+      void props.onRequestPage(targetOffset, PAGE_SIZE).catch((error) => {
+        requestedOffset = null;
+        console.error('Failed to load frame page:', error);
+      });
+    }
+  });
 
   createEffect(() => {
     const ft = filterTime().trim().toLowerCase();
@@ -402,109 +419,47 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
     const fn = filterName().trim().toLowerCase();
 
-    const paused = isPaused();
-    const fp = `${ft}|${fc}|${fi}|${fy}|${fd}|${fx}|${fn}|${paused}`;
+    const frames = props.frames.filter((frame, index) => {
+      const absoluteIndex = props.frameOffset + index;
+      if (ft && !formatTimestamp(frame, absoluteIndex).toLowerCase().includes(ft)) return false;
+      if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
+      if (fi) {
+        const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
+        const decId = frame.can_id.toString();
+        if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
+      }
+      if (fy && getFrameTypeLabel(frame) !== fy) return false;
+      if (fd && frame.dlc.toString() !== fd) return false;
+      if (fx && !formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase().includes(fx)) return false;
+      if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
+      return true;
+    });
+    const expanded = expandedFrames();
+    setDisplayedFrames(frames);
 
-    let frames: FrameInfo[];
-    if (!ft && !fc && !fi && !fy && !fd && !fx && !fn && !paused) {
-        frames = props.frames;
-    } else {
-        frames = paused
-          ? props.frames.slice(0, pausedCount())
-          : props.frames;
-
-        frames = frames.filter((frame) => {
-            if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
-            if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
-            if (fi) {
-              const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
-              const decId = frame.can_id.toString();
-              if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
-            }
-            if (fy) {
-              const typeStr = getFrameTypeLabel(frame);
-              if (typeStr !== fy) return false;
-            }
-            if (fd && frame.dlc.toString() !== fd) return false;
-            if (fx) {
-              const dataStr = formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase();
-              if (!dataStr.includes(fx)) return false;
-            }
-            if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
-            return true;
-        });
-    }
-
-    const isAppendOnly = fp === _filterFingerprint && frames.length > _cachedFramesLength && frames === props.frames;
-
-    if (isAppendOnly) {
-      const expanded = expandedFrames();
-      setDisplayedFrames(frames);
-
-      setFlattenedRows(prev => {
-        const nextRows = [...prev];
-        let flatIdx = nextRows.length;
-        for (let i = _cachedFramesLength; i < frames.length; i++) {
-          _flatIdxArray[i] = flatIdx;
-          nextRows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
-          flatIdx++;
-          if (expanded.has(i)) {
-            const sigs = frames[i].signals;
-            if (sigs && sigs.length > 0) {
-              for (const sig of sigs) {
-                nextRows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
-                flatIdx++;
-              }
-            }
-          }
-        }
-        return nextRows;
-      });
-    } else {
-      const expanded = expandedFrames();
-      setDisplayedFrames(frames);
-
-      const rows: FlatRow[] = [];
-      _flatIdxArray = new Array(frames.length);
-      let flatIdx = 0;
-      for (let i = 0; i < frames.length; i++) {
-        _flatIdxArray[i] = flatIdx;
-        rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
-        flatIdx++;
-        if (expanded.has(i)) {
-          const sigs = frames[i].signals;
-          if (sigs && sigs.length > 0) {
-            for (const sig of sigs) {
-              rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
-              flatIdx++;
-            }
+    const rows: FlatRow[] = [];
+    _flatIdxArray = new Array(frames.length);
+    let flatIdx = 0;
+    for (let i = 0; i < frames.length; i++) {
+      const displayIdx = props.frameOffset + i;
+      _flatIdxArray[i] = flatIdx;
+      rows.push({ kind: 'frame', displayIdx, frame: frames[i] });
+      flatIdx++;
+      if (expanded.has(displayIdx)) {
+        const sigs = frames[i].signals;
+        if (sigs && sigs.length > 0) {
+          for (const sig of sigs) {
+            rows.push({ kind: 'signal', parentDisplayIdx: displayIdx, signal: sig });
+            flatIdx++;
           }
         }
       }
-      setFlattenedRows(rows);
     }
-
-    _cachedFramesLength = frames.length;
-    _filterFingerprint = fp;
+    setFlattenedRows(rows);
   });
 
   const flatIndexOfDisplayIdx = (displayIdx: number): number => {
-    if (displayIdx < _flatIdxArray.length) {
-      return _flatIdxArray[displayIdx];
-    }
-    const expanded = expandedFrames();
-    const frames = displayedFrames();
-    let flatIdx = _flatIdxArray.length > 0
-      ? _flatIdxArray[_flatIdxArray.length - 1] + 1
-      : 0;
-    for (let i = _flatIdxArray.length; i < displayIdx; i++) {
-      flatIdx++;
-      if (expanded.has(i)) {
-        const sigs = frames[i]?.signals;
-        if (sigs && sigs.length > 0) flatIdx += sigs.length;
-      }
-    }
-    return flatIdx;
+    return Math.max(0, displayIdx);
   };
 
   // ---- 搜索 ----
@@ -669,11 +624,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (matches.length === 0) return null;
     const i = searchCurrentIndex();
     if (i < 0 || i >= matches.length) return null;
-    return matches[i];
+    return props.frameOffset + matches[i];
   };
 
   const handleScrollToMatch = (frameIndex: number) => {
-    const targetFlatIdx = flatIndexOfDisplayIdx(frameIndex);
+    const targetFlatIdx = flatIndexOfDisplayIdx(props.frameOffset + frameIndex);
     const targetY = targetFlatIdx * ROW_HEIGHT;
     const viewH = containerRef?.clientHeight ?? 600;
     containerRef && (containerRef.scrollTop = Math.max(0, targetY - viewH / 2 + ROW_HEIGHT / 2));
@@ -743,9 +698,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const handlePauseToggle = () => {
-    if (!isPaused()) {
-      setPausedCount(props.frames.length);
-    }
     setIsPaused(!isPaused());
   };
 
@@ -773,12 +725,14 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     switch (timeFormat()) {
       case 'relative-to-start':
         if (props.frames.length > 0) {
-          return (frame.timestamp - props.frames[0].timestamp).toFixed(6);
+          const firstFrame = props.frames[0];
+          return (frame.timestamp - firstFrame.timestamp).toFixed(6);
         }
         return frame.timestamp.toFixed(6);
       case 'relative-to-prev': {
-        if (index > 0) {
-          const prev = displayedFrames()[index - 1];
+        if (index > props.frameOffset) {
+          const prev = frameAt(index - 1);
+          if (!prev) return '0.000000';
           return (frame.timestamp - prev.timestamp).toFixed(6);
         }
         return '0.000000';
@@ -838,11 +792,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.removeEventListener('click', closeTypeFilterMenu);
   });
 
-  const totalHeight = () => flattenedRows().length * ROW_HEIGHT;
-  const startIndex = () => Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
+  const totalHeight = () => props.totalFrameCount * ROW_HEIGHT;
+  const localScrollTop = () => Math.max(0, scrollTop() - props.frameOffset * ROW_HEIGHT);
+  const startIndex = () => Math.max(0, Math.floor(localScrollTop() / ROW_HEIGHT) - OVERSCAN);
   const endIndex = () => Math.min(
     flattenedRows().length,
-    Math.ceil((scrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
+    Math.ceil((localScrollTop() + viewHeight()) / ROW_HEIGHT) + OVERSCAN,
   );
   const visibleRows = () => flattenedRows().slice(startIndex(), endIndex());
 
@@ -919,7 +874,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const handleRowContextMenu = (e: MouseEvent, idx: number) => {
     e.preventDefault();
-    const frame = displayedFrames()[idx];
+    const frame = frameAt(idx);
     if (!frame) return;
     if (!selectedRows().has(idx)) {
       setSelectedRow(idx);
@@ -928,7 +883,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setContextMenuState({ x: e.clientX, y: e.clientY, frame });
   };
 
-  const errorCount = () => props.frames.filter((f) => (f as any).is_error).length;
+  const errorCount = () => displayedFrames().filter((f) => (f as any).is_error).length;
   const hasError = () => errorCount() > 0;
 
   return (
@@ -1135,7 +1090,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 <div class="property-data__hex">
                   {(() => {
                     const idx = selectedRow()!;
-                    const frame = displayedFrames()[idx];
+                    const frame = frameAt(idx);
                     return frame ? formatDataHex(frame.data, frame.dlc) : '';
                   })()}
                 </div>
@@ -1307,7 +1262,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             )}
           </thead>
           <tbody>
-            <tr style={{ height: `${startIndex() * ROW_HEIGHT}px` }} />
+            <tr style={{ height: `${(props.frameOffset + startIndex()) * ROW_HEIGHT}px` }} />
             {visibleRows().map((row, _i) => {
               if (row.kind === 'signal') {
                 return (
@@ -1393,7 +1348,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   <td class="frame-table__td frame-table__td--dlc">{frame.dlc}</td>
                   <td class="frame-table__td frame-table__td--data">
                     {frame.data.slice(0, frame.dlc).map((byte, byteIdx, arr) => {
-                      const origIdx = props.frames.indexOf(frame);
+                      const origIdx = idx;
                       const key = `${origIdx}-${byteIdx}`;
                       const isFlashing = !!flashingBytes()[key];
                       const hex = byte.toString(16).padStart(2, '0').toUpperCase();
@@ -1412,7 +1367,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 </tr>
               );
             })}
-            <tr style={{ height: `${Math.max(0, totalHeight() - endIndex() * ROW_HEIGHT)}px` }} />
+            <tr style={{ height: `${Math.max(0, totalHeight() - (props.frameOffset + endIndex()) * ROW_HEIGHT)}px` }} />
           </tbody>
         </table>
 

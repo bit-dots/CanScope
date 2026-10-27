@@ -1,4 +1,4 @@
-import { createSignal, createMemo, createEffect, onCleanup, onMount } from 'solid-js';
+import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -25,16 +25,27 @@ import type {
   DbcTreeInfo,
   ChartSignal,
   ProjectInfo,
+  FramePage,
 } from './types';
-import { matchesFilter } from './types';
+import { parseCanId, parseTime } from './types';
 import './App.css';
 
 function App() {
   const [project, setProject] = createSignal<ProjectInfo | null>(null);
   const [metadata, setMetadata] = createSignal<PlaylistInfo | null>(null);
   const [frames, setFrames] = createSignal<FrameInfo[]>([]);
+  const [frameOffset, setFrameOffset] = createSignal(0);
+  const [frameTotalCount, setFrameTotalCount] = createSignal(0);
+  const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
+  const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [loading, setLoading] = createSignal(false);
+  const [indexProgress, setIndexProgress] = createSignal<{
+    path: string;
+    status: string;
+    processedFrames: number;
+    message?: string | null;
+  } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [filter, setFilter] = createSignal<FilterConfig>({ canId: '', timeStart: '', timeEnd: '' });
   const [dbcTree, setDbcTree] = createSignal<DbcTreeInfo | null>(null);
@@ -63,43 +74,46 @@ function App() {
   const [workspaceEl, setWorkspaceEl] = createSignal<HTMLElement | null>(null);
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
 
-  const filteredFrames = createMemo<FrameInfo[]>(() => {
-    const f = filter();
-    if (!f.canId && !f.timeStart && !f.timeEnd) return frames();
-    return frames().filter(frame => matchesFilter(frame, f));
-  });
+  let frameQueryId = 0;
+  const requestFramePage = async (offset: number, limit: number) => {
+    const requestId = ++frameQueryId;
+    const activeFilter = filter();
+    const page: FramePage = await invoke('get_frame_page', {
+      offset,
+      limit: Math.min(limit, 512),
+      canId: parseCanId(activeFilter.canId),
+      timeStart: parseTime(activeFilter.timeStart),
+      timeEnd: parseTime(activeFilter.timeEnd),
+    });
+    if (requestId !== frameQueryId) return;
+    setFrames(page.frames);
+    setFrameOffset(page.offset);
+    setFrameTotalCount(page.totalCount);
+  };
 
-  const currentTime = createMemo(() => {
-    const list = frames();
-    return list.length > 0 ? list[list.length - 1].timestamp : 0;
+  const queryChartData = (
+    signals: ChartSignal[],
+    timeStart: number,
+    timeEnd: number,
+    bucketCount: number,
+  ) => invoke<{ timestamps: number[]; series: (number | null)[][] }>('get_chart_data', {
+    signals: signals.map(({ canId, signalName }) => ({ canId, signalName })),
+    timeStart,
+    timeEnd,
+    bucketCount,
   });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
-  let frameBuffer: FrameInfo[] = [];
-  let flushCounter = 0;
-  const BATCH_SIZE = 5;
-
-  const flushFrameBuffer = () => {
-    if (frameBuffer.length === 0) return;
-    setFrames(prev => [...prev, ...frameBuffer]);
-    frameBuffer = [];
-    flushCounter = 0;
-  };
 
   const startPolling = () => {
     if (playbackTimer) return;
-    frameBuffer = [];
-    flushCounter = 0;
     const interval = Math.max(10, Math.round(100 / speed()));
     playbackTimer = setInterval(async () => {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
-          frameBuffer.push(...batch);
-          flushCounter++;
-          if (flushCounter >= BATCH_SIZE) {
-            flushFrameBuffer();
-          }
+          setPlaybackFrameCount(prev => prev + batch.length);
+          setCurrentTime(batch[batch.length - 1].timestamp);
         }
       } catch (e) {
         console.error('get_batch failed:', e);
@@ -112,7 +126,6 @@ function App() {
       clearInterval(playbackTimer);
       playbackTimer = null;
     }
-    flushFrameBuffer();
   };
 
   onCleanup(() => stopPolling());
@@ -226,9 +239,11 @@ function App() {
       setProject(proj);
 
       if (proj.canLogPath) {
-        await invoke('playlist_add', { path: proj.canLogPath });
         const info: PlaylistInfo | null = await invoke('playlist_get_files');
-        if (info) setMetadata(info);
+        if (info) {
+          setMetadata(info);
+          await requestFramePage(0, 512);
+        }
         setPlaybackState('stopped');
       }
 
@@ -390,6 +405,10 @@ function App() {
     setProject(null);
     setMetadata(null);
     setFrames([]);
+    setFrameOffset(0);
+    setFrameTotalCount(0);
+    setPlaybackFrameCount(0);
+    setCurrentTime(0);
     setPlaybackState('stopped');
     setDbcTree(null);
     setSelectedCanId(null);
@@ -438,11 +457,9 @@ function App() {
     try {
       const wasPlaying = playbackState() === 'playing';
       if (wasPlaying) stopPolling();
-      frameBuffer = []; flushCounter = 0;
       await invoke('seek_to', { timestamp });
-      setFrames([]);
-      const batch: FrameInfo[] = await invoke('get_batch');
-      setFrames(batch);
+      setCurrentTime(timestamp);
+      await requestFramePage(0, 512);
       if (wasPlaying) startPolling();
     } catch (e) {
       console.error('Seek failed:', e);
@@ -456,6 +473,10 @@ function App() {
     } else {
       setFilter({ canId: '', timeStart: '', timeEnd: '' });
     }
+    void requestFramePage(0, 512).catch(e => {
+      setError(String(e));
+      console.error('Failed to query filtered frames:', e);
+    });
   };
 
   const handleAddSignal = (s: ChartSignal) => {
@@ -485,8 +506,7 @@ function App() {
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
-        flushFrameBuffer();
-        if (prevState === 'stopped') setFrames([]);
+        if (prevState === 'stopped') setPlaybackFrameCount(0);
         startPolling();
       } else {
         stopPolling();
@@ -507,6 +527,22 @@ function App() {
       }
     });
     onCleanup(unlisten);
+
+    const unlistenIndexProgress = await listen<{
+      path: string;
+      status: string;
+      processedFrames: number;
+      message?: string | null;
+    }>('frame-index-progress', (event) => {
+      const progress = event.payload;
+      if (progress.status === 'ready') {
+        setIndexProgress(null);
+      } else {
+        setIndexProgress(progress);
+        if (progress.status === 'failed' && progress.message) setError(progress.message);
+      }
+    });
+    onCleanup(unlistenIndexProgress);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -577,13 +613,9 @@ function App() {
     try {
       const frame: FrameInfo | null = await invoke('step_forward');
       if (frame) {
-        setFrames(prev => {
-          const lastTs = prev.length > 0 ? prev[prev.length - 1].timestamp : 0;
-          if (frame.timestamp > lastTs) {
-            return [...prev, frame];
-          }
-          return [...prev, frame];
-        });
+        setCurrentTime(frame.timestamp);
+        setPlaybackFrameCount(prev => prev + 1);
+        await requestFramePage(Math.max(0, playbackFrameCount()), 512);
       }
     } catch (e) {
       console.error('step_forward failed:', e);
@@ -594,14 +626,9 @@ function App() {
     try {
       const frame: FrameInfo | null = await invoke('step_back');
       if (frame) {
-        setFrames(prev => {
-          // Replace frames from this timestamp onwards
-          const idx = prev.findIndex(f => f.timestamp >= frame.timestamp);
-          if (idx >= 0) {
-            return [...prev.slice(0, idx), frame];
-          }
-          return [frame];
-        });
+        setCurrentTime(frame.timestamp);
+        setPlaybackFrameCount(prev => Math.max(0, prev - 1));
+        await requestFramePage(Math.max(0, playbackFrameCount() - 2), 512);
       }
     } catch (e) {
       console.error('step_back failed:', e);
@@ -613,6 +640,8 @@ function App() {
       const info: PlaylistInfo | null = await invoke('playlist_get_files');
       if (info) {
         setMetadata(info);
+        setPlaybackFrameCount(0);
+        await requestFramePage(0, 512);
       }
     } catch (e) {
       console.error('playlist_get_files failed:', e);
@@ -653,6 +682,13 @@ function App() {
       <main class="main-content">
         {error() && (
           <div class="error-bar">{error()}</div>
+        )}
+        {indexProgress() && (
+          <div class="loading" role="status">
+            {indexProgress()!.status === 'failed'
+              ? `索引失败：${indexProgress()!.message ?? ''}`
+              : `正在建立文件索引：${indexProgress()!.processedFrames.toLocaleString()} 帧`}
+          </div>
         )}
         {loading() ? (
           <div class="loading">Loading project...</div>
@@ -720,8 +756,10 @@ function App() {
                   case 'frame-monitor':
                     return (
                       <FrameTable
-                        frames={filteredFrames()}
-                        totalFrameCount={frames().length}
+                        frames={frames()}
+                        frameOffset={frameOffset()}
+                        onRequestPage={requestFramePage}
+                        totalFrameCount={frameTotalCount()}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
@@ -734,8 +772,9 @@ function App() {
                   case 'chart':
                     return (
                       <SignalChart
-                        frames={frames()}
                         signals={chartSignals()}
+                        duration={metadata()?.totalDuration ?? 0}
+                        onQueryChartData={queryChartData}
                         dbcBindings={project()?.dbcBindings ?? []}
                         onRemoveSignal={handleRemoveSignal}
                         onAddSignals={handleAddSignals}
@@ -877,8 +916,8 @@ function App() {
       <StatusBar
         sourceLoaded={hasSource()}
         metadata={metadata()}
-        frameCount={filteredFrames().length}
-        totalFrameCount={frames().length}
+        frameCount={playbackFrameCount()}
+        totalFrameCount={metadata()?.totalFrames ?? frameTotalCount()}
         playbackState={playbackState()}
       />
     </div>
