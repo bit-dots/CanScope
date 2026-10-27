@@ -237,7 +237,6 @@ impl AscReader {
 
         let is_remote = parts[7].eq_ignore_ascii_case("r");
 
-        let dlc: u8 = parts[8].parse().map_err(|_| ())?;
         let byte_count: usize = parts[9].parse().map_err(|_| ())?;
 
         let expected_data_parts = if is_remote { 0 } else { byte_count };
@@ -263,7 +262,8 @@ impl AscReader {
             is_remote,
             is_fd: true,
             is_tx,
-            dlc,
+            // CAN FD 的 DLC 是编码值(0-15)，需用 byte_count 作为实际数据长度
+            dlc: byte_count as u8,
             data,
         })
     }
