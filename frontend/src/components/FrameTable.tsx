@@ -386,7 +386,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.body.style.userSelect = 'none';
   };
 
-  const displayedFrames = () => {
+  const [displayedFrames, setDisplayedFrames] = createSignal<FrameInfo[]>([]);
+  const [flattenedRows, setFlattenedRows] = createSignal<FlatRow[]>([]);
+
+  createEffect(() => {
     const ft = filterTime().trim().toLowerCase();
     const fc = filterChannel().trim().toLowerCase();
     const fi = filterId().trim().toLowerCase();
@@ -397,55 +400,53 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
     const paused = isPaused();
 
+    let frames: FrameInfo[];
     if (!ft && !fc && !fi && !fy && !fd && !fx && !fn && !paused) {
-        return props.frames;
+        frames = props.frames;
+    } else {
+        frames = paused
+          ? props.frames.slice(0, pausedCount())
+          : props.frames;
+
+        frames = frames.filter((frame) => {
+            if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
+            if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
+            if (fi) {
+              const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
+              const decId = frame.can_id.toString();
+              if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
+            }
+            if (fy) {
+              const typeStr = getFrameTypeLabel(frame);
+              if (typeStr !== fy) return false;
+            }
+            if (fd && frame.dlc.toString() !== fd) return false;
+            if (fx) {
+              const dataStr = formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase();
+              if (!dataStr.includes(fx)) return false;
+            }
+            if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
+            return true;
+        });
     }
 
-    let frames = paused
-      ? props.frames.slice(0, pausedCount())
-      : props.frames;
+    setDisplayedFrames(frames);
 
-    frames = frames.filter((frame) => {
-        if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
-        if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
-        if (fi) {
-          const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
-          const decId = frame.can_id.toString();
-          if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
-        }
-        if (fy) {
-          const typeStr = getFrameTypeLabel(frame);
-          if (typeStr !== fy) return false;
-        }
-        if (fd && frame.dlc.toString() !== fd) return false;
-        if (fx) {
-          const dataStr = formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase();
-          if (!dataStr.includes(fx)) return false;
-        }
-        if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
-        return true;
-    });
-
-    return frames;
-  };
-
-  const flattenedRows = () => {
-    const frames = displayedFrames();
     const expanded = expandedFrames();
     const rows: FlatRow[] = [];
     for (let i = 0; i < frames.length; i++) {
-      rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
-      if (expanded.has(i)) {
-        const sigs = frames[i].signals;
-        if (sigs && sigs.length > 0) {
-          for (const sig of sigs) {
-            rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
-          }
+        rows.push({ kind: 'frame', displayIdx: i, frame: frames[i] });
+        if (expanded.has(i)) {
+            const sigs = frames[i].signals;
+            if (sigs && sigs.length > 0) {
+                for (const sig of sigs) {
+                    rows.push({ kind: 'signal', parentDisplayIdx: i, signal: sig });
+                }
+            }
         }
-      }
     }
-    return rows;
-  };
+    setFlattenedRows(rows);
+  });
 
   const flatIndexOfDisplayIdx = (displayIdx: number): number => {
     const expanded = expandedFrames();
