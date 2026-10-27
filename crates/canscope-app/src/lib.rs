@@ -554,7 +554,10 @@ fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameI
     if let Some(ref mut playlist) = *engine_guard {
         playlist.set_dbcs(dbc_map.clone());
         let was_playing = playlist.state() == PlaybackState::Playing;
-        let batch = playlist.next_batch(100).map_err(|e| e.to_string())?;
+        let batch_size = (33.0 * playlist.speed()).round().clamp(1.0, 1024.0) as usize;
+        let batch = playlist
+            .next_batch(batch_size)
+            .map_err(|e| e.to_string())?;
 
         if was_playing && playlist.state() == PlaybackState::Stopped {
             let _ = app.emit("playback-state-changed", "stopped");

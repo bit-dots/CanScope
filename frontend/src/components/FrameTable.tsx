@@ -16,6 +16,7 @@ interface FrameTableProps {
   totalFrameCount: number;
   isPlaying: boolean;
   onAutoScrollChange: (enabled: boolean) => void;
+  onMonitorRefreshRateChange: (rate: number) => void;
   hasDbc?: boolean;
   onClear?: () => void;
   onSelectMessage?: (canId: number) => void;
@@ -114,6 +115,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setSettings(s);
     saveSettings(props.projectName, s);
     setTimeFormat(s.timeFormat);
+    props.onAutoScrollChange(s.autoScroll);
+    props.onMonitorRefreshRateChange(s.monitorRefreshRate);
   };
 
   const handleAutoScrollToggle = () => {
@@ -787,6 +790,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   onMount(() => {
     props.onAutoScrollChange(settings().autoScroll);
+    props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
   });

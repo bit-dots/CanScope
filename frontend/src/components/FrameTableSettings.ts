@@ -4,6 +4,7 @@ export interface FrameTableSettings {
   dataFormat: 'hex';
   canIdFormat: 'no-prefix' | '0x-prefix';
   autoScroll: boolean;
+  monitorRefreshRate: number;
   maxFrames: number;
   highlightChanges: boolean;
 }
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: FrameTableSettings = {
   dataFormat: 'hex',
   canIdFormat: 'no-prefix',
   autoScroll: true,
+  monitorRefreshRate: 5,
   maxFrames: 10000,
   highlightChanges: true,
 };
@@ -25,7 +27,14 @@ export function loadSettings(projectName: string): FrameTableSettings {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}.${projectName}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        monitorRefreshRate: Math.max(
+          1,
+          Math.min(30, Number(parsed.monitorRefreshRate) || DEFAULT_SETTINGS.monitorRefreshRate),
+        ),
+      };
     }
   } catch {
     // corrupted storage, fall through to default

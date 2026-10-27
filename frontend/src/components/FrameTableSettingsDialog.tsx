@@ -193,6 +193,27 @@ const FrameTableSettingsDialog: Component<FrameTableSettingsDialogProps> = (prop
             </div>
 
             <div class="frame-settings-row frame-settings-row--input">
+              <label class="frame-settings-input-label" for="monitor-refresh-rate">
+                监控刷新频率（次/秒）
+              </label>
+              <input
+                id="monitor-refresh-rate"
+                class="frame-settings__input"
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                value={draft().monitorRefreshRate}
+                onChange={(e) => {
+                  const value = Number.parseInt(e.currentTarget.value, 10);
+                  if (!Number.isNaN(value)) {
+                    setField('monitorRefreshRate', Math.max(1, Math.min(30, value)));
+                  }
+                }}
+              />
+            </div>
+
+            <div class="frame-settings-row frame-settings-row--input">
               <label class="frame-settings-input-label" for="max-frames">最大显示帧数</label>
               <input
                 id="max-frames"

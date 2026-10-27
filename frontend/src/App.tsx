@@ -40,6 +40,7 @@ function App() {
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [frameAutoScroll, setFrameAutoScroll] = createSignal(true);
+  const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
   const [loading, setLoading] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<{
     path: string;
@@ -106,10 +107,10 @@ function App() {
   });
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
+  let lastFrameMonitorRefresh = 0;
 
   const startPolling = () => {
     if (playbackTimer) return;
-    const interval = Math.max(10, Math.round(100 / speed()));
     playbackTimer = setInterval(async () => {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
@@ -117,7 +118,12 @@ function App() {
           setPlaybackFrameCount(prev => prev + batch.length);
           const timestamp = batch[batch.length - 1].timestamp;
           setCurrentTime(timestamp);
-          if (frameAutoScroll()) {
+          const now = Date.now();
+          if (
+            frameAutoScroll() &&
+            now - lastFrameMonitorRefresh >= 1000 / frameMonitorRefreshRate()
+          ) {
+            lastFrameMonitorRefresh = now;
             void requestFramePage(0, 512, timestamp).catch((e) => {
               console.error('Failed to follow playback in frame table:', e);
             });
@@ -126,7 +132,7 @@ function App() {
       } catch (e) {
         console.error('get_batch failed:', e);
       }
-    }, interval);
+    }, 33);
   };
 
   const stopPolling = () => {
@@ -533,6 +539,10 @@ function App() {
     }
   };
 
+  const handleFrameMonitorRefreshRateChange = (rate: number) => {
+    setFrameMonitorRefreshRate(Math.max(1, Math.min(30, rate)));
+  };
+
   const hasSource = () => metadata() !== null;
 
   onMount(async () => {
@@ -779,6 +789,7 @@ function App() {
                         totalFrameCount={frameTotalCount()}
                         isPlaying={playbackState() === 'playing'}
                         onAutoScrollChange={handleFrameAutoScrollChange}
+                        onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
