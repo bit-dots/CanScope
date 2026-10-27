@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show, For, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo, DecodedSignalInfo } from '../types';
@@ -401,6 +401,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isFollowingPlayback, setIsFollowingPlayback] = createSignal(true);
 
   let _flatIdxArray: number[] = [];
+  const frameRowCache = new Map<number, { frame: FrameInfo; row: FlatRow }>();
   let requestedOffset: number | null = null;
   const frameAt = (displayIdx: number) => props.frames[displayIdx - props.frameOffset];
 
@@ -447,12 +448,22 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setDisplayedFrames(frames);
 
     const rows: FlatRow[] = [];
+    const activeFrameIndexes = new Set<number>();
     _flatIdxArray = new Array(frames.length);
     let flatIdx = 0;
     for (let i = 0; i < frames.length; i++) {
       const displayIdx = props.frameOffset + i;
       _flatIdxArray[i] = flatIdx;
-      rows.push({ kind: 'frame', displayIdx, frame: frames[i] });
+      activeFrameIndexes.add(displayIdx);
+      let cachedFrameRow = frameRowCache.get(displayIdx);
+      if (!cachedFrameRow || cachedFrameRow.frame !== frames[i]) {
+        cachedFrameRow = {
+          frame: frames[i],
+          row: { kind: 'frame', displayIdx, frame: frames[i] },
+        };
+        frameRowCache.set(displayIdx, cachedFrameRow);
+      }
+      rows.push(cachedFrameRow.row);
       flatIdx++;
       if (expanded.has(displayIdx)) {
         const sigs = frames[i].signals;
@@ -463,6 +474,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           }
         }
       }
+    }
+    for (const displayIdx of frameRowCache.keys()) {
+      if (!activeFrameIndexes.has(displayIdx)) frameRowCache.delete(displayIdx);
     }
     setFlattenedRows(rows);
   });
@@ -1294,7 +1308,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </thead>
           <tbody>
             <tr style={{ height: `${(props.frameOffset + startIndex()) * ROW_HEIGHT}px` }} />
-            {visibleRows().map((row, _i) => {
+            <For each={visibleRows()}>{(row) => {
               if (row.kind === 'signal') {
                 return (
                   <tr
@@ -1397,7 +1411,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   </td>
                 </tr>
               );
-            })}
+            }}</For>
             <tr style={{ height: `${Math.max(0, totalHeight() - (props.frameOffset + endIndex()) * ROW_HEIGHT)}px` }} />
           </tbody>
         </table>
