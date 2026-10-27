@@ -283,8 +283,7 @@ struct FrameInfo {
     is_fd: bool,
     is_tx: bool,
     dlc: u8,
-    #[serde(with = "serde_bytes")]
-    data: [u8; 64],
+    data: Vec<u8>,
     signals: Option<Vec<DecodedSignalInfo>>,
 }
 
@@ -356,6 +355,7 @@ fn build_playlist_info_from_state(
 }
 
 fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
+    let dlc = f.dlc as usize;
     FrameInfo {
         timestamp: f.timestamp,
         bus_id: f.bus_id,
@@ -364,7 +364,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         is_fd: f.is_fd,
         is_tx: f.is_tx,
         dlc: f.dlc,
-        data: *f.data,
+        data: f.data[..dlc.min(64)].to_vec(),
         signals: f.signals.as_ref().map(|sigs| sigs.iter().map(DecodedSignalInfo::from).collect()),
     }
 }

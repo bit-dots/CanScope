@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
+import { Component, createSignal, createMemo, onMount, onCleanup, Show, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
 import type { FrameInfo, DecodedSignalInfo } from '../types';
@@ -386,11 +386,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.body.style.userSelect = 'none';
   };
 
-  const displayedFrames = () => {
-    let frames = isPaused()
-      ? props.frames.slice(0, pausedCount())
-      : props.frames;
-
+  const displayedFrames = createMemo<FrameInfo[]>(() => {
     const ft = filterTime().trim().toLowerCase();
     const fc = filterChannel().trim().toLowerCase();
     const fi = filterId().trim().toLowerCase();
@@ -398,6 +394,17 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const fd = filterDlc().trim();
     const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
     const fn = filterName().trim().toLowerCase();
+
+    const paused = isPaused();
+
+    // 无筛选 + 未暂停：直接返回原数组，零拷贝
+    if (!ft && !fc && !fi && !fy && !fd && !fx && !fn && !paused) {
+        return props.frames;
+    }
+
+    let frames = paused
+      ? props.frames.slice(0, pausedCount())
+      : props.frames;
 
     frames = frames.filter((frame) => {
         if (ft && !formatTimestamp(frame, 0).toLowerCase().includes(ft)) return false;
@@ -421,9 +428,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     });
 
     return frames;
-  };
+  });
 
-  const flattenedRows = () => {
+  const flattenedRows = createMemo<FlatRow[]>(() => {
     const frames = displayedFrames();
     const expanded = expandedFrames();
     const rows: FlatRow[] = [];
@@ -439,7 +446,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       }
     }
     return rows;
-  };
+  });
 
   const flatIndexOfDisplayIdx = (displayIdx: number): number => {
     const expanded = expandedFrames();
