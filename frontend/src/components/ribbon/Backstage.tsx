@@ -1,4 +1,4 @@
-import { Component, createSignal, For, JSX, onMount } from 'solid-js';
+import { Component, createEffect, createSignal, For } from 'solid-js';
 import ContextMenu, { type ContextMenuItem } from '../ContextMenu';
 import MeasurementSettingsPanel from '../MeasurementSettingsPanel';
 import type { MeasurementSettings } from '../../measurementSettings';
@@ -21,34 +21,8 @@ const MENU_ITEMS: BackstageMenuItem[] = [
   { id: 'open', label: '打开' },
   { id: 'save', label: '保存' },
   { id: 'saveas', label: '另存为' },
-  { id: 'import', label: '导入' },
-  { id: 'export', label: '导出' },
   { id: 'options', label: '选项' },
-  { id: 'exit', label: '退出', danger: true },
-];
-
-const PROJECT_TEMPLATES = [
-  { id: 'blank', name: '空白工程', desc: '创建一个空的工程文件，手动导入数据' },
-  { id: 'can', name: 'CAN 分析工程', desc: '预设 CAN 总线分析视图，适用于 DBC 回放' },
-  { id: 'logging', name: '数据记录工程', desc: '预设记录视图，适用于实时采集场景' },
-];
-
-const IMPORT_FORMATS = [
-  { id: 'asc', name: 'ASC', desc: 'Vector ASCII 日志' },
-  { id: 'csv', name: 'CSV', desc: '逗号分隔值' },
-  { id: 'blf', name: 'BLF', desc: 'Binary Logging Format' },
-  { id: 'dbc', name: 'DBC', desc: 'CAN 数据库文件' },
-];
-
-const EXPORT_FORMATS = [
-  { id: 'asc', name: 'ASC', desc: 'Vector ASCII 日志' },
-  { id: 'csv', name: 'CSV', desc: '逗号分隔值' },
-  { id: 'blf', name: 'BLF', desc: 'Binary Logging Format' },
-];
-
-const OPTIONS_CATEGORIES = [
-  { id: 'general', name: '常规', desc: '应用通用设置' },
-  { id: 'measurement', name: '测量', desc: '数据缓存和测量行为' },
+  { id: 'close', label: '关闭工程', danger: true },
 ];
 
 export interface BackstageProps {
@@ -65,49 +39,30 @@ export interface BackstageProps {
   cachedFrameCount: number;
   estimatedCacheBytes: number;
   onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
-  children?: JSX.Element;
 }
 
 const Backstage: Component<BackstageProps> = (props) => {
   const [activeItem, setActiveItem] = createSignal('new');
-  const [activeOptionsCategory, setActiveOptionsCategory] = createSignal('general');
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
+  const [menuError, setMenuError] = createSignal<string | null>(null);
 
-  onMount(async () => {
+  const refreshRecentProjects = async () => {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       const list: RecentProjectInfo[] = await invoke('get_recent_projects');
       setRecentProjects(list);
-    } catch {
-      // Backend may not be available
+      setMenuError(null);
+    } catch (e) {
+      setMenuError(`无法读取最近工程：${String(e)}`);
     }
+  };
+
+  createEffect(() => {
+    if (props.visible) void refreshRecentProjects();
   });
 
   const handleItemClick = (item: BackstageMenuItem) => {
     setActiveItem(item.id);
-
-    switch (item.id) {
-      case 'new':
-        props.onNewProject();
-        props.onClose();
-        break;
-      case 'open':
-        props.onOpenProject();
-        props.onClose();
-        break;
-      case 'save':
-        if (props.projectLoaded) props.onSaveProject();
-        break;
-      case 'saveas':
-        if (props.projectLoaded) props.onSaveProjectAs();
-        break;
-      case 'exit':
-        props.onCloseProject();
-        props.onClose();
-        break;
-      default:
-        break;
-    }
   };
 
   const formatTime = (iso: string): string => {
@@ -149,7 +104,10 @@ const Backstage: Component<BackstageProps> = (props) => {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('remove_recent_project', { path });
       setRecentProjects((prev) => prev.filter((r) => r.path !== path));
-    } catch { /* ignore */ }
+      setMenuError(null);
+    } catch (e) {
+      setMenuError(`无法从最近列表移除工程：${String(e)}`);
+    }
     closeContextMenu();
   };
 
@@ -158,7 +116,10 @@ const Backstage: Component<BackstageProps> = (props) => {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('clear_recent_projects');
       setRecentProjects([]);
-    } catch { /* ignore */ }
+      setMenuError(null);
+    } catch (e) {
+      setMenuError(`无法清空最近工程列表：${String(e)}`);
+    }
     closeContextMenu();
   };
 
@@ -196,30 +157,14 @@ const Backstage: Component<BackstageProps> = (props) => {
           </For>
         </nav>
         <div class="backstage__content">
+          {menuError() && <p class="backstage__error" role="alert">{menuError()}</p>}
           {/* 新建 */}
           <div style={{ display: activeItem() === 'new' ? 'block' : 'none' }}>
             <h2 class="backstage__heading">新建工程</h2>
-            <p class="backstage__desc">选择工程模板开始</p>
-            <div class="backstage__card-list">
-              <For each={PROJECT_TEMPLATES}>
-                {(tmpl) => (
-                  <div class="backstage__card" onClick={() => { props.onNewProject(); props.onClose(); }}>
-                    <div class="backstage__card-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        {tmpl.id === 'blank'
-                          ? <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></>
-                          : tmpl.id === 'can'
-                            ? <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>
-                            : <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></>
-                        }
-                      </svg>
-                    </div>
-                    <div class="backstage__card-title">{tmpl.name}</div>
-                    <div class="backstage__card-desc">{tmpl.desc}</div>
-                  </div>
-                )}
-              </For>
-            </div>
+            <p class="backstage__desc">创建一个新的 CAN 工作工程。</p>
+            <button class="backstage__action-btn" onClick={() => { props.onNewProject(); props.onClose(); }} type="button">
+              新建工程
+            </button>
           </div>
 
           {/* 打开 */}
@@ -261,7 +206,7 @@ const Backstage: Component<BackstageProps> = (props) => {
             <h2 class="backstage__heading">保存工程</h2>
             <p class="backstage__desc">将当前工程保存到文件。快捷键：Ctrl+S</p>
             {props.projectLoaded ? (
-              <button class="backstage__action-btn" onClick={props.onSaveProject} type="button">
+              <button class="backstage__action-btn" onClick={() => { props.onSaveProject(); props.onClose(); }} type="button">
                 保存
               </button>
             ) : (
@@ -274,7 +219,7 @@ const Backstage: Component<BackstageProps> = (props) => {
             <h2 class="backstage__heading">另存为</h2>
             <p class="backstage__desc">将当前工程保存为新文件</p>
             {props.projectLoaded ? (
-              <button class="backstage__action-btn" onClick={props.onSaveProjectAs} type="button">
+              <button class="backstage__action-btn" onClick={() => { props.onSaveProjectAs(); props.onClose(); }} type="button">
                 另存为
               </button>
             ) : (
@@ -282,82 +227,24 @@ const Backstage: Component<BackstageProps> = (props) => {
             )}
           </div>
 
-          {/* 导入 */}
-          <div style={{ display: activeItem() === 'import' ? 'block' : 'none' }}>
-            <h2 class="backstage__heading">导入文件</h2>
-            <p class="backstage__desc">支持的导入格式</p>
-            <div class="backstage__card-list">
-              <For each={IMPORT_FORMATS}>
-                {(fmt) => (
-                  <div class="backstage__card backstage__card--small" onClick={() => props.onOpenProject()}>
-                    <div class="backstage__card-title">{fmt.name}</div>
-                    <div class="backstage__card-desc">{fmt.desc}</div>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-
-          {/* 导出 */}
-          <div style={{ display: activeItem() === 'export' ? 'block' : 'none' }}>
-            <h2 class="backstage__heading">导出文件</h2>
-            <p class="backstage__desc">支持的导出格式</p>
-            <div class="backstage__card-list">
-              <For each={EXPORT_FORMATS}>
-                {(fmt) => (
-                  <div class="backstage__card backstage__card--small">
-                    <div class="backstage__card-title">{fmt.name}</div>
-                    <div class="backstage__card-desc">{fmt.desc}</div>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-
           {/* 选项 */}
           <div style={{ display: activeItem() === 'options' ? 'block' : 'none' }}>
             <h2 class="backstage__heading">选项</h2>
-            <p class="backstage__desc">应用级设置</p>
-            <div class="backstage__options">
-              <nav class="backstage__options-nav">
-                <For each={OPTIONS_CATEGORIES}>
-                  {(category) => (
-                    <button
-                      class="backstage__nav-item"
-                      classList={{ 'backstage__nav-item--active': activeOptionsCategory() === category.id }}
-                      onClick={() => setActiveOptionsCategory(category.id)}
-                      type="button"
-                    >
-                      {category.name}
-                    </button>
-                  )}
-                </For>
-              </nav>
-              <div class="backstage__options-panel">
-                {activeOptionsCategory() === 'general' ? (
-                  <>
-                    <h3 class="backstage__subheading">常规</h3>
-                    <p class="backstage__desc">当前暂无其他通用选项。</p>
-                  </>
-                ) : (
-                  <MeasurementSettingsPanel
-                    settings={props.measurementSettings}
-                    cachedFrameCount={props.cachedFrameCount}
-                    estimatedCacheBytes={props.estimatedCacheBytes}
-                    onChange={props.onMeasurementSettingsChange}
-                  />
-                )}
-              </div>
-            </div>
+            <MeasurementSettingsPanel
+              settings={props.measurementSettings}
+              cachedFrameCount={props.cachedFrameCount}
+              estimatedCacheBytes={props.estimatedCacheBytes}
+              onChange={props.onMeasurementSettingsChange}
+            />
           </div>
 
-          {/* 退出 */}
-          <div style={{ display: activeItem() === 'exit' ? 'block' : 'none' }}>
-            <h2 class="backstage__heading">退出</h2>
-            <p class="backstage__desc">关闭当前工程并返回欢迎界面</p>
+          {/* 关闭工程 */}
+          <div style={{ display: activeItem() === 'close' ? 'block' : 'none' }}>
+            <h2 class="backstage__heading">关闭工程</h2>
+            <p class="backstage__desc">关闭当前工程并返回欢迎界面。</p>
             {props.projectLoaded ? (
               <button class="backstage__action-btn backstage__action-btn--danger" onClick={() => { props.onCloseProject(); props.onClose(); }} type="button">
-                退出工程
+                关闭工程
               </button>
             ) : (
               <p class="backstage__desc" style={{ color: 'var(--text-secondary)' }}>当前未打开工程</p>

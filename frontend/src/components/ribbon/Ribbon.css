@@ -407,30 +407,6 @@
   overflow-y: auto;
 }
 
-.backstage__options {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  min-height: 280px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.backstage__options-nav {
-  padding: 8px 0;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
-}
-
-.backstage__options-nav .backstage__nav-item {
-  width: 100%;
-}
-
-.backstage__options-panel {
-  padding: 20px 24px;
-  min-width: 0;
-}
-
 .backstage__subheading {
   margin: 0 0 8px;
   color: var(--text-primary);
@@ -515,6 +491,16 @@
   color: var(--text-secondary);
   margin: 0 0 24px 0;
   line-height: 1.6;
+}
+
+.backstage__error {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+  background: color-mix(in srgb, var(--error) 10%, var(--bg-primary));
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .backstage__card-list {

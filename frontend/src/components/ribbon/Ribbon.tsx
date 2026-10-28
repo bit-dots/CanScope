@@ -10,16 +10,6 @@ import './Ribbon.css';
 /* ============================================
    Inline SVG Icons
    ============================================ */
-const IconOnline: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="5" />
-    <line x1="12" y1="2" x2="12" y2="6" />
-    <line x1="12" y1="18" x2="12" y2="22" />
-    <line x1="2" y1="12" x2="6" y2="12" />
-    <line x1="18" y1="12" x2="22" y2="12" />
-  </svg>
-);
-
 const IconPlay: Component = () => (
   <svg viewBox="0 0 24 24">
     <polygon points="6,3 20,12 6,21" />
@@ -29,6 +19,16 @@ const IconPlay: Component = () => (
 const IconStop: Component = () => (
   <svg viewBox="0 0 24 24">
     <rect x="5" y="5" width="14" height="14" rx="1" />
+  </svg>
+);
+
+const IconOnline: Component = () => (
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="2" x2="12" y2="6" />
+    <line x1="12" y1="18" x2="12" y2="22" />
+    <line x1="2" y1="12" x2="6" y2="12" />
+    <line x1="18" y1="12" x2="22" y2="12" />
   </svg>
 );
 
@@ -43,27 +43,10 @@ const IconChannel: Component = () => (
   </svg>
 );
 
-const IconImport: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9l-5-6z" />
-    <polyline points="14 3 14 9 20 9" />
-    <line x1="12" y1="12" x2="12" y2="18" />
-    <polyline points="9 15 12 18 15 15" />
-  </svg>
-);
-
 const IconSend: Component = () => (
   <svg viewBox="0 0 24 24">
     <line x1="22" y1="2" x2="11" y2="13" />
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
-);
-
-const IconMonitor: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <rect x="2" y="3" width="20" height="14" rx="2" />
-    <line x1="8" y1="21" x2="16" y2="21" />
-    <line x1="12" y1="17" x2="12" y2="21" />
   </svg>
 );
 
@@ -74,26 +57,11 @@ const IconRecord: Component = () => (
   </svg>
 );
 
-const IconUds: Component = () => (
+const IconMonitor: Component = () => (
   <svg viewBox="0 0 24 24">
-    <rect x="3" y="3" width="18" height="14" rx="2" />
-    <line x1="7" y1="8" x2="17" y2="8" />
-    <line x1="7" y1="12" x2="15" y2="12" />
-    <circle cx="6" cy="21" r="2" />
-    <circle cx="18" cy="21" r="2" />
-  </svg>
-);
-
-const IconObd: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-  </svg>
-);
-
-const IconEcu: Component = () => (
-  <svg viewBox="0 0 24 24">
-    <rect x="4" y="4" width="16" height="16" rx="2" />
-    <polyline points="8 12 11 15 16 9" />
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
   </svg>
 );
 
@@ -122,9 +90,10 @@ const TABS: RibbonTabDef[] = [
    Ribbon Props
    ============================================ */
 export interface RibbonProps {
-  online: boolean;
   playbackState: 'playing' | 'paused' | 'stopped';
+  sourceLoaded: boolean;
   projectLoaded: boolean;
+  online: boolean;
   onToggleOnline: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -138,9 +107,6 @@ export interface RibbonProps {
   onStartRecord: () => void;
   onStopRecord: () => void;
   onOpenPlayback: () => void;
-  onOpenUds: () => void;
-  onOpenObd: () => void;
-  onOpenEcuFlash: () => void;
   onNewProject: () => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
@@ -223,7 +189,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
           <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
             <RibbonGroup label="连接/测量">
               <RibbonButton icon={<IconOnline />} label="在线" active={props.online} onClick={props.onToggleOnline} />
-              <RibbonButton icon={<IconPlay />} label="启动" onClick={props.onStart} disabled={props.playbackState === 'playing'} />
+              <RibbonButton icon={<IconPlay />} label="启动" onClick={props.onStart} disabled={!props.sourceLoaded || props.playbackState === 'playing'} />
               <RibbonButton icon={<IconStop />} label="停止" onClick={props.onStop} disabled={props.playbackState === 'stopped'} />
               <RibbonButton icon={<IconChannel />} label="通道" onClick={props.onOpenChannelConfig} dropdown />
             </RibbonGroup>
@@ -243,40 +209,14 @@ const Ribbon: Component<RibbonProps> = (props) => {
           </div>
         )}
 
-        {/* 诊断 */}
-        {activeTab() === 'diagnosis' && (
-          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
-            <RibbonGroup label="诊断">
-              <RibbonButton icon={<IconUds />} label="UDS 诊断" onClick={props.onOpenUds} />
-              <RibbonButton icon={<IconObd />} label="OBD 诊断" onClick={props.onOpenObd} />
-              <RibbonButton icon={<IconEcu />} label="ECU 刷写" onClick={props.onOpenEcuFlash} />
-            </RibbonGroup>
-          </div>
-        )}
-
-        {/* 占位页签 */}
-        <For each={['calibration', 'simulation', 'acquisition', 'tools', 'help']}>
-          {(tabId) => (
-            <div style={{ display: activeTab() === tabId ? 'flex' : 'none' }} class="ribbon__placeholder">
-              {TABS.find(t => t.id === tabId)?.label} — 功能开发中
+        <For each={TABS.filter(tab => !['file', 'project', 'analysis'].includes(tab.id))}>
+          {(tab) => activeTab() === tab.id && (
+            <div class="ribbon__placeholder">
+              {tab.label}功能开发中
             </div>
           )}
         </For>
 
-        {/* 视图页签 */}
-        {activeTab() === 'view' && (
-          <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
-            <RibbonGroup label="布局预设">
-              <RibbonButton icon={<IconMonitor />} label="默认布局" onClick={() => {}} />
-              <RibbonButton icon={<ChartLine size={16} />} label="分析布局" onClick={() => {}} />
-              <RibbonButton icon={<IconSend />} label="调试布局" onClick={() => {}} />
-            </RibbonGroup>
-            <RibbonGroup label="布局管理">
-              <RibbonButton icon={<IconImport />} label="保存布局" onClick={() => {}} />
-              <RibbonButton icon={<IconImport />} label="管理布局" onClick={() => {}} />
-            </RibbonGroup>
-          </div>
-        )}
       </div>}
 
       {/* ---- Backstage Overlay ---- */}

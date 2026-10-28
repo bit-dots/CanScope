@@ -67,7 +67,6 @@ function App() {
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
-  const [online] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
@@ -725,6 +724,7 @@ function App() {
       }
     } catch (e) {
       console.error('playback_control failed:', e);
+      setError(String(e));
     }
   };
 
@@ -920,11 +920,12 @@ function App() {
     <div class="app-layout">
       {project() !== null && !loading() && <Ribbon
           projectLoaded={project() !== null}
+          sourceLoaded={hasSource()}
           playbackState={playbackState()}
-          online={online()}
+          online={false}
           onToggleOnline={() => {}}
-          onStart={() => handlePlaybackControl('play')}
-          onStop={() => handlePlaybackControl('stop')}
+          onStart={() => void handlePlaybackControl('play')}
+          onStop={() => void handlePlaybackControl('stop')}
           onOpenChannelConfig={() => {}}
           onOpenDatabaseManager={handleOpenDatabaseManager}
           onOpenResourceManager={() => windowManager.togglePanel('resource-manager')}
@@ -935,9 +936,6 @@ function App() {
           onStartRecord={() => {}}
           onStopRecord={() => {}}
           onOpenPlayback={() => windowManager.togglePanel('playback')}
-          onOpenUds={() => {}}
-          onOpenObd={() => {}}
-          onOpenEcuFlash={() => {}}
           onNewProject={handleNewProject}
           onOpenProject={handleOpenProject}
           onSaveProject={handleSaveProject}
