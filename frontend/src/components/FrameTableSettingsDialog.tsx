@@ -213,22 +213,6 @@ const FrameTableSettingsDialog: Component<FrameTableSettingsDialogProps> = (prop
               />
             </div>
 
-            <div class="frame-settings-row frame-settings-row--input">
-              <label class="frame-settings-input-label" for="max-frames">最大显示帧数</label>
-              <input
-                id="max-frames"
-                class="frame-settings__input"
-                type="number"
-                min={100}
-                max={1000000}
-                step={100}
-                value={draft().maxFrames}
-                onChange={(e) => {
-                  const v = parseInt(e.currentTarget.value, 10);
-                  if (!isNaN(v)) setField('maxFrames', Math.max(100, Math.min(1000000, v)));
-                }}
-              />
-            </div>
           </div>
         </div>
 

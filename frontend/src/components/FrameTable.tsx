@@ -17,9 +17,11 @@ interface FrameTableProps {
   traceMode: boolean;
   traceDisplayFrozen: boolean;
   hiddenTraceFrames: number;
+  estimatedCacheBytes: number;
+  cacheFullPolicy: 'evict-oldest' | 'clear-all' | 'stop-measurement';
+  cacheLimitReached: boolean;
   onTraceFollowChange: (following: boolean) => void | Promise<void>;
   onMonitorRefreshRateChange: (rate: number) => void;
-  onMaxFramesChange: (maxFrames: number) => void;
   hasDbc?: boolean;
   onClear?: () => void;
   onSelectMessage?: (canId: number) => void;
@@ -125,7 +127,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     saveSettings(props.projectName, s);
     setTimeFormat(s.timeFormat);
     props.onMonitorRefreshRateChange(s.monitorRefreshRate);
-    props.onMaxFramesChange(s.maxFrames);
   };
 
   const handleAutoScrollToggle = () => {
@@ -844,7 +845,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   onMount(() => {
     props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
-    props.onMaxFramesChange(settings().maxFrames);
     props.onTraceFollowChange(settings().autoScroll && isAtBottom());
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
@@ -1484,11 +1484,23 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
               {props.traceDisplayFrozen && (
                 <span class="frame-table__statusbar-label">
-                  实时显示已冻结，{props.hiddenTraceFrames.toLocaleString()} 条新报文未显示
+                  {props.cacheLimitReached
+                    ? '缓存已满，回放已暂停'
+                    : `实时显示已冻结，${props.hiddenTraceFrames.toLocaleString()} 条新报文未显示`}
                 </span>
               )}
+              {!props.traceDisplayFrozen &&
+                props.cacheFullPolicy === 'clear-all' &&
+                props.hiddenTraceFrames > 0 && (
+                  <span class="frame-table__statusbar-label">
+                    缓存达到上限，已清理 {props.hiddenTraceFrames.toLocaleString()} 条历史报文
+                  </span>
+                )}
             </div>
             <div class="frame-table__statusbar-right">
+              <span class="frame-table__statusbar-item" title="当前报文监控缓存的近似内存占用，不含应用其他内存">
+                缓存估算: {(props.estimatedCacheBytes / (1024 * 1024)).toFixed(1)} MB
+              </span>
               <span class="frame-table__statusbar-item" title="接收帧数">
             <span>RX: {displayedFrames().filter(f => !f.is_tx).length.toLocaleString()}</span>
           </span>

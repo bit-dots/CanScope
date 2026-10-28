@@ -5,7 +5,6 @@ export interface FrameTableSettings {
   canIdFormat: 'no-prefix' | '0x-prefix';
   autoScroll: boolean;
   monitorRefreshRate: number;
-  maxFrames: number;
   highlightChanges: boolean;
 }
 
@@ -18,7 +17,6 @@ const DEFAULT_SETTINGS: FrameTableSettings = {
   canIdFormat: 'no-prefix',
   autoScroll: true,
   monitorRefreshRate: 5,
-  maxFrames: 10000,
   highlightChanges: true,
 };
 
@@ -27,6 +25,7 @@ export function loadSettings(projectName: string): FrameTableSettings {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}.${projectName}`);
     if (raw) {
       const parsed = JSON.parse(raw);
+      delete parsed.maxFrames;
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,

@@ -3,6 +3,7 @@ import { Database, FilePlay, FolderOpen, ChartLine } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
 import Backstage from './Backstage';
+import type { MeasurementSettings } from '../../measurementSettings';
 import './Ribbon.css';
 
 /* ============================================
@@ -145,6 +146,10 @@ export interface RibbonProps {
   onSaveProjectAs: () => void;
   onCloseProject: () => void;
   onOpenRecent: (path: string) => void;
+  measurementSettings: MeasurementSettings;
+  cachedFrameCount: number;
+  estimatedCacheBytes: number;
+  onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
 }
 
 const Ribbon: Component<RibbonProps> = (props) => {
@@ -183,7 +188,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
     <div class="ribbon">
       {/* ---- Tab Row ---- */}
       <div class="ribbon__tabs">
-        <For each={TABS}>
+        <For each={TABS.filter((tab) => props.projectLoaded || tab.id === 'file')}>
           {(tab) => (
             <button
               class="ribbon__tab"
@@ -201,7 +206,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
       </div>
 
       {/* ---- Content Area ---- */}
-      <div class="ribbon__content">
+      {props.projectLoaded && <div class="ribbon__content">
         {/* 项目 */}
         {activeTab() === 'project' && (
           <div class="ribbon__groups" onScroll={handleGroupsScroll} ref={groupsRef}>
@@ -271,7 +276,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
             </RibbonGroup>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ---- Backstage Overlay ---- */}
       <Backstage
@@ -284,6 +289,10 @@ const Ribbon: Component<RibbonProps> = (props) => {
         onCloseProject={props.onCloseProject}
         onOpenRecent={props.onOpenRecent}
         projectLoaded={props.projectLoaded}
+        measurementSettings={props.measurementSettings}
+        cachedFrameCount={props.cachedFrameCount}
+        estimatedCacheBytes={props.estimatedCacheBytes}
+        onMeasurementSettingsChange={props.onMeasurementSettingsChange}
       />
     </div>
   );

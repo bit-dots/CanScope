@@ -1,5 +1,6 @@
 import { Component, createSignal, For, JSX, onMount } from 'solid-js';
 import ContextMenu, { type ContextMenuItem } from '../ContextMenu';
+import type { MeasurementSettings } from '../../measurementSettings';
 import './Ribbon.css';
 
 interface RecentProjectInfo {
@@ -45,9 +46,8 @@ const EXPORT_FORMATS = [
 ];
 
 const OPTIONS_CATEGORIES = [
-  { id: 'general', name: '通用', desc: '语言、数据目录、自动保存' },
-  { id: 'theme', name: '主题', desc: '深色 / 浅色模式' },
-  { id: 'playback', name: '回放', desc: '默认速度、循环模式' },
+  { id: 'general', name: '常规', desc: '应用通用设置' },
+  { id: 'measurement', name: '测量', desc: '数据缓存和测量行为' },
 ];
 
 export interface BackstageProps {
@@ -60,11 +60,16 @@ export interface BackstageProps {
   onCloseProject: () => void;
   onOpenRecent: (path: string) => void;
   projectLoaded: boolean;
+  measurementSettings: MeasurementSettings;
+  cachedFrameCount: number;
+  estimatedCacheBytes: number;
+  onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
   children?: JSX.Element;
 }
 
 const Backstage: Component<BackstageProps> = (props) => {
   const [activeItem, setActiveItem] = createSignal('new');
+  const [activeOptionsCategory, setActiveOptionsCategory] = createSignal('general');
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
 
   onMount(async () => {
@@ -311,16 +316,95 @@ const Backstage: Component<BackstageProps> = (props) => {
           {/* 选项 */}
           <div style={{ display: activeItem() === 'options' ? 'block' : 'none' }}>
             <h2 class="backstage__heading">选项</h2>
-            <p class="backstage__desc">应用设置</p>
-            <div class="backstage__card-list">
-              <For each={OPTIONS_CATEGORIES}>
-                {(cat) => (
-                  <div class="backstage__card backstage__card--small">
-                    <div class="backstage__card-title">{cat.name}</div>
-                    <div class="backstage__card-desc">{cat.desc}</div>
-                  </div>
+            <p class="backstage__desc">应用级设置</p>
+            <div class="backstage__options">
+              <nav class="backstage__options-nav">
+                <For each={OPTIONS_CATEGORIES}>
+                  {(category) => (
+                    <button
+                      class="backstage__nav-item"
+                      classList={{ 'backstage__nav-item--active': activeOptionsCategory() === category.id }}
+                      onClick={() => setActiveOptionsCategory(category.id)}
+                      type="button"
+                    >
+                      {category.name}
+                    </button>
+                  )}
+                </For>
+              </nav>
+              <div class="backstage__options-panel">
+                {activeOptionsCategory() === 'general' ? (
+                  <>
+                    <h3 class="backstage__subheading">常规</h3>
+                    <p class="backstage__desc">当前暂无其他通用选项。</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 class="backstage__subheading">数据缓存</h3>
+                    <p class="backstage__desc">
+                      此缓存只控制报文监控界面，不会删除原始录制文件或磁盘索引。
+                    </p>
+                    <div class="backstage__setting-row">
+                      <label for="cache-frame-limit">最大缓存帧数</label>
+                      <input
+                        id="cache-frame-limit"
+                        type="number"
+                        min={100}
+                        max={1000000}
+                        step={1000}
+                        value={props.measurementSettings.maxCachedFrames}
+                        onChange={(event) => {
+                          const value = Number.parseInt(event.currentTarget.value, 10);
+                          if (Number.isFinite(value)) {
+                            props.onMeasurementSettingsChange({
+                              ...props.measurementSettings,
+                              maxCachedFrames: Math.max(100, Math.min(1000000, value)),
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    <div class="backstage__cache-stats">
+                      <span>
+                        当前缓存帧数：{props.cachedFrameCount.toLocaleString()} / {props.measurementSettings.maxCachedFrames.toLocaleString()}
+                      </span>
+                      <span>
+                        监控缓存估算：{(props.estimatedCacheBytes / (1024 * 1024)).toFixed(1)} MB
+                      </span>
+                    </div>
+                    <p class="backstage__setting-note">
+                      内存值是基于报文和解码信号对象的近似估算，不代表应用总内存；帧数上限是实际硬限制。
+                    </p>
+                    <div class="backstage__setting-group">
+                      <div class="backstage__setting-label">缓存达到上限时</div>
+                      {([
+                        ['evict-oldest', '删除最旧数据并持续接收'],
+                        ['clear-all', '清空全部历史，再从新数据继续累积'],
+                        ['stop-measurement', '停止测量；数据回放时暂停播放'],
+                      ] as const).map(([policy, label]) => (
+                        <label class="backstage__setting-radio">
+                          <input
+                            type="radio"
+                            name="cache-full-policy"
+                            checked={props.measurementSettings.cacheFullPolicy === policy}
+                            onChange={() => props.onMeasurementSettingsChange({
+                              ...props.measurementSettings,
+                              cacheFullPolicy: policy,
+                            })}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p class="backstage__setting-note">
+                      关闭自动滚动并查看历史时，监控视图会冻结并统计未显示的新报文；该行为优先于自动淘汰，避免历史内容移动。
+                    </p>
+                    <p class="backstage__setting-note">
+                      当前回放达到上限时会按所选策略处理；实时测量停止策略会在实时采集数据源接入后生效。
+                    </p>
+                  </>
                 )}
-              </For>
+              </div>
             </div>
           </div>
 

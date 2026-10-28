@@ -17,6 +17,12 @@ import { useWindowManager } from './components/windowing/useWindowManager';
 import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import DatabaseManagerDialog from './components/DatabaseManagerDialog';
+import {
+  estimateFramesMemoryBytes,
+  loadMeasurementSettings,
+  saveMeasurementSettings,
+  type MeasurementSettings,
+} from './measurementSettings';
 import type {
   PlaybackState,
   FrameInfo,
@@ -41,10 +47,12 @@ function App() {
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
-  const [frameMonitorMaxFrames, setFrameMonitorMaxFrames] = createSignal(10000);
+  const [measurementSettings, setMeasurementSettings] = createSignal(loadMeasurementSettings());
+  const [estimatedCacheBytes, setEstimatedCacheBytes] = createSignal(0);
   const [traceViewFollowing, setTraceViewFollowing] = createSignal(true);
   const [traceDisplayFrozen, setTraceDisplayFrozen] = createSignal(false);
   const [hiddenTraceFrames, setHiddenTraceFrames] = createSignal(0);
+  const [cacheLimitReached, setCacheLimitReached] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<{
     path: string;
@@ -86,7 +94,7 @@ function App() {
     const activeFilter = filter();
     const page: FramePage = await invoke('get_frame_page', {
       offset,
-      limit: Math.min(limit, playbackTime === undefined ? 512 : frameMonitorMaxFrames()),
+      limit: Math.min(limit, playbackTime === undefined ? 512 : measurementSettings().maxCachedFrames),
       canId: parseCanId(activeFilter.canId),
       timeStart: parseTime(activeFilter.timeStart),
       timeEnd: parseTime(activeFilter.timeEnd),
@@ -96,6 +104,7 @@ function App() {
     setFrames(page.frames);
     setFrameOffset(page.offset);
     setFrameTotalCount(page.totalCount);
+    setEstimatedCacheBytes(estimateFramesMemoryBytes(page.frames));
   };
 
   const queryChartData = (
@@ -125,24 +134,76 @@ function App() {
     }
 
     const currentFrames = frames();
-    const capacity = Math.max(0, frameMonitorMaxFrames() - currentFrames.length);
+    const maxFrames = measurementSettings().maxCachedFrames;
+    const capacity = Math.max(0, maxFrames - currentFrames.length);
     if (!traceViewFollowing() && appended.length >= capacity) {
       const visible = appended.slice(0, capacity);
       if (visible.length > 0) {
         setFrames([...currentFrames, ...visible]);
+        setEstimatedCacheBytes((bytes) => bytes + estimateFramesMemoryBytes(visible));
         setFrameTotalCount((count) => count + visible.length);
       }
       setHiddenTraceFrames((count) => count + appended.length - visible.length);
       setTraceDisplayFrozen(true);
+      if (measurementSettings().cacheFullPolicy === 'stop-measurement') {
+        setCacheLimitReached(true);
+        pausePlaybackAtCacheLimit();
+      }
+      return;
+    }
+
+    if (
+      measurementSettings().cacheFullPolicy === 'clear-all' &&
+      currentFrames.length + appended.length >= maxFrames
+    ) {
+      const retained = appended.slice(-maxFrames);
+      const discardedFromBatch = appended.length - retained.length;
+      setFrames(retained);
+      setFrameOffset((offset) => offset + currentFrames.length + discardedFromBatch);
+      setEstimatedCacheBytes(estimateFramesMemoryBytes(retained));
+      setFrameTotalCount((count) => count + appended.length);
+      setHiddenTraceFrames((count) => count + currentFrames.length + discardedFromBatch);
+      return;
+    }
+
+    if (
+      measurementSettings().cacheFullPolicy === 'stop-measurement' &&
+      appended.length >= capacity
+    ) {
+      const accepted = appended.slice(0, capacity);
+      if (accepted.length > 0) {
+        setFrames([...currentFrames, ...accepted]);
+        setEstimatedCacheBytes((bytes) => bytes + estimateFramesMemoryBytes(accepted));
+        setFrameTotalCount((count) => count + accepted.length);
+      }
+      setHiddenTraceFrames((count) => count + appended.length - accepted.length);
+      setTraceDisplayFrozen(true);
+      setCacheLimitReached(true);
+      pausePlaybackAtCacheLimit();
       return;
     }
 
     const combined = [...currentFrames, ...appended];
-    const droppedCount = Math.max(0, combined.length - frameMonitorMaxFrames());
+    const droppedCount = Math.max(0, combined.length - maxFrames);
     const nextFrames = droppedCount > 0 ? combined.slice(droppedCount) : combined;
     setFrames(nextFrames);
+    const appendedBytes = estimateFramesMemoryBytes(appended);
+    const droppedBytes = droppedCount > 0
+      ? estimateFramesMemoryBytes(combined.slice(0, droppedCount))
+      : 0;
+    setEstimatedCacheBytes((bytes) => Math.max(0, bytes + appendedBytes - droppedBytes));
     if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
     setFrameTotalCount((count) => count + appended.length);
+  };
+
+  const pausePlaybackAtCacheLimit = () => {
+    stopPolling();
+    void invoke<string>('playback_control', { action: 'pause' })
+      .then((state) => setPlaybackState(state as PlaybackState))
+      .catch((error) => {
+        console.error('Failed to pause playback at the cache limit:', error);
+        setError(String(error));
+      });
   };
 
   const resetTraceBuffer = () => {
@@ -151,9 +212,11 @@ function App() {
     setFrames([]);
     setFrameOffset(0);
     setFrameTotalCount(0);
+    setEstimatedCacheBytes(0);
     lastFrameMonitorRefresh = 0;
     setTraceDisplayFrozen(false);
     setHiddenTraceFrames(0);
+    setCacheLimitReached(false);
   };
 
   const startPolling = () => {
@@ -305,6 +368,9 @@ function App() {
 
     try {
       const proj: ProjectInfo = await invoke('open_project', { path });
+      const loadedMeasurementSettings = loadMeasurementSettings(proj.name);
+      setMeasurementSettings(loadedMeasurementSettings);
+      saveMeasurementSettings(loadedMeasurementSettings);
       setProject(proj);
 
       if (proj.canLogPath) {
@@ -473,9 +539,7 @@ function App() {
     setProject(null);
     setMetadata(null);
     setTraceMode(false);
-    setFrames([]);
-    setFrameOffset(0);
-    setFrameTotalCount(0);
+    resetTraceBuffer();
     setPlaybackFrameCount(0);
     setCurrentTime(0);
     setPlaybackState('stopped');
@@ -528,11 +592,7 @@ function App() {
       if (wasPlaying) stopPolling();
       await invoke('seek_to', { timestamp });
       setCurrentTime(timestamp);
-      pendingTraceFrames = [];
-      frameQueryId++;
-      setFrames([]);
-      setFrameOffset(0);
-      setFrameTotalCount(0);
+      resetTraceBuffer();
       setTraceMode(wasPlaying);
       if (wasPlaying) {
         startPolling();
@@ -586,6 +646,7 @@ function App() {
 
       if (state === 'playing') {
         if (prevState === 'stopped') setPlaybackFrameCount(0);
+        if (prevState !== 'playing') setCacheLimitReached(false);
         if (!traceMode()) {
           resetTraceBuffer();
           setTraceMode(true);
@@ -604,13 +665,21 @@ function App() {
     setFrameMonitorRefreshRate(Math.max(1, Math.min(30, rate)));
   };
 
-  const handleFrameMonitorMaxFramesChange = (maxFrames: number) => {
-    const limit = Math.max(100, Math.min(1000000, maxFrames));
-    setFrameMonitorMaxFrames(limit);
+  const handleMeasurementSettingsChange = (next: MeasurementSettings) => {
+    const updated: MeasurementSettings = {
+      maxCachedFrames: Math.max(100, Math.min(1000000, Math.floor(next.maxCachedFrames))),
+      cacheFullPolicy: next.cacheFullPolicy,
+    };
+    setMeasurementSettings(updated);
+    saveMeasurementSettings(updated);
     const current = frames();
-    const droppedCount = Math.max(0, current.length - limit);
+    const droppedCount = Math.max(0, current.length - updated.maxCachedFrames);
     if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
-    if (droppedCount > 0) setFrames(current.slice(droppedCount));
+    if (droppedCount > 0) {
+      const retained = current.slice(droppedCount);
+      setFrames(retained);
+      setEstimatedCacheBytes(estimateFramesMemoryBytes(retained));
+    }
   };
 
   const handleTraceFollowChange = (following: boolean): Promise<void> | void => {
@@ -619,7 +688,8 @@ function App() {
     if (following && !wasFollowing && traceDisplayFrozen()) {
       setTraceDisplayFrozen(false);
       setHiddenTraceFrames(0);
-      return requestFramePage(0, frameMonitorMaxFrames(), currentTime()).catch((e) => {
+      setCacheLimitReached(false);
+      return requestFramePage(0, measurementSettings().maxCachedFrames, currentTime()).catch((e) => {
         console.error('Failed to resume the live trace view:', e);
       });
     }
@@ -627,11 +697,14 @@ function App() {
 
   const handleClearFrameMonitor = () => {
     pendingTraceFrames = [];
+    frameQueryId++;
     setFrames([]);
     setFrameOffset(0);
     setFrameTotalCount(0);
+    setEstimatedCacheBytes(0);
     setTraceDisplayFrozen(false);
     setHiddenTraceFrames(0);
+    setCacheLimitReached(false);
   };
 
   const hasSource = () => metadata() !== null;
@@ -774,8 +847,7 @@ function App() {
 
   return (
     <div class="app-layout">
-      {project() && (
-        <Ribbon
+      <Ribbon
           projectLoaded={project() !== null}
           playbackState={playbackState()}
           online={online()}
@@ -801,8 +873,11 @@ function App() {
           onSaveProjectAs={handleSaveProjectAs}
           onCloseProject={handleCloseProject}
           onOpenRecent={handleOpenRecent}
-        />
-      )}
+          measurementSettings={measurementSettings()}
+          cachedFrameCount={frames().length}
+          estimatedCacheBytes={estimatedCacheBytes()}
+          onMeasurementSettingsChange={handleMeasurementSettingsChange}
+      />
       <main class="main-content">
         {error() && (
           <div class="error-bar">{error()}</div>
@@ -887,9 +962,11 @@ function App() {
                         traceMode={traceMode()}
                         traceDisplayFrozen={traceDisplayFrozen()}
                         hiddenTraceFrames={hiddenTraceFrames()}
+                        estimatedCacheBytes={estimatedCacheBytes()}
+                        cacheFullPolicy={measurementSettings().cacheFullPolicy}
+                        cacheLimitReached={cacheLimitReached()}
                         onTraceFollowChange={handleTraceFollowChange}
                         onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}
-                        onMaxFramesChange={handleFrameMonitorMaxFramesChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
