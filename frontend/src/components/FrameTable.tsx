@@ -17,7 +17,7 @@ interface FrameTableProps {
   traceMode: boolean;
   traceDisplayFrozen: boolean;
   hiddenTraceFrames: number;
-  onTraceFollowChange: (following: boolean) => void;
+  onTraceFollowChange: (following: boolean) => void | Promise<void>;
   onMonitorRefreshRateChange: (rate: number) => void;
   onMaxFramesChange: (maxFrames: number) => void;
   hasDbc?: boolean;
@@ -117,7 +117,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const handleApplySettings = (s: FrameTableSettings) => {
     if (s.autoScroll && !settings().autoScroll) {
       setIsFollowingPlayback(true);
-      props.onTraceFollowChange(true);
+      resumeTraceFollow();
     } else if (!s.autoScroll) {
       props.onTraceFollowChange(false);
     }
@@ -133,12 +133,29 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const updated = { ...s, autoScroll: !s.autoScroll };
     if (updated.autoScroll) {
       setIsFollowingPlayback(true);
-      props.onTraceFollowChange(true);
+      setSettings(updated);
+      saveSettings(props.projectName, updated);
+      resumeTraceFollow();
     } else {
       props.onTraceFollowChange(false);
+      setSettings(updated);
+      saveSettings(props.projectName, updated);
     }
-    setSettings(updated);
-    saveSettings(props.projectName, updated);
+  };
+
+  const resumeTraceFollow = () => {
+    Promise.resolve(props.onTraceFollowChange(true))
+      .then(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          if (containerRef) {
+            containerRef.scrollTop = containerRef.scrollHeight;
+            setScrollTop(containerRef.scrollTop);
+            setIsFollowingPlayback(true);
+          }
+          resolve();
+        });
+      }))
+      .catch((error) => console.error('Failed to follow the live trace:', error));
   };
 
   // ---- 变化字节高亮 ----

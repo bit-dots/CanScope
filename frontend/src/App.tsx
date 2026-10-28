@@ -296,6 +296,7 @@ function App() {
   const openProjectByPath = async (path: string) => {
     setLoading(true);
     setError(null);
+    resetTraceBuffer();
     setTraceMode(false);
     setDbcTree(null);
     setSelectedCanId(null);
@@ -310,8 +311,6 @@ function App() {
         const info: PlaylistInfo | null = await invoke('playlist_get_files');
         if (info) {
           setMetadata(info);
-          setTraceMode(false);
-          await requestFramePage(0, 512);
         }
         setPlaybackState('stopped');
       }
@@ -614,13 +613,13 @@ function App() {
     if (droppedCount > 0) setFrames(current.slice(droppedCount));
   };
 
-  const handleTraceFollowChange = (following: boolean) => {
+  const handleTraceFollowChange = (following: boolean): Promise<void> | void => {
     const wasFollowing = traceViewFollowing();
     setTraceViewFollowing(following);
     if (following && !wasFollowing && traceDisplayFrozen()) {
       setTraceDisplayFrozen(false);
       setHiddenTraceFrames(0);
-      void requestFramePage(0, frameMonitorMaxFrames(), currentTime()).catch((e) => {
+      return requestFramePage(0, frameMonitorMaxFrames(), currentTime()).catch((e) => {
         console.error('Failed to resume the live trace view:', e);
       });
     }
@@ -762,8 +761,11 @@ function App() {
       const info: PlaylistInfo | null = await invoke('playlist_get_files');
       if (info) {
         setMetadata(info);
-        setPlaybackFrameCount(0);
-        await requestFramePage(0, 512);
+        if (playbackState() !== 'playing') {
+          resetTraceBuffer();
+          setTraceMode(false);
+          setPlaybackFrameCount(0);
+        }
       }
     } catch (e) {
       console.error('playlist_get_files failed:', e);
