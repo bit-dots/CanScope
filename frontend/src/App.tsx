@@ -358,7 +358,9 @@ function App() {
       });
 
       setProject(proj);
-      windowManager.restorePanelLayouts(proj.uiLayout.panels);
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      windowManager.resetToNewProjectLayout();
+      cancelPendingLayoutSave();
       await invoke('update_project_state', {
         uiLayout: { ...proj.uiLayout, panels: windowManager.getPanelLayouts() },
       });
@@ -842,7 +844,10 @@ function App() {
 
     const syncRmHeight = () => {
       const ws = workspaceEl();
-      if (ws) windowManager.setPanelRect('resource-manager', { height: ws.clientHeight });
+      if (ws) {
+        windowManager.setPanelRect('resource-manager', { height: ws.clientHeight });
+        windowManager.syncNewProjectLayoutToWorkspace();
+      }
     };
     window.addEventListener('resize', syncRmHeight);
     onCleanup(() => window.removeEventListener('resize', syncRmHeight));
@@ -969,23 +974,6 @@ function App() {
               windowManager.endResize();
             }}
           >
-            {project() && !project()!.canLogPath && project()!.dbcBindings.length === 0 && (
-              <section
-                class="workspace-empty-state"
-                aria-label="空工程提示"
-                style={{
-                  left: (() => {
-                    const panel = windowManager.state.panels['resource-manager'];
-                    return panel?.visible && !panel.window.minimized && panel.window.rect.x === 0
-                      ? `${panel.window.rect.width}px`
-                      : '0';
-                  })(),
-                }}
-              >
-                <h1>工程已创建</h1>
-                <p>从文件菜单导入 CAN 日志或加载 DBC，开始查看报文与信号。</p>
-              </section>
-            )}
             {/* Snap preview overlay */}
             {windowManager.snapPreview() && (
               <div

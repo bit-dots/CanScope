@@ -73,33 +73,6 @@ select:focus-visible,
   background: var(--bg-primary);
 }
 
-.workspace-empty-state {
-  position: absolute;
-  inset: 0 0 0 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.workspace-empty-state h1 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 20px;
-  font-weight: 500;
-}
-
-.workspace-empty-state p {
-  max-width: 420px;
-  margin: 10px 0 0;
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
 /* Snap preview overlay is in components/windowing/FloatingWindow.css */
 /* WindowTaskbar styles are in components/windowing/WindowTaskbar.css */
 

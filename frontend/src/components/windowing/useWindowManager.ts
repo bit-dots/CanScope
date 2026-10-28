@@ -49,6 +49,7 @@ export function useWindowManager(
   let _wsViewportCache = { left: 0, top: 0 };
   let _dragRafPending = false;
   let _lastDragPos: { clientX: number; clientY: number } | null = null;
+  let followsWorkspaceSize = false;
 
   // Initialize panels
   for (const def of panelDefs) {
@@ -116,6 +117,7 @@ export function useWindowManager(
   }
 
   function restorePanelLayouts(layouts: PanelLayoutJson[]) {
+    followsWorkspaceSize = false;
     const savedById = new Map(layouts.map(layout => [layout.id, layout]));
     let maxZIndex = 100;
 
@@ -156,6 +158,76 @@ export function useWindowManager(
     }
 
     setState('nextZIndex', maxZIndex + 1);
+  }
+
+  function resetToNewProjectLayout() {
+    followsWorkspaceSize = true;
+    const workspace = getWorkspaceRect();
+    const resourceManager = state.panels['resource-manager'];
+    const frameMonitor = state.panels['frame-monitor'];
+    if (!resourceManager || !frameMonitor) return;
+
+    for (const def of panelDefs) {
+      const panel = state.panels[def.id];
+      setState('panels', def.id, {
+        ...panel,
+        visible: false,
+        window: createDefaultWindowState(def.defaultPosition ?? panel.defaultPosition),
+        zIndex: 100 + panelDefs.indexOf(def),
+      });
+    }
+
+    setState('panels', 'resource-manager', {
+      ...state.panels['resource-manager'],
+      visible: true,
+      window: {
+        ...state.panels['resource-manager'].window,
+        rect: { x: 0, y: 0, width: 280, height: workspace.height },
+        minimized: false,
+        snapState: 'floating',
+        preMaximize: null,
+        preSnap: null,
+      },
+      zIndex: 100,
+    });
+    setState('panels', 'frame-monitor', {
+      ...state.panels['frame-monitor'],
+      visible: true,
+      window: {
+        ...state.panels['frame-monitor'].window,
+        rect: {
+          x: 280,
+          y: 0,
+          width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
+          height: workspace.height,
+        },
+        minimized: false,
+        snapState: 'floating',
+        preMaximize: null,
+        preSnap: null,
+      },
+      zIndex: 101,
+    });
+    setState('nextZIndex', 102);
+    setLayoutRevision(v => v + 1);
+  }
+
+  function syncNewProjectLayoutToWorkspace() {
+    if (!followsWorkspaceSize) return;
+    const workspace = getWorkspaceRect();
+    setState('panels', 'resource-manager', 'window', 'rect', {
+      x: 0,
+      y: 0,
+      width: 280,
+      height: workspace.height,
+    });
+    setState('panels', 'frame-monitor', 'window', 'rect', {
+      x: 280,
+      y: 0,
+      width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
+      height: workspace.height,
+    });
+    setLayoutRevision(v => v + 1);
   }
 
   const isPanelVisible = (id: string): boolean => {
@@ -251,6 +323,9 @@ export function useWindowManager(
     const p = state.panels[panelId];
     if (!p || p.window.minimized || p.window.snapState === 'maximized') return;
 
+    if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
+      followsWorkspaceSize = false;
+    }
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
@@ -374,6 +449,9 @@ export function useWindowManager(
   function toggleMaximize(panelId: string) {
     const p = state.panels[panelId];
     if (!p || !p.visible) return;
+    if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
+      followsWorkspaceSize = false;
+    }
     bringToFront(panelId);
 
     if (p.window.snapState === 'maximized') {
@@ -432,6 +510,9 @@ export function useWindowManager(
     const p = state.panels[panelId];
     if (!p || p.window.minimized) return;
 
+    if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
+      followsWorkspaceSize = false;
+    }
     bringToFront(panelId);
     setResizingPanelId(panelId);
     setResizeDirection(direction);
@@ -540,6 +621,8 @@ export function useWindowManager(
     layoutRevision,
     getPanelLayouts,
     restorePanelLayouts,
+    resetToNewProjectLayout,
+    syncNewProjectLayoutToWorkspace,
     draggingPanelId,
     isPanelVisible,
     openPanel,
