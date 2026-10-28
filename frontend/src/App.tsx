@@ -69,6 +69,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
+  const [stagingNewProjectWorkspace, setStagingNewProjectWorkspace] = createSignal(false);
   const [newProjectTemplate, setNewProjectTemplate] = createSignal<NewProjectTemplate>('can-analysis');
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
@@ -115,7 +116,7 @@ function App() {
     const activeProject = project();
     if (revision === lastLayoutRevision) return;
     lastLayoutRevision = revision;
-    if (!activeProject) return;
+    if (!activeProject || stagingNewProjectWorkspace()) return;
 
     cancelPendingLayoutSave();
     const generation = projectGeneration;
@@ -335,7 +336,6 @@ function App() {
   const handleConfirmNewProject = async (config: NewProjectConfig) => {
     projectGeneration++;
     cancelPendingLayoutSave();
-    const previousProject = project();
     const previousPanelLayouts = windowManager.getPanelLayouts();
 
     try {
@@ -344,41 +344,31 @@ function App() {
         ? config.parentFolder
         : config.parentFolder + sep;
 
-      let projectDir: string;
-      let projectFilePath: string;
+      const projectFilePath = config.createSubfolder
+        ? basePath + config.name + sep + config.name + '.canscope'
+        : basePath + config.name + '.canscope';
 
-      if (config.createSubfolder) {
-        projectDir = basePath + config.name;
-        projectFilePath = projectDir + sep + config.name + '.canscope';
-        await invoke('ensure_dir', { path: projectDir });
-      } else {
-        projectDir = basePath;
-        projectFilePath = basePath + config.name + '.canscope';
+      setStagingNewProjectWorkspace(true);
+      if (!workspaceEl()) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       }
 
-      const proj: ProjectInfo = await invoke('create_project', {
-        name: config.name,
-      });
-
-      if (!workspaceEl()) setProject(proj);
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       windowManager.resetToNewProjectLayout(newProjectTemplate());
       cancelPendingLayoutSave();
-      await invoke('update_project_state', {
-        uiLayout: { ...proj.uiLayout, panels: windowManager.getPanelLayouts() },
+      const proj: ProjectInfo = await invoke('create_project_as', {
+        name: config.name,
+        path: projectFilePath,
+        panels: windowManager.getPanelLayouts(),
       });
 
-      await invoke('save_project_as', { path: projectFilePath });
-
-      setProject({ ...proj, projectPath: projectFilePath });
+      setProject(proj);
+      setStagingNewProjectWorkspace(false);
       setShowNewProjectDialog(false);
     } catch (e) {
       console.error('Failed to create project:', e);
       windowManager.restorePanelLayouts(previousPanelLayouts);
-      if (!previousProject && project()) {
-        await invoke('close_project');
-        setProject(null);
-      }
+      cancelPendingLayoutSave();
+      setStagingNewProjectWorkspace(false);
       throw e;
     }
   };
@@ -970,7 +960,7 @@ function App() {
         )}
         {loading() ? (
           <div class="loading">Loading project...</div>
-        ): (hasSource() || project() !== null) ? (
+        ): (hasSource() || project() !== null || stagingNewProjectWorkspace()) ? (
           <div
             ref={setWorkspaceEl}
             class="workspace"

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -1372,6 +1373,86 @@ fn create_project(
 }
 
 #[tauri::command]
+fn create_project_as(
+    app: tauri::AppHandle,
+    name: String,
+    path: String,
+    panels: Vec<PanelLayoutJson>,
+    state: State<AppState>,
+) -> Result<ProjectInfo, String> {
+    let now = now_iso();
+    let project = ProjectConfig {
+        name,
+        can_log_path: None,
+        dbc_bindings: Vec::new(),
+        last_position: 0.0,
+        filters: FilterConfigJson::default(),
+        chart_signals: Vec::new(),
+        ui_layout: UiLayoutJson {
+            panels,
+            ..UiLayoutJson::default()
+        },
+        created_at: now.clone(),
+        modified_at: now,
+    };
+    let save_path = PathBuf::from(&path);
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
+    let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    let mut dirty_guard = state.dirty.lock().map_err(|e| e.to_string())?;
+
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&save_path)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format!("Project file already exists: {}", path)
+            } else {
+                e.to_string()
+            }
+        })?;
+    if let Err(write_error) = file.write_all(json.as_bytes()) {
+        drop(file);
+        return match fs::remove_file(&save_path) {
+            Ok(()) => Err(format!("Failed to write project file: {}", write_error)),
+            Err(cleanup_error) if cleanup_error.kind() == std::io::ErrorKind::NotFound => {
+                Err(format!("Failed to write project file: {}", write_error))
+            }
+            Err(cleanup_error) => Err(format!(
+                "Failed to write project file: {}; failed to remove incomplete file: {}",
+                write_error, cleanup_error
+            )),
+        };
+    }
+
+    *project_guard = Some(project.clone());
+    *project_path_guard = Some(save_path);
+    *dirty_guard = false;
+    drop(project_guard);
+    drop(project_path_guard);
+    drop(dirty_guard);
+
+    add_to_recent(&app, &project.name, &path);
+
+    Ok(ProjectInfo {
+        name: project.name,
+        can_log_path: project.can_log_path,
+        dbc_bindings: project.dbc_bindings,
+        last_position: project.last_position,
+        filters: project.filters,
+        chart_signals: project.chart_signals,
+        ui_layout: project.ui_layout,
+        created_at: project.created_at,
+        modified_at: project.modified_at,
+        project_path: Some(path),
+    })
+}
+
+#[tauri::command]
 fn save_project(app: tauri::AppHandle, state: State<AppState>) -> Result<String, String> {
     let project_guard = state.project.lock().map_err(|e| e.to_string())?;
     let project = project_guard
@@ -1661,6 +1742,7 @@ pub fn run() {
             playlist_get_files,
             playlist_get_info,
             create_project,
+            create_project_as,
             open_project,
             save_project,
             save_project_as,
