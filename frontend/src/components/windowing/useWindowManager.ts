@@ -230,6 +230,18 @@ export function useWindowManager(
     setLayoutRevision(v => v + 1);
   }
 
+  function syncSnappedPanelsToWorkspace() {
+    const workspace = getWorkspaceRect();
+    for (const panel of Object.values(state.panels)) {
+      if (!panel.visible || panel.window.snapState === 'floating') continue;
+      const rect = panel.window.snapState === 'maximized'
+        ? { x: 0, y: 0, width: workspace.width, height: workspace.height }
+        : getSnapRect(panel.window.snapState, workspace);
+      setState('panels', panel.id, 'window', 'rect', rect);
+    }
+    setLayoutRevision(v => v + 1);
+  }
+
   const isPanelVisible = (id: string): boolean => {
     const p = state.panels[id];
     return p ? p.visible : false;
@@ -623,6 +635,7 @@ export function useWindowManager(
     restorePanelLayouts,
     resetToNewProjectLayout,
     syncNewProjectLayoutToWorkspace,
+    syncSnappedPanelsToWorkspace,
     draggingPanelId,
     isPanelVisible,
     openPanel,

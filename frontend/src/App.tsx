@@ -846,6 +846,7 @@ function App() {
       const ws = workspaceEl();
       if (ws) {
         windowManager.setPanelRect('resource-manager', { height: ws.clientHeight });
+        windowManager.syncSnappedPanelsToWorkspace();
         windowManager.syncNewProjectLayoutToWorkspace();
       }
     };
@@ -1197,9 +1198,6 @@ function App() {
       {project() !== null && !loading() && (
         <StatusBar
           sourceLoaded={hasSource()}
-          metadata={metadata()}
-          frameCount={playbackFrameCount()}
-          totalFrameCount={metadata()?.totalFrames ?? frameTotalCount()}
           playbackState={playbackState()}
         />
       )}
