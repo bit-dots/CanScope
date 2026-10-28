@@ -11,7 +11,7 @@
 .rm-header {
   flex: 0 0 auto;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
 }
 
 .rm-project-heading {
@@ -39,6 +39,7 @@
 .rm-tabs {
   display: flex;
   padding: 0 8px;
+  background: var(--bg-secondary);
   border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
 }
 
