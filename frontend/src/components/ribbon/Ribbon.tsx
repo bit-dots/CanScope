@@ -1,4 +1,5 @@
 import { Component, createSignal, For } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { Database, FilePlay, FolderOpen, ChartLine } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
@@ -279,21 +280,23 @@ const Ribbon: Component<RibbonProps> = (props) => {
       </div>}
 
       {/* ---- Backstage Overlay ---- */}
-      <Backstage
-        visible={backstageVisible()}
-        onClose={handleCloseBackstage}
-        onNewProject={props.onNewProject}
-        onOpenProject={props.onOpenProject}
-        onSaveProject={props.onSaveProject}
-        onSaveProjectAs={props.onSaveProjectAs}
-        onCloseProject={props.onCloseProject}
-        onOpenRecent={props.onOpenRecent}
-        projectLoaded={props.projectLoaded}
-        measurementSettings={props.measurementSettings}
-        cachedFrameCount={props.cachedFrameCount}
-        estimatedCacheBytes={props.estimatedCacheBytes}
-        onMeasurementSettingsChange={props.onMeasurementSettingsChange}
-      />
+      <Portal>
+        <Backstage
+          visible={backstageVisible()}
+          onClose={handleCloseBackstage}
+          onNewProject={props.onNewProject}
+          onOpenProject={props.onOpenProject}
+          onSaveProject={props.onSaveProject}
+          onSaveProjectAs={props.onSaveProjectAs}
+          onCloseProject={props.onCloseProject}
+          onOpenRecent={props.onOpenRecent}
+          projectLoaded={props.projectLoaded}
+          measurementSettings={props.measurementSettings}
+          cachedFrameCount={props.cachedFrameCount}
+          estimatedCacheBytes={props.estimatedCacheBytes}
+          onMeasurementSettingsChange={props.onMeasurementSettingsChange}
+        />
+      </Portal>
     </div>
   );
 };
