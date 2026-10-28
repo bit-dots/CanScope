@@ -1,5 +1,5 @@
 import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { Settings, X } from 'lucide-solid';
+import { ArrowUpRight, Clock3, FolderOpen, Plus, Settings, X } from 'lucide-solid';
 import type { RecentProjectInfo } from '../types';
 import type { MeasurementSettings } from '../measurementSettings';
 import MeasurementSettingsPanel from './MeasurementSettingsPanel';
@@ -84,85 +84,107 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
 
   return (
     <div class="welcome-screen">
-      <button
-        class="welcome-settings-button"
-        type="button"
-        aria-label="全局设置"
-        title="全局设置"
-        onClick={() => setSettingsOpen(true)}
-      >
-        <Settings size={17} />
-      </button>
-      <div class="welcome-logo">
-        <img
-          src="/icon.png"
-          alt="CanScope"
-          style={{ width: '72px', height: '72px' }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      </div>
-      <h1 class="welcome-title">CanScope</h1>
-      <p class="welcome-subtitle">CAN 总线回放与分析工具</p>
-
-      <div class="welcome-actions">
-        <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>
-          <svg class="welcome-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          新建工程
-        </button>
-        <button class="welcome-btn welcome-btn-secondary" onClick={props.onOpenProject}>
-          <svg class="welcome-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-          打开工程
-        </button>
-      </div>
-
-      <div class="welcome-footer">
-        <span>快捷键：</span>
-        <kbd>{modKey}+N</kbd> 新建工程 &nbsp;
-        <kbd>{modKey}+O</kbd> 打开工程
-      </div>
-
-      {recentProjects().length > 0 && (
-        <div class="welcome-recent">
-          <div class="welcome-recent-header">最近工程</div>
-          <div class="welcome-recent-list">
-            {recentProjects().map((p) => (
-              <div
-                class="welcome-recent-item"
-                onClick={() => handleOpenRecent(p.path)}
-              >
-                <div class="welcome-recent-info">
-                  <div class="welcome-recent-name">{p.name}</div>
-                  <div class="welcome-recent-meta">
-                    <span class="welcome-recent-time">{formatTime(p.openedAt)}</span>
-                    <span class="welcome-recent-path" title={p.path}>
-                      {p.path.length > 60
-                        ? '...' + p.path.slice(-57)
-                        : p.path}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  class="welcome-recent-remove"
-                  onClick={(e) => handleRemoveRecent(e, p.path)}
-                  title="从列表中移除"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="welcome-remove-icon">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+      <header class="welcome-topbar">
+        <div class="welcome-brand">
+          <img
+            src="/icon.png"
+            alt=""
+            class="welcome-brand-icon"
+            onError={(event) => {
+              (event.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <span>CanScope</span>
         </div>
-      )}
+        <button
+          class="welcome-settings-button"
+          type="button"
+          aria-label="全局设置"
+          title="全局设置"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings size={17} />
+        </button>
+      </header>
+
+      <div class="welcome-launchpad">
+        <section class="welcome-start">
+          <span class="welcome-product-label">CAN 总线回放与分析</span>
+          <h1>准备开始工作</h1>
+          <p>创建一个新工程，或打开已有工程继续分析 CAN 数据。</p>
+
+          <div class="welcome-actions">
+            <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>
+              <Plus size={18} />
+              新建工程
+            </button>
+            <button class="welcome-btn welcome-btn-secondary" onClick={props.onOpenProject}>
+              <FolderOpen size={18} />
+              打开工程
+            </button>
+          </div>
+        </section>
+
+        <section class="welcome-recent" aria-labelledby="welcome-recent-title">
+          <div class="welcome-recent-heading">
+            <div>
+              <h2 id="welcome-recent-title">最近工程</h2>
+              <p>快速回到最近使用的工作</p>
+            </div>
+            <Show when={recentProjects().length > 0}>
+              <span class="welcome-recent-count">{recentProjects().length}</span>
+            </Show>
+          </div>
+
+          <Show
+            when={recentProjects().length > 0}
+            fallback={
+              <div class="welcome-recent-empty">
+                <Clock3 size={20} />
+                <span>最近打开的工程会显示在这里</span>
+              </div>
+            }
+          >
+            <ul class="welcome-recent-list">
+              {recentProjects().map((p) => (
+                <li class="welcome-recent-item">
+                  <button
+                    class="welcome-recent-open"
+                    type="button"
+                    onClick={() => handleOpenRecent(p.path)}
+                  >
+                    <span class="welcome-recent-icon"><FolderOpen size={17} /></span>
+                    <span class="welcome-recent-info">
+                      <span class="welcome-recent-name">{p.name}</span>
+                      <span class="welcome-recent-meta">
+                        <span class="welcome-recent-time">{formatTime(p.openedAt)}</span>
+                        <span class="welcome-recent-path" title={p.path}>
+                          {p.path.length > 60 ? '...' + p.path.slice(-57) : p.path}
+                        </span>
+                      </span>
+                    </span>
+                    <ArrowUpRight class="welcome-recent-arrow" size={16} />
+                  </button>
+                  <button
+                    class="welcome-recent-remove"
+                    type="button"
+                    onClick={(event) => handleRemoveRecent(event, p.path)}
+                    aria-label={`从最近工程中移除 ${p.name}`}
+                    title="从列表中移除"
+                  >
+                    <X size={15} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Show>
+        </section>
+      </div>
+      <footer class="welcome-footer">
+        <span>快捷键</span>
+        <span>新建工程 <kbd>{modKey}+N</kbd></span>
+        <span>打开工程 <kbd>{modKey}+O</kbd></span>
+      </footer>
       <Show when={settingsOpen()}>
         <div class="welcome-settings-overlay" onClick={() => setSettingsOpen(false)}>
           <section

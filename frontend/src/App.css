@@ -1270,50 +1270,98 @@ select:focus-visible,
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 16px;
-  padding: 40px;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 0 48px;
   user-select: none;
 }
 
-.welcome-logo {
-  margin-bottom: 4px;
+.welcome-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  min-height: 68px;
+  margin: 0 auto;
 }
 
-.welcome-title {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 700;
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--text-primary);
-  letter-spacing: -0.5px;
+  font-size: 15px;
+  font-weight: 650;
 }
 
-.welcome-subtitle {
-  margin: 0 0 8px 0;
+.welcome-brand-icon {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+}
+
+.welcome-launchpad {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(48px, 8vw, 112px);
+  width: 100%;
+  max-width: 1040px;
+  flex: 1;
+  margin: 0 auto;
+  padding: 48px 0;
+  box-sizing: border-box;
+}
+
+.welcome-start {
+  min-width: 0;
+}
+
+.welcome-product-label {
+  display: block;
+  margin-bottom: 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.welcome-start h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(30px, 3.2vw, 40px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+
+.welcome-start > p {
+  max-width: 340px;
+  margin: 14px 0 30px;
   color: var(--text-secondary);
   font-size: 14px;
+  line-height: 1.7;
 }
 
 .welcome-actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
+  display: grid;
+  gap: 10px;
+  width: min(100%, 340px);
 }
 
 .welcome-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
-  padding: 10px 24px;
-  border: none;
-  border-radius: 8px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.15s, background 0.15s;
-
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
 }
 
 .welcome-btn-primary {
@@ -1322,7 +1370,7 @@ select:focus-visible,
 }
 
 .welcome-btn-primary:hover {
-  opacity: 0.9;
+  background: var(--accent-hover);
 }
 
 .welcome-btn-primary:focus-visible {
@@ -1331,82 +1379,148 @@ select:focus-visible,
 }
 
 .welcome-btn-secondary {
-  background: var(--bg-tertiary, #333);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
 
 .welcome-btn-secondary:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
+  border-color: color-mix(in srgb, var(--border) 70%, var(--text-secondary));
 }
 
 .welcome-btn-secondary:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent);
-}
-
-.welcome-btn-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-.welcome-remove-icon {
-  width: 14px;
-  height: 14px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent);
 }
 
 .welcome-recent {
-  width: 100%;
-  max-width: 520px;
-  margin-top: 12px;
+  min-width: 0;
+  padding-left: clamp(28px, 4vw, 56px);
+  border-left: 1px solid var(--border);
 }
 
-.welcome-recent-header {
-  font-size: 12px;
-  font-weight: 600;
+.welcome-recent-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.welcome-recent-heading h2 {
+  margin: 0;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.welcome-recent-heading p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.welcome-recent-count {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0 6px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 11px;
 }
 
 .welcome-recent-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-recent-empty {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
+  min-height: 84px;
+  padding: 0 14px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.welcome-recent-empty svg {
+  flex: 0 0 auto;
+  opacity: 0.75;
 }
 
 .welcome-recent-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+  min-width: 0;
   border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s;
 }
 
 .welcome-recent-item:hover {
   background: var(--bg-tertiary);
 }
 
-.welcome-recent-info {
-  flex: 1;
+.welcome-recent-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
+  flex: 1;
+  padding: 12px 10px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.welcome-recent-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 6px;
+}
+
+.welcome-recent-info {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
 }
 
 .welcome-recent-name {
+  overflow: hidden;
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .welcome-recent-meta {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
   font-size: 11px;
   color: var(--text-secondary);
 }
@@ -1416,47 +1530,76 @@ select:focus-visible,
 }
 
 .welcome-recent-path {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  opacity: 0.7;
   font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
   font-size: 10px;
+  opacity: 0.7;
+}
+
+.welcome-recent-arrow {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.welcome-recent-item:hover .welcome-recent-arrow,
+.welcome-recent-open:focus-visible .welcome-recent-arrow {
+  opacity: 0.8;
+  transform: translate(1px, -1px);
 }
 
 .welcome-recent-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-right: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
 .welcome-recent-item:hover .welcome-recent-remove {
-  opacity: 0.6;
+  opacity: 0.7;
+}
+
+.welcome-recent-remove:focus-visible {
+  color: var(--text-primary);
+  opacity: 1;
 }
 
 .welcome-recent-remove:hover {
-  opacity: 1 !important;
   color: var(--error);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  opacity: 1;
 }
 
 .welcome-footer {
-  margin-top: 24px;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 1200px;
+  min-height: 48px;
+  margin: 0 auto;
   color: var(--text-secondary);
-  opacity: 0.6;
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 .welcome-footer kbd {
-  padding: 1px 5px;
+  margin-left: 4px;
+  padding: 2px 6px;
   border: 1px solid var(--border);
   border-radius: 3px;
   font-family: inherit;
@@ -1465,12 +1608,10 @@ select:focus-visible,
 }
 
 .welcome-settings-button {
-  position: absolute;
-  top: 20px;
-  right: 24px;
   display: grid;
   width: 34px;
   height: 34px;
+  flex: 0 0 auto;
   place-items: center;
   color: var(--text-secondary);
   background: transparent;
@@ -1484,6 +1625,53 @@ select:focus-visible,
   color: var(--text-primary);
   background: var(--bg-secondary);
   border-color: var(--border);
+}
+
+@media (max-width: 760px) {
+  .welcome-screen {
+    padding: 0 24px;
+  }
+
+  .welcome-launchpad {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    max-width: 480px;
+    align-content: center;
+  }
+
+  .welcome-recent {
+    padding: 0;
+    border-left: 0;
+  }
+
+  .welcome-footer {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 460px) {
+  .welcome-screen {
+    padding: 0 16px;
+  }
+
+  .welcome-launchpad {
+    gap: 28px;
+    padding: 32px 0;
+  }
+
+  .welcome-start h1 {
+    font-size: 30px;
+  }
+
+  .welcome-footer {
+    flex-wrap: wrap;
+    padding: 10px 0;
+    box-sizing: border-box;
+  }
+
+  .welcome-footer > span:first-child {
+    display: none;
+  }
 }
 
 .welcome-settings-overlay {
