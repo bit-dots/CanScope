@@ -335,7 +335,8 @@ function App() {
   const handleConfirmNewProject = async (config: NewProjectConfig) => {
     projectGeneration++;
     cancelPendingLayoutSave();
-    setShowNewProjectDialog(false);
+    const previousProject = project();
+    const previousPanelLayouts = windowManager.getPanelLayouts();
 
     try {
       const sep = config.parentFolder.includes('\\') ? '\\' : '/';
@@ -359,7 +360,7 @@ function App() {
         name: config.name,
       });
 
-      setProject(proj);
+      if (!workspaceEl()) setProject(proj);
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       windowManager.resetToNewProjectLayout(newProjectTemplate());
       cancelPendingLayoutSave();
@@ -369,10 +370,16 @@ function App() {
 
       await invoke('save_project_as', { path: projectFilePath });
 
-      setProject(prev => prev ? { ...prev, projectPath: projectFilePath } : null);
+      setProject({ ...proj, projectPath: projectFilePath });
+      setShowNewProjectDialog(false);
     } catch (e) {
-      setError(String(e));
       console.error('Failed to create project:', e);
+      windowManager.restorePanelLayouts(previousPanelLayouts);
+      if (!previousProject && project()) {
+        await invoke('close_project');
+        setProject(null);
+      }
+      throw e;
     }
   };
 

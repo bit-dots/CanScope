@@ -8,7 +8,7 @@ export interface NewProjectConfig {
 
 interface NewProjectDialogProps {
   templateName: string;
-  onConfirm: (config: NewProjectConfig) => void;
+  onConfirm: (config: NewProjectConfig) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -16,6 +16,8 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
   const [projectName, setProjectName] = createSignal('');
   const [parentFolder, setParentFolder] = createSignal('');
   const [createSubfolder, setCreateSubfolder] = createSignal(true);
+  const [submitting, setSubmitting] = createSignal(false);
+  const [submitError, setSubmitError] = createSignal<string | null>(null);
 
   onMount(async () => {
     try {
@@ -57,20 +59,28 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
     }
   };
 
-  const handleConfirm = () => {
-    if (!canConfirm()) return;
-    props.onConfirm({
-      name: projectName().trim() || '未命名',
-      parentFolder: parentFolder(),
-      createSubfolder: createSubfolder(),
-    });
+  const handleConfirm = async () => {
+    if (!canConfirm() || submitting()) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await props.onConfirm({
+        name: projectName().trim() || '未命名',
+        parentFolder: parentFolder(),
+        createSubfolder: createSubfolder(),
+      });
+    } catch (e) {
+      setSubmitError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && canConfirm()) {
+    if (e.key === 'Enter' && canConfirm() && !submitting()) {
       handleConfirm();
     }
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && !submitting()) {
       props.onCancel();
     }
   };
@@ -80,7 +90,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
       <div class="npd-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         <div class="npd-header">
           <h2 class="npd-title">新建工程</h2>
-          <button class="npd-close" onClick={props.onCancel} aria-label="关闭">
+          <button class="npd-close" onClick={props.onCancel} aria-label="关闭" disabled={submitting()}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -103,6 +113,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
               placeholder="工程名称，例如: CAN总线分析"
               value={projectName()}
               onInput={(e) => setProjectName(e.currentTarget.value)}
+              disabled={submitting()}
               autofocus
             />
           </div>
@@ -119,8 +130,9 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
                 placeholder="选择或粘贴文件夹路径..."
                 value={parentFolder()}
                 onInput={(e) => setParentFolder(e.currentTarget.value)}
+                disabled={submitting()}
               />
-              <button class="npd-browse-btn" onClick={handleBrowse}>
+              <button class="npd-browse-btn" onClick={handleBrowse} disabled={submitting()}>
                 浏览
               </button>
             </div>
@@ -132,6 +144,7 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
                 type="checkbox"
                 class="npd-checkbox"
                 checked={createSubfolder()}
+                disabled={submitting()}
                 onChange={(e) => setCreateSubfolder(e.currentTarget.checked)}
               />
               <span class="npd-checkbox-text">
@@ -154,18 +167,21 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
             </div>
             <code class="npd-preview-path">{displayPath()}</code>
           </div>
+          {submitError() && (
+            <p class="npd-error" role="alert">{submitError()}</p>
+          )}
         </div>
 
         <div class="npd-footer">
-          <button class="npd-btn npd-btn-cancel" onClick={props.onCancel}>
+          <button class="npd-btn npd-btn-cancel" onClick={props.onCancel} disabled={submitting()}>
             取消
           </button>
           <button
             class="npd-btn npd-btn-create"
             onClick={handleConfirm}
-            disabled={!canConfirm()}
+            disabled={!canConfirm() || submitting()}
           >
-            创建工程
+            {submitting() ? '正在创建...' : '创建工程'}
           </button>
         </div>
       </div>

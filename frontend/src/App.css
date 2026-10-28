@@ -1925,6 +1925,18 @@ select:focus-visible,
   padding: 0;
 }
 
+.npd-error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--error) 10%, var(--bg-primary));
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .npd-footer {
   display: flex;
   justify-content: flex-end;
