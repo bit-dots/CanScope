@@ -36,11 +36,15 @@ function App() {
   const [frames, setFrames] = createSignal<FrameInfo[]>([]);
   const [frameOffset, setFrameOffset] = createSignal(0);
   const [frameTotalCount, setFrameTotalCount] = createSignal(0);
+  const [traceMode, setTraceMode] = createSignal(false);
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
   const [frameMonitorMaxFrames, setFrameMonitorMaxFrames] = createSignal(10000);
+  const [traceViewFollowing, setTraceViewFollowing] = createSignal(true);
+  const [traceDisplayFrozen, setTraceDisplayFrozen] = createSignal(false);
+  const [hiddenTraceFrames, setHiddenTraceFrames] = createSignal(0);
   const [loading, setLoading] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<{
     path: string;
@@ -77,15 +81,16 @@ function App() {
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
 
   let frameQueryId = 0;
-  const requestFramePage = async (offset: number, limit: number) => {
+  const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
     const requestId = ++frameQueryId;
     const activeFilter = filter();
     const page: FramePage = await invoke('get_frame_page', {
       offset,
-      limit: Math.min(limit, 512),
+      limit: Math.min(limit, playbackTime === undefined ? 512 : frameMonitorMaxFrames()),
       canId: parseCanId(activeFilter.canId),
       timeStart: parseTime(activeFilter.timeStart),
       timeEnd: parseTime(activeFilter.timeEnd),
+      playbackTime: playbackTime ?? null,
     });
     if (requestId !== frameQueryId) return;
     setFrames(page.frames);
@@ -114,10 +119,41 @@ function App() {
     if (pendingTraceFrames.length === 0) return;
     const appended = pendingTraceFrames;
     pendingTraceFrames = [];
-    const nextFrames = [...frames(), ...appended].slice(-frameMonitorMaxFrames());
+    if (traceDisplayFrozen()) {
+      setHiddenTraceFrames((count) => count + appended.length);
+      return;
+    }
+
+    const currentFrames = frames();
+    const capacity = Math.max(0, frameMonitorMaxFrames() - currentFrames.length);
+    if (!traceViewFollowing() && appended.length >= capacity) {
+      const visible = appended.slice(0, capacity);
+      if (visible.length > 0) {
+        setFrames([...currentFrames, ...visible]);
+        setFrameTotalCount((count) => count + visible.length);
+      }
+      setHiddenTraceFrames((count) => count + appended.length - visible.length);
+      setTraceDisplayFrozen(true);
+      return;
+    }
+
+    const combined = [...currentFrames, ...appended];
+    const droppedCount = Math.max(0, combined.length - frameMonitorMaxFrames());
+    const nextFrames = droppedCount > 0 ? combined.slice(droppedCount) : combined;
     setFrames(nextFrames);
+    if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
+    setFrameTotalCount((count) => count + appended.length);
+  };
+
+  const resetTraceBuffer = () => {
+    pendingTraceFrames = [];
+    frameQueryId++;
+    setFrames([]);
     setFrameOffset(0);
-    setFrameTotalCount(nextFrames.length);
+    setFrameTotalCount(0);
+    lastFrameMonitorRefresh = 0;
+    setTraceDisplayFrozen(false);
+    setHiddenTraceFrames(0);
   };
 
   const startPolling = () => {
@@ -128,6 +164,10 @@ function App() {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
+          if (!traceMode()) {
+            resetTraceBuffer();
+            setTraceMode(true);
+          }
           pendingTraceFrames.push(...batch);
           setPlaybackFrameCount(prev => prev + batch.length);
           setCurrentTime(batch[batch.length - 1].timestamp);
@@ -256,6 +296,7 @@ function App() {
   const openProjectByPath = async (path: string) => {
     setLoading(true);
     setError(null);
+    setTraceMode(false);
     setDbcTree(null);
     setSelectedCanId(null);
     setChartSignals([]);
@@ -269,6 +310,7 @@ function App() {
         const info: PlaylistInfo | null = await invoke('playlist_get_files');
         if (info) {
           setMetadata(info);
+          setTraceMode(false);
           await requestFramePage(0, 512);
         }
         setPlaybackState('stopped');
@@ -431,6 +473,7 @@ function App() {
     await invoke('close_project');
     setProject(null);
     setMetadata(null);
+    setTraceMode(false);
     setFrames([]);
     setFrameOffset(0);
     setFrameTotalCount(0);
@@ -486,14 +529,24 @@ function App() {
       if (wasPlaying) stopPolling();
       await invoke('seek_to', { timestamp });
       setCurrentTime(timestamp);
-      await requestFramePage(0, 512);
-      if (wasPlaying) startPolling();
+      pendingTraceFrames = [];
+      frameQueryId++;
+      setFrames([]);
+      setFrameOffset(0);
+      setFrameTotalCount(0);
+      setTraceMode(wasPlaying);
+      if (wasPlaying) {
+        startPolling();
+      } else {
+        await requestFramePage(0, 512);
+      }
     } catch (e) {
       console.error('Seek failed:', e);
     }
   };
 
   const handleSelectMessage = (canId: number | null) => {
+    setTraceMode(false);
     setSelectedCanId(canId);
     if (canId !== null) {
       setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' });
@@ -533,14 +586,10 @@ function App() {
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
-        if (prevState === 'stopped') {
-          setPlaybackFrameCount(0);
-          pendingTraceFrames = [];
-          frameQueryId++;
-          setFrames([]);
-          setFrameOffset(0);
-          setFrameTotalCount(0);
-          lastFrameMonitorRefresh = 0;
+        if (prevState === 'stopped') setPlaybackFrameCount(0);
+        if (!traceMode()) {
+          resetTraceBuffer();
+          setTraceMode(true);
         }
         startPolling();
       } else {
@@ -559,8 +608,31 @@ function App() {
   const handleFrameMonitorMaxFramesChange = (maxFrames: number) => {
     const limit = Math.max(100, Math.min(1000000, maxFrames));
     setFrameMonitorMaxFrames(limit);
-    setFrames((current) => current.slice(-limit));
-    setFrameTotalCount((count) => Math.min(count, limit));
+    const current = frames();
+    const droppedCount = Math.max(0, current.length - limit);
+    if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
+    if (droppedCount > 0) setFrames(current.slice(droppedCount));
+  };
+
+  const handleTraceFollowChange = (following: boolean) => {
+    const wasFollowing = traceViewFollowing();
+    setTraceViewFollowing(following);
+    if (following && !wasFollowing && traceDisplayFrozen()) {
+      setTraceDisplayFrozen(false);
+      setHiddenTraceFrames(0);
+      void requestFramePage(0, frameMonitorMaxFrames(), currentTime()).catch((e) => {
+        console.error('Failed to resume the live trace view:', e);
+      });
+    }
+  };
+
+  const handleClearFrameMonitor = () => {
+    pendingTraceFrames = [];
+    setFrames([]);
+    setFrameOffset(0);
+    setFrameTotalCount(0);
+    setTraceDisplayFrozen(false);
+    setHiddenTraceFrames(0);
   };
 
   const hasSource = () => metadata() !== null;
@@ -661,6 +733,7 @@ function App() {
     try {
       const frame: FrameInfo | null = await invoke('step_forward');
       if (frame) {
+        setTraceMode(false);
         setCurrentTime(frame.timestamp);
         setPlaybackFrameCount(prev => prev + 1);
         await requestFramePage(Math.max(0, playbackFrameCount()), 512);
@@ -674,6 +747,7 @@ function App() {
     try {
       const frame: FrameInfo | null = await invoke('step_back');
       if (frame) {
+        setTraceMode(false);
         setCurrentTime(frame.timestamp);
         setPlaybackFrameCount(prev => Math.max(0, prev - 1));
         await requestFramePage(Math.max(0, playbackFrameCount() - 2), 512);
@@ -808,14 +882,17 @@ function App() {
                         frameOffset={frameOffset()}
                         onRequestPage={requestFramePage}
                         totalFrameCount={frameTotalCount()}
-                        isPlaying={playbackState() === 'playing'}
+                        traceMode={traceMode()}
+                        traceDisplayFrozen={traceDisplayFrozen()}
+                        hiddenTraceFrames={hiddenTraceFrames()}
+                        onTraceFollowChange={handleTraceFollowChange}
                         onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}
                         onMaxFramesChange={handleFrameMonitorMaxFramesChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
                         startTime={metadata()?.files?.[0]?.startTime}
-                        onClear={() => setFrames([])}
+                        onClear={handleClearFrameMonitor}
                         onSelectMessage={handleSelectMessage}
                         onFilterByCanId={(canId: number) => setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' })}
                       />

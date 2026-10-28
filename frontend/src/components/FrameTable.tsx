@@ -14,7 +14,10 @@ interface FrameTableProps {
   frameOffset: number;
   onRequestPage: (offset: number, limit: number) => Promise<void>;
   totalFrameCount: number;
-  isPlaying: boolean;
+  traceMode: boolean;
+  traceDisplayFrozen: boolean;
+  hiddenTraceFrames: number;
+  onTraceFollowChange: (following: boolean) => void;
   onMonitorRefreshRateChange: (rate: number) => void;
   onMaxFramesChange: (maxFrames: number) => void;
   hasDbc?: boolean;
@@ -112,7 +115,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [menuPos, setMenuPos] = createSignal({ left: 0, top: 0 });
 
   const handleApplySettings = (s: FrameTableSettings) => {
-    if (s.autoScroll && !settings().autoScroll) setIsFollowingPlayback(true);
+    if (s.autoScroll && !settings().autoScroll) {
+      setIsFollowingPlayback(true);
+      props.onTraceFollowChange(true);
+    } else if (!s.autoScroll) {
+      props.onTraceFollowChange(false);
+    }
     setSettings(s);
     saveSettings(props.projectName, s);
     setTimeFormat(s.timeFormat);
@@ -123,7 +131,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const handleAutoScrollToggle = () => {
     const s = settings();
     const updated = { ...s, autoScroll: !s.autoScroll };
-    if (updated.autoScroll) setIsFollowingPlayback(true);
+    if (updated.autoScroll) {
+      setIsFollowingPlayback(true);
+      props.onTraceFollowChange(true);
+    } else {
+      props.onTraceFollowChange(false);
+    }
     setSettings(updated);
     saveSettings(props.projectName, updated);
   };
@@ -137,10 +150,17 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   createEffect(on(
     () => ({ len: props.frames.length, offset: props.frameOffset, enabled: settings().highlightChanges, paused: isPaused() }),
     ({ len, offset, enabled, paused }) => {
-      if (offset !== processedOffset || len < processedCount) {
+      if (
+        processedOffset < 0 ||
+        (!props.traceMode && offset !== processedOffset) ||
+        offset < processedOffset ||
+        len < processedCount
+      ) {
         processedCount = 0;
         canIdPrevData.clear();
         setFlashingBytes({});
+      } else if (props.traceMode && offset > processedOffset) {
+        processedCount = Math.max(0, processedCount - (offset - processedOffset));
       }
       processedOffset = offset;
       if (!enabled || paused) {
@@ -406,7 +426,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const frameAt = (displayIdx: number) => props.frames[displayIdx - props.frameOffset];
 
   createEffect(() => {
-    if (props.isPlaying) return;
+    if (props.traceMode) return;
     const targetIndex = Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
     const targetOffset = Math.floor(targetIndex / PAGE_SIZE) * PAGE_SIZE;
     if (targetOffset === props.frameOffset) {
@@ -808,6 +828,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   onMount(() => {
     props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
     props.onMaxFramesChange(settings().maxFrames);
+    props.onTraceFollowChange(settings().autoScroll && isAtBottom());
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
   });
@@ -827,8 +848,22 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const visibleRows = () => flattenedRows().slice(startIndex(), endIndex());
 
   createEffect(on(
+    () => props.frameOffset,
+    (offset) => {
+      if (!props.traceMode || !containerRef) return;
+      if (settings().autoScroll && isFollowingPlayback()) return;
+      const firstRetainedRow = offset * ROW_HEIGHT;
+      if (containerRef.scrollTop < firstRetainedRow) {
+        containerRef.scrollTop = firstRetainedRow;
+        setScrollTop(firstRetainedRow);
+        setIsFollowingPlayback(false);
+      }
+    },
+  ));
+
+  createEffect(on(
     () => ({
-      enabled: settings().autoScroll && props.isPlaying && isFollowingPlayback(),
+      enabled: settings().autoScroll && props.traceMode && isFollowingPlayback(),
       frameCount: props.frames.length,
       offset: props.frameOffset,
       totalCount: props.totalFrameCount,
@@ -847,7 +882,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const handleScroll = () => {
     setScrollTop(containerRef.scrollTop);
-    setIsFollowingPlayback(isAtBottom());
+    const atBottom = isAtBottom();
+    setIsFollowingPlayback(atBottom);
+    props.onTraceFollowChange(settings().autoScroll && atBottom);
   };
 
   onMount(() => {
@@ -1428,6 +1465,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           <div class="frame-table__statusbar">
             <div class="frame-table__statusbar-left">
               {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
+              {props.traceDisplayFrozen && (
+                <span class="frame-table__statusbar-label">
+                  实时显示已冻结，{props.hiddenTraceFrames.toLocaleString()} 条新报文未显示
+                </span>
+              )}
             </div>
             <div class="frame-table__statusbar-right">
               <span class="frame-table__statusbar-item" title="接收帧数">
