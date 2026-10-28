@@ -1678,6 +1678,18 @@ select:focus-visible,
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+.npd-template {
+  margin-bottom: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.npd-template strong {
+  margin-left: 6px;
+  color: var(--accent);
+  font-weight: 600;
   background: rgba(0, 0, 0, 0.48);
 }
 

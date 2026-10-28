@@ -31,6 +31,7 @@ import type {
   DbcTreeInfo,
   ChartSignal,
   ProjectInfo,
+  NewProjectTemplate,
   FramePage,
 } from './types';
 import { parseCanId, parseTime } from './types';
@@ -68,6 +69,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
+  const [newProjectTemplate, setNewProjectTemplate] = createSignal<NewProjectTemplate>('can-analysis');
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
@@ -325,7 +327,8 @@ function App() {
     
   });
 
-  const handleNewProject = async () => {
+  const handleNewProject = async (template: NewProjectTemplate = 'can-analysis') => {
+    setNewProjectTemplate(template);
     setShowNewProjectDialog(true);
   };
 
@@ -358,7 +361,7 @@ function App() {
 
       setProject(proj);
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      windowManager.resetToNewProjectLayout();
+      windowManager.resetToNewProjectLayout(newProjectTemplate());
       cancelPendingLayoutSave();
       await invoke('update_project_state', {
         uiLayout: { ...proj.uiLayout, panels: windowManager.getPanelLayouts() },
@@ -1157,6 +1160,11 @@ function App() {
       </main>
       {showNewProjectDialog() && (
         <NewProjectDialog
+          templateName={{
+            'can-analysis': 'CAN 分析',
+            'dbc-signal-analysis': 'DBC 信号分析',
+            'blank-workspace': '空白工作区',
+          }[newProjectTemplate()]}
           onConfirm={handleConfirmNewProject}
           onCancel={() => setShowNewProjectDialog(false)}
         />

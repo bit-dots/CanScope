@@ -14,6 +14,7 @@ import {
   createDefaultWindowState,
 } from './window-types';
 import type { PanelLayoutJson } from '../../types';
+import type { NewProjectTemplate } from '../../types';
 
 interface PanelDef {
   id: string;
@@ -49,7 +50,7 @@ export function useWindowManager(
   let _wsViewportCache = { left: 0, top: 0 };
   let _dragRafPending = false;
   let _lastDragPos: { clientX: number; clientY: number } | null = null;
-  let followsWorkspaceSize = false;
+  let followsWorkspaceSize: NewProjectTemplate | null = null;
 
   // Initialize panels
   for (const def of panelDefs) {
@@ -117,7 +118,7 @@ export function useWindowManager(
   }
 
   function restorePanelLayouts(layouts: PanelLayoutJson[]) {
-    followsWorkspaceSize = false;
+    followsWorkspaceSize = null;
     const savedById = new Map(layouts.map(layout => [layout.id, layout]));
     let maxZIndex = 100;
 
@@ -160,12 +161,11 @@ export function useWindowManager(
     setState('nextZIndex', maxZIndex + 1);
   }
 
-  function resetToNewProjectLayout() {
-    followsWorkspaceSize = true;
+  function resetToNewProjectLayout(template: NewProjectTemplate = 'can-analysis') {
+    followsWorkspaceSize = template;
     const workspace = getWorkspaceRect();
     const resourceManager = state.panels['resource-manager'];
-    const frameMonitor = state.panels['frame-monitor'];
-    if (!resourceManager || !frameMonitor) return;
+    if (!resourceManager) return;
 
     for (const def of panelDefs) {
       const panel = state.panels[def.id];
@@ -177,43 +177,61 @@ export function useWindowManager(
       });
     }
 
-    setState('panels', 'resource-manager', {
-      ...state.panels['resource-manager'],
-      visible: true,
-      window: {
-        ...state.panels['resource-manager'].window,
-        rect: { x: 0, y: 0, width: 280, height: workspace.height },
-        minimized: false,
-        snapState: 'floating',
-        preMaximize: null,
-        preSnap: null,
-      },
-      zIndex: 100,
-    });
-    setState('panels', 'frame-monitor', {
-      ...state.panels['frame-monitor'],
-      visible: true,
-      window: {
-        ...state.panels['frame-monitor'].window,
-        rect: {
-          x: 280,
-          y: 0,
-          width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
-          height: workspace.height,
+    const setTemplatePanel = (id: string, rect: WindowRect, zIndex: number) => {
+      const panel = state.panels[id];
+      if (!panel) return;
+      setState('panels', id, {
+        ...panel,
+        visible: true,
+        window: {
+          ...panel.window,
+          rect,
+          minimized: false,
+          snapState: 'floating',
+          preMaximize: null,
+          preSnap: null,
         },
-        minimized: false,
-        snapState: 'floating',
-        preMaximize: null,
-        preSnap: null,
-      },
-      zIndex: 101,
-    });
-    setState('nextZIndex', 102);
+        zIndex,
+      });
+    };
+
+    setTemplatePanel('resource-manager', {
+      x: 0,
+      y: 0,
+      width: 280,
+      height: workspace.height,
+    }, 100);
+
+    if (template === 'can-analysis') {
+      setTemplatePanel('frame-monitor', {
+        x: 280,
+        y: 0,
+        width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
+        height: workspace.height,
+      }, 101);
+    } else if (template === 'dbc-signal-analysis') {
+      const treeWidth = Math.min(320, Math.max(MIN_WINDOW_WIDTH, (workspace.width - 280) / 2));
+      setTemplatePanel('dbc-tree', {
+        x: 280,
+        y: 0,
+        width: treeWidth,
+        height: workspace.height,
+      }, 101);
+      setTemplatePanel('chart', {
+        x: 280 + treeWidth,
+        y: 0,
+        width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280 - treeWidth),
+        height: workspace.height,
+      }, 102);
+    }
+
+    setState('nextZIndex', template === 'dbc-signal-analysis' ? 103 : 102);
     setLayoutRevision(v => v + 1);
   }
 
   function syncNewProjectLayoutToWorkspace() {
-    if (!followsWorkspaceSize) return;
+    const template = followsWorkspaceSize;
+    if (!template) return;
     const workspace = getWorkspaceRect();
     setState('panels', 'resource-manager', 'window', 'rect', {
       x: 0,
@@ -221,12 +239,28 @@ export function useWindowManager(
       width: 280,
       height: workspace.height,
     });
-    setState('panels', 'frame-monitor', 'window', 'rect', {
-      x: 280,
-      y: 0,
-      width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
-      height: workspace.height,
-    });
+    if (template === 'can-analysis') {
+      setState('panels', 'frame-monitor', 'window', 'rect', {
+        x: 280,
+        y: 0,
+        width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280),
+        height: workspace.height,
+      });
+    } else if (template === 'dbc-signal-analysis') {
+      const treeWidth = Math.min(320, Math.max(MIN_WINDOW_WIDTH, (workspace.width - 280) / 2));
+      setState('panels', 'dbc-tree', 'window', 'rect', {
+        x: 280,
+        y: 0,
+        width: treeWidth,
+        height: workspace.height,
+      });
+      setState('panels', 'chart', 'window', 'rect', {
+        x: 280 + treeWidth,
+        y: 0,
+        width: Math.max(MIN_WINDOW_WIDTH, workspace.width - 280 - treeWidth),
+        height: workspace.height,
+      });
+    }
     setLayoutRevision(v => v + 1);
   }
 
@@ -336,7 +370,7 @@ export function useWindowManager(
     if (!p || p.window.minimized || p.window.snapState === 'maximized') return;
 
     if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
-      followsWorkspaceSize = false;
+      followsWorkspaceSize = null;
     }
     bringToFront(panelId);
     setDraggingPanelId(panelId);
@@ -462,7 +496,7 @@ export function useWindowManager(
     const p = state.panels[panelId];
     if (!p || !p.visible) return;
     if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
-      followsWorkspaceSize = false;
+      followsWorkspaceSize = null;
     }
     bringToFront(panelId);
 
@@ -523,7 +557,7 @@ export function useWindowManager(
     if (!p || p.window.minimized) return;
 
     if (panelId === 'resource-manager' || panelId === 'frame-monitor') {
-      followsWorkspaceSize = false;
+      followsWorkspaceSize = null;
     }
     bringToFront(panelId);
     setResizingPanelId(panelId);

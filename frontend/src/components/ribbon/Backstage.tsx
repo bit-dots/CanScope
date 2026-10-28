@@ -1,7 +1,9 @@
 import { Component, createEffect, createSignal, For } from 'solid-js';
+import { ChartLine, Database, FolderOpen } from 'lucide-solid';
 import ContextMenu, { type ContextMenuItem } from '../ContextMenu';
 import MeasurementSettingsPanel from '../MeasurementSettingsPanel';
 import type { MeasurementSettings } from '../../measurementSettings';
+import type { NewProjectTemplate } from '../../types';
 import './Ribbon.css';
 
 interface RecentProjectInfo {
@@ -25,10 +27,36 @@ const MENU_ITEMS: BackstageMenuItem[] = [
   { id: 'close', label: '关闭工程', danger: true },
 ];
 
+const PROJECT_TEMPLATES: Array<{
+  id: NewProjectTemplate;
+  name: string;
+  description: string;
+  icon: typeof FolderOpen;
+}> = [
+  {
+    id: 'can-analysis',
+    name: 'CAN 分析',
+    description: '打开报文监控与资源管理器，适合从 CAN 日志开始分析。',
+    icon: ChartLine,
+  },
+  {
+    id: 'dbc-signal-analysis',
+    name: 'DBC 信号分析',
+    description: '并排打开 DBC 信号树和曲线面板，适合信号查看与分析。',
+    icon: Database,
+  },
+  {
+    id: 'blank-workspace',
+    name: '空白工作区',
+    description: '仅打开资源管理器，按自己的习惯安排工作区。',
+    icon: FolderOpen,
+  },
+];
+
 export interface BackstageProps {
   visible: boolean;
   onClose: () => void;
-  onNewProject: () => void;
+  onNewProject: (template: NewProjectTemplate) => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
@@ -161,10 +189,30 @@ const Backstage: Component<BackstageProps> = (props) => {
           {/* 新建 */}
           <div style={{ display: activeItem() === 'new' ? 'block' : 'none' }}>
             <h2 class="backstage__heading">新建工程</h2>
-            <p class="backstage__desc">创建一个新的 CAN 工作工程。</p>
-            <button class="backstage__action-btn" onClick={() => { props.onNewProject(); props.onClose(); }} type="button">
-              新建工程
-            </button>
+            <p class="backstage__desc">选择初始工作区布局。模板仅配置面板，不会添加数据文件。</p>
+            <div class="backstage__card-list backstage__template-list">
+              <For each={PROJECT_TEMPLATES}>
+                {(template) => {
+                  const TemplateIcon = template.icon;
+                  return (
+                    <button
+                      class="backstage__card backstage__template-card"
+                      onClick={() => {
+                        props.onNewProject(template.id);
+                        props.onClose();
+                      }}
+                      type="button"
+                    >
+                      <span class="backstage__card-icon">
+                        <TemplateIcon size={22} />
+                      </span>
+                      <span class="backstage__card-title">{template.name}</span>
+                      <span class="backstage__card-desc">{template.description}</span>
+                    </button>
+                  );
+                }}
+              </For>
+            </div>
           </div>
 
           {/* 打开 */}

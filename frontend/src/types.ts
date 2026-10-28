@@ -167,6 +167,11 @@ export interface UiLayoutJson {
   panels: PanelLayoutJson[];
 }
 
+export type NewProjectTemplate =
+  | 'can-analysis'
+  | 'dbc-signal-analysis'
+  | 'blank-workspace';
+
 export interface PanelLayoutJson {
   id: string;
   visible: boolean;

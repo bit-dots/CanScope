@@ -7,6 +7,7 @@ export interface NewProjectConfig {
 }
 
 interface NewProjectDialogProps {
+  templateName: string;
   onConfirm: (config: NewProjectConfig) => void;
   onCancel: () => void;
 }
@@ -88,6 +89,9 @@ const NewProjectDialog: Component<NewProjectDialogProps> = (props) => {
         </div>
 
         <div class="npd-body">
+          <div class="npd-template">
+            工作区模板 <strong>{props.templateName}</strong>
+          </div>
           <div class="npd-field">
             <label class="npd-label" for="npd-name">
               工程名称 <span class="npd-required">*</span>

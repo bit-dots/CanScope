@@ -5,6 +5,7 @@ import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
 import Backstage from './Backstage';
 import type { MeasurementSettings } from '../../measurementSettings';
+import type { NewProjectTemplate } from '../../types';
 import './Ribbon.css';
 
 /* ============================================
@@ -107,7 +108,7 @@ export interface RibbonProps {
   onStartRecord: () => void;
   onStopRecord: () => void;
   onOpenPlayback: () => void;
-  onNewProject: () => void;
+  onNewProject: (template: NewProjectTemplate) => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
