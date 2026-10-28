@@ -1,4 +1,4 @@
-import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
+import { createSignal, createEffect, onCleanup, onMount, For } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -917,7 +917,8 @@ function App() {
               />
             )}
             {/* Rendered panels as floating windows */}
-            {windowManager.visiblePanels().map((panel) => {
+            <For each={windowManager.visiblePanels()}>
+              {(panel) => {
               const panelContent = (() => {
                 switch (panel.id) {
                   case 'resource-manager':
@@ -1066,7 +1067,8 @@ function App() {
                   {panelContent}
                 </FloatingWindow>
               );
-            })}
+            }}
+            </For>
             {/* Minimized windows taskbar */}
             <WindowTaskbar
               panels={windowManager.minimizedPanels()}

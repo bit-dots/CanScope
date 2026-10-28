@@ -440,8 +440,7 @@ export function useWindowManager(
 
   function visiblePanels() {
     return Object.values(state.panels)
-      .filter((p) => p.visible && !p.window.minimized)
-      .sort((a, b) => a.zIndex - b.zIndex);
+      .filter((p) => p.visible && !p.window.minimized);
   }
 
   async function popOutPanel(panelId: string) {
