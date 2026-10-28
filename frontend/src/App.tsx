@@ -847,7 +847,7 @@ function App() {
 
   return (
     <div class="app-layout">
-      <Ribbon
+      {project() !== null && !loading() && <Ribbon
           projectLoaded={project() !== null}
           playbackState={playbackState()}
           online={online()}
@@ -877,7 +877,7 @@ function App() {
           cachedFrameCount={frames().length}
           estimatedCacheBytes={estimatedCacheBytes()}
           onMeasurementSettingsChange={handleMeasurementSettingsChange}
-      />
+      />}
       <main class="main-content">
         {error() && (
           <div class="error-bar">{error()}</div>
@@ -1079,6 +1079,8 @@ function App() {
             onOpenProject={handleOpenProject}
             onOpenRecent={handleOpenRecent}
             onRemoveRecent={handleRemoveRecent}
+            measurementSettings={measurementSettings()}
+            onMeasurementSettingsChange={handleMeasurementSettingsChange}
           />
         )}
       </main>
@@ -1120,13 +1122,15 @@ function App() {
           onConfirm={handleDatabaseManagerConfirm}
         />
       )}
-      <StatusBar
-        sourceLoaded={hasSource()}
-        metadata={metadata()}
-        frameCount={playbackFrameCount()}
-        totalFrameCount={metadata()?.totalFrames ?? frameTotalCount()}
-        playbackState={playbackState()}
-      />
+      {project() !== null && !loading() && (
+        <StatusBar
+          sourceLoaded={hasSource()}
+          metadata={metadata()}
+          frameCount={playbackFrameCount()}
+          totalFrameCount={metadata()?.totalFrames ?? frameTotalCount()}
+          playbackState={playbackState()}
+        />
+      )}
     </div>
   );
 }
