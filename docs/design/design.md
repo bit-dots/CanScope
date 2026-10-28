@@ -10,47 +10,53 @@
 
 | Token | 色值 | 用途 |
 |-------|------|------|
-| `--bg-primary` | `#0D0D0D` | 全局页面背景、数据表格背景 |
-| `--bg-secondary` | `#1A1A2E` | 面板背景（Toolbar、Sidebar、StatusBar） |
-| `--bg-tertiary` | `#16213E` | 按钮默认态、表格 hover 行 |
+| `--bg-primary` | `#181A1B` | 全局页面背景、数据表格背景 |
+| `--bg-secondary` | `#202324` | 面板背景（Toolbar、Sidebar、StatusBar） |
+| `--bg-tertiary` | `#282C2D` | 按钮默认态、表格 hover 行 |
 
 ### 文字色 (Text)
 
 | Token | 色值 | 用途 |
 |-------|------|------|
-| `--text-primary` | `#E2E8F0` | 标题、正文、重要文字 |
-| `--text-secondary` | `#94A3B8` | 辅助标签、时间戳、次要信息 |
+| `--text-primary` | `#E2E5E3` | 标题、正文、重要文字 |
+| `--text-secondary` | `#A1A8A5` | 辅助标签、时间戳、次要信息 |
+| `--text-muted` | `#7F8885` | 低优先级辅助信息，避免用于重要内容 |
 
 ### 功能色 (Semantic)
 
 | Token | 色值 | 用途 |
 |-------|------|------|
-| `--accent` | `#2563EB` | 主色调：选中态、Accent 按钮、链接、焦点环 |
-| `--accent-hover` | `#3B82F6` | Accent 按钮 hover |
-| `--border` | `#2A2A3E` | 面板分隔线、表格边框、输入框边框 |
-| `--success` | `#22C55E` | 播放中状态、操作成功 |
-| `--warning` | `#F59E0B` | 警告、CAN 错误帧标识 |
-| `--error` | `#EF4444` | 错误、停止状态 |
+| `--accent` | `#C68A4A` | 品牌强调色：主要操作、选中态、链接、焦点环 |
+| `--accent-hover` | `#D49A5B` | 强调色控件的悬停态 |
+| `--accent-foreground` | `#181A1B` | 强调色背景上的文字和图标 |
+| `--border` | `#393E3F` | 面板分隔线、表格边框、输入框边框 |
+| `--success` | `#64A77B` | 播放中状态、操作成功 |
+| `--warning` | `#D4A04C` | 警告、CAN 错误帧标识 |
+| `--error` | `#D7746E` | 错误状态 |
 
 ### Tailwind Theme 映射
 
 ```css
 @theme {
-  --color-bg-primary:    #0D0D0D;
-  --color-bg-secondary:  #1A1A2E;
-  --color-bg-tertiary:   #16213E;
-  --color-text-primary:  #E2E8F0;
-  --color-text-secondary:#94A3B8;
-  --color-accent:        #2563EB;
-  --color-accent-hover:  #3B82F6;
-  --color-border:        #2A2A3E;
-  --color-success:       #22C55E;
-  --color-warning:       #F59E0B;
-  --color-error:         #EF4444;
+  --color-bg-primary:       #181A1B;
+  --color-bg-secondary:     #202324;
+  --color-bg-tertiary:      #282C2D;
+  --color-text-primary:     #E2E5E3;
+  --color-text-secondary:   #A1A8A5;
+  --color-text-muted:       #7F8885;
+  --color-accent:           #C68A4A;
+  --color-accent-hover:     #D49A5B;
+  --color-accent-foreground:#181A1B;
+  --color-border:           #393E3F;
+  --color-success:          #64A77B;
+  --color-warning:          #D4A04C;
+  --color-error:            #D7746E;
 }
 ```
 
 在组件中使用 Tailwind 类名：`bg-bg-primary`、`text-text-primary`、`border-border` 等。
+
+CanScope 使用中性的石墨灰表面与低饱和琥珀品牌强调色，避免蓝紫色作为全局品牌色。强调色应克制使用，不要大面积铺设。强调色背景上的前景内容使用 `--accent-foreground`，保证文字和图标清晰。成功、警告和错误颜色只表达对应状态，不替代品牌强调色；信号图表等数据系列可使用独立且可区分的颜色。
 
 > **禁止**直接手写 hex 色值。必须使用 token（`var(--xxx)`）或 Tailwind 类名。
 > **禁止**使用非 token 色值，如 `#333`、`#fff`（白色/黑色除外）。
