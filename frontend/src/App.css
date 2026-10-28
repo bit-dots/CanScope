@@ -1281,9 +1281,7 @@ select:focus-visible,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 1200px;
   min-height: 68px;
-  margin: 0 auto;
 }
 
 .welcome-brand {
@@ -1588,9 +1586,7 @@ select:focus-visible,
   align-items: center;
   gap: 18px;
   width: 100%;
-  max-width: 1200px;
   min-height: 48px;
-  margin: 0 auto;
   color: var(--text-secondary);
   border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   font-size: 11px;
