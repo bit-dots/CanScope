@@ -164,6 +164,18 @@ export interface ChartSignalJson {
 export interface UiLayoutJson {
   panelWidth: number;
   chartHeight: number;
+  panels: PanelLayoutJson[];
+}
+
+export interface PanelLayoutJson {
+  id: string;
+  visible: boolean;
+  minimized: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
 }
 
 export interface DbcBinding {

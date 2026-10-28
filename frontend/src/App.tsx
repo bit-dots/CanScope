@@ -87,6 +87,49 @@ function App() {
 
   const [workspaceEl, setWorkspaceEl] = createSignal<HTMLElement | null>(null);
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
+  let layoutSaveTimeout: number | undefined;
+  let projectGeneration = 0;
+  let lastLayoutRevision = windowManager.layoutRevision();
+
+  const cancelPendingLayoutSave = () => {
+    if (layoutSaveTimeout !== undefined) {
+      window.clearTimeout(layoutSaveTimeout);
+      layoutSaveTimeout = undefined;
+    }
+  };
+
+  const persistPanelLayout = async () => {
+    const activeProject = project();
+    if (!activeProject) return;
+    await invoke('update_project_state', {
+      uiLayout: {
+        ...activeProject.uiLayout,
+        panels: windowManager.getPanelLayouts(),
+      },
+    });
+  };
+
+  createEffect(() => {
+    const revision = windowManager.layoutRevision();
+    const activeProject = project();
+    if (revision === lastLayoutRevision) return;
+    lastLayoutRevision = revision;
+    if (!activeProject) return;
+
+    cancelPendingLayoutSave();
+    const generation = projectGeneration;
+    layoutSaveTimeout = window.setTimeout(() => {
+      layoutSaveTimeout = undefined;
+      if (generation !== projectGeneration) return;
+
+      void persistPanelLayout().catch(e => {
+        setError(String(e));
+        console.error('Failed to save panel layout:', e);
+      });
+    }, 250);
+  });
+
+  onCleanup(cancelPendingLayoutSave);
 
   let frameQueryId = 0;
   const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
@@ -266,6 +309,10 @@ function App() {
     appWindow.setTheme('dark').catch((e) => console.error('setTheme failed:', e));
     appWindow.onCloseRequested(async (event) => {
       try {
+        if (layoutSaveTimeout !== undefined) {
+          cancelPendingLayoutSave();
+          await persistPanelLayout();
+        }
         const dirty: boolean = await invoke('is_project_dirty');
         if (!dirty) return;
       } catch {
@@ -284,6 +331,8 @@ function App() {
   };
 
   const handleConfirmNewProject = async (config: NewProjectConfig) => {
+    projectGeneration++;
+    cancelPendingLayoutSave();
     setShowNewProjectDialog(false);
 
     try {
@@ -309,6 +358,10 @@ function App() {
       });
 
       setProject(proj);
+      windowManager.restorePanelLayouts(proj.uiLayout.panels);
+      await invoke('update_project_state', {
+        uiLayout: { ...proj.uiLayout, panels: windowManager.getPanelLayouts() },
+      });
 
       await invoke('save_project_as', { path: projectFilePath });
 
@@ -357,6 +410,8 @@ function App() {
   };
 
   const openProjectByPath = async (path: string) => {
+    projectGeneration++;
+    cancelPendingLayoutSave();
     setLoading(true);
     setError(null);
     resetTraceBuffer();
@@ -368,6 +423,7 @@ function App() {
 
     try {
       const proj: ProjectInfo = await invoke('open_project', { path });
+      windowManager.restorePanelLayouts(proj.uiLayout.panels);
       const loadedMeasurementSettings = loadMeasurementSettings(proj.name);
       setMeasurementSettings(loadedMeasurementSettings);
       saveMeasurementSettings(loadedMeasurementSettings);
@@ -421,6 +477,8 @@ function App() {
       if (!proj) return;
 
       if (proj.projectPath) {
+        cancelPendingLayoutSave();
+        await persistPanelLayout();
         await invoke('save_project');
       } else {
         const { save } = await import('@tauri-apps/plugin-dialog');
@@ -465,6 +523,7 @@ function App() {
   };
 
   const persistState = async (path: string) => {
+    cancelPendingLayoutSave();
     await invoke('update_project_state', {
       filters: {
         canId: filter().canId,
@@ -480,8 +539,8 @@ function App() {
         visible: s.visible,
       })),
       uiLayout: {
-        panelWidth: 260,
-        chartHeight: 220,
+        ...project()?.uiLayout,
+        panels: windowManager.getPanelLayouts(),
       },
       lastPosition: currentTime(),
     });
@@ -493,6 +552,10 @@ function App() {
 
   const handleCloseProject = async () => {
     try {
+      if (layoutSaveTimeout !== undefined) {
+        cancelPendingLayoutSave();
+        await persistPanelLayout();
+      }
       const dirty: boolean = await invoke('is_project_dirty');
       if (dirty) {
         setShowUnsavedDialog(true);
@@ -534,6 +597,8 @@ function App() {
   };
 
   const doCloseProject = async () => {
+    projectGeneration++;
+    cancelPendingLayoutSave();
     stopPolling();
     await invoke('close_project');
     setProject(null);
@@ -904,6 +969,23 @@ function App() {
               windowManager.endResize();
             }}
           >
+            {project() && !project()!.canLogPath && project()!.dbcBindings.length === 0 && (
+              <section
+                class="workspace-empty-state"
+                aria-label="空工程提示"
+                style={{
+                  left: (() => {
+                    const panel = windowManager.state.panels['resource-manager'];
+                    return panel?.visible && !panel.window.minimized && panel.window.rect.x === 0
+                      ? `${panel.window.rect.width}px`
+                      : '0';
+                  })(),
+                }}
+              >
+                <h1>工程已创建</h1>
+                <p>从文件菜单导入 CAN 日志或加载 DBC，开始查看报文与信号。</p>
+              </section>
+            )}
             {/* Snap preview overlay */}
             {windowManager.snapPreview() && (
               <div

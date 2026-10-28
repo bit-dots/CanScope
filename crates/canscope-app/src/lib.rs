@@ -45,6 +45,8 @@ struct ChartSignalJson {
 struct UiLayoutJson {
     panel_width: f64,
     chart_height: f64,
+    #[serde(default)]
+    panels: Vec<PanelLayoutJson>,
 }
 
 impl Default for UiLayoutJson {
@@ -52,8 +54,22 @@ impl Default for UiLayoutJson {
         Self {
             panel_width: 260.0,
             chart_height: 200.0,
+            panels: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PanelLayoutJson {
+    id: String,
+    visible: bool,
+    minimized: bool,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    z_index: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +88,7 @@ struct ProjectConfig {
     last_position: f64,
     filters: FilterConfigJson,
     chart_signals: Vec<ChartSignalJson>,
+    #[serde(default)]
     ui_layout: UiLayoutJson,
     created_at: String,
     modified_at: String,
@@ -1658,4 +1675,16 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running CanScope");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UiLayoutJson;
+
+    #[test]
+    fn legacy_ui_layout_defaults_panel_layouts() {
+        let layout: UiLayoutJson =
+            serde_json::from_str(r#"{"panelWidth":260,"chartHeight":200}"#).unwrap();
+        assert!(layout.panels.is_empty());
+    }
 }

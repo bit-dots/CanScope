@@ -13,6 +13,7 @@ import {
   SNAP_THRESHOLD_RIGHT,
   createDefaultWindowState,
 } from './window-types';
+import type { PanelLayoutJson } from '../../types';
 
 interface PanelDef {
   id: string;
@@ -36,6 +37,7 @@ export function useWindowManager(
   });
 
   const [snapPreview, setSnapPreview] = createSignal<SnapPreview | null>(null);
+  const [layoutRevision, setLayoutRevision] = createSignal(0);
   const [draggingPanelId, setDraggingPanelId] = createSignal<string | null>(null);
   const [dragOffset, setDragOffset] = createSignal({ x: 0, y: 0 });
   const [resizingPanelId, setResizingPanelId] = createSignal<string | null>(null);
@@ -100,6 +102,62 @@ export function useWindowManager(
     setState('nextZIndex', v => v + 1);
   }
 
+  function getPanelLayouts(): PanelLayoutJson[] {
+    return Object.values(state.panels).map(panel => ({
+      id: panel.id,
+      visible: panel.visible,
+      minimized: panel.window.minimized,
+      x: panel.window.rect.x,
+      y: panel.window.rect.y,
+      width: panel.window.rect.width,
+      height: panel.window.rect.height,
+      zIndex: panel.zIndex,
+    }));
+  }
+
+  function restorePanelLayouts(layouts: PanelLayoutJson[]) {
+    const savedById = new Map(layouts.map(layout => [layout.id, layout]));
+    let maxZIndex = 100;
+
+    for (const def of panelDefs) {
+      const panel = state.panels[def.id];
+      const saved = savedById.get(def.id);
+      if (saved && [saved.x, saved.y, saved.width, saved.height, saved.zIndex].every(Number.isFinite)) {
+        setState('panels', def.id, {
+          ...panel,
+          visible: saved.visible,
+          window: {
+            ...panel.window,
+            rect: {
+              x: saved.x,
+              y: saved.y,
+              width: Math.max(saved.width, MIN_WINDOW_WIDTH),
+              height: Math.max(saved.height, MIN_WINDOW_HEIGHT),
+            },
+            minimized: saved.minimized,
+            snapState: 'floating',
+            preMaximize: null,
+            preSnap: null,
+          },
+          zIndex: saved.zIndex,
+        });
+        maxZIndex = Math.max(maxZIndex, saved.zIndex);
+      } else {
+        const defaultPos = def.defaultPosition ?? panel.defaultPosition;
+        const defaultZIndex = 100 + panelDefs.indexOf(def);
+        setState('panels', def.id, {
+          ...panel,
+          visible: def.defaultVisible,
+          window: createDefaultWindowState(defaultPos),
+          zIndex: defaultZIndex,
+        });
+        maxZIndex = Math.max(maxZIndex, defaultZIndex);
+      }
+    }
+
+    setState('nextZIndex', maxZIndex + 1);
+  }
+
   const isPanelVisible = (id: string): boolean => {
     const p = state.panels[id];
     return p ? p.visible : false;
@@ -111,12 +169,14 @@ export function useWindowManager(
     setState('panels', id, 'visible', true);
     setState('panels', id, 'window', 'minimized', false);
     bringToFront(id);
+    setLayoutRevision(v => v + 1);
   };
 
   const closePanel = (id: string) => {
     const p = state.panels[id];
     if (!p) return;
     setState('panels', id, 'visible', false);
+    setLayoutRevision(v => v + 1);
   };
 
   const togglePanel = (id: string) => {
@@ -307,6 +367,7 @@ export function useWindowManager(
 
     globalDragCleanup?.();
     globalDragCleanup = null;
+    setLayoutRevision(v => v + 1);
   }
 
   // Maximize / Restore
@@ -339,6 +400,7 @@ export function useWindowManager(
       });
       setState('panels', panelId, 'window', 'snapState', 'maximized');
     }
+    setLayoutRevision(v => v + 1);
   }
 
   // Minimize / Restore
@@ -346,6 +408,7 @@ export function useWindowManager(
     const p = state.panels[panelId];
     if (!p || !p.visible) return;
     setState('panels', panelId, 'window', 'minimized', true);
+    setLayoutRevision(v => v + 1);
   }
 
   function restorePanel(panelId: string) {
@@ -353,6 +416,7 @@ export function useWindowManager(
     if (!p || !p.visible) return;
     setState('panels', panelId, 'window', 'minimized', false);
     bringToFront(panelId);
+    setLayoutRevision(v => v + 1);
   }
 
   function setPanelRect(panelId: string, rect: Partial<WindowRect>) {
@@ -425,11 +489,13 @@ export function useWindowManager(
   }
 
   function endResize() {
+    if (!resizingPanelId()) return;
     setResizingPanelId(null);
     setResizeDirection(null);
 
     globalResizeCleanup?.();
     globalResizeCleanup = null;
+    setLayoutRevision(v => v + 1);
   }
 
   function minimizedPanels() {
@@ -471,6 +537,9 @@ export function useWindowManager(
   return {
     state,
     snapPreview,
+    layoutRevision,
+    getPanelLayouts,
+    restorePanelLayouts,
     draggingPanelId,
     isPanelVisible,
     openPanel,
