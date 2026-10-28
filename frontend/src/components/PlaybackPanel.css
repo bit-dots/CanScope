@@ -100,7 +100,7 @@
   font-weight: 600;
   line-height: 14px;
   text-align: center;
-  color: #fff;
+  color: var(--accent-foreground);
   background: var(--accent);
   border-radius: 7px;
 }
@@ -165,7 +165,7 @@
 }
 
 .playback-panel__speed-menu-item:hover {
-  background: rgba(37, 99, 235, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .playback-panel__speed-menu-item--selected {
@@ -213,7 +213,7 @@
   justify-content: center;
   height: 100%;
   padding: 32px 24px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
   line-height: 1.8;
@@ -244,7 +244,7 @@
   border-right: 1px solid var(--border);
   white-space: nowrap;
   user-select: none;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -384,7 +384,7 @@
 .playback-panel__file-meta {
   display: block;
   font-size: 11px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -472,7 +472,7 @@
 .playback-panel__file-timeline-label {
   font-size: 10px;
   font-family: var(--font-mono);
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   line-height: 1;
 }
 
@@ -604,7 +604,7 @@
 
 .playback-panel__footer-summary {
   font-size: 11px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
 }
 
 /* ─── 回放设置模态框 ─── */
@@ -629,7 +629,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   margin-bottom: 2px;
 }
 
@@ -678,7 +678,7 @@
 
 .playback-settings-radio-desc {
   font-size: 11px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -707,7 +707,7 @@
 
 .playback-settings-toggle-desc {
   font-size: 11px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
 }
 
 .playback-settings-switch {

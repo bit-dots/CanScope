@@ -64,7 +64,7 @@
 
 .signal-tree__msg--selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
 }
 
 .signal-tree__msg--selected:hover {
@@ -81,7 +81,7 @@
 }
 
 .signal-tree__msg--selected .signal-tree__arrow {
-  color: #fff;
+  color: var(--accent-foreground);
 }
 
 .signal-tree__arrow--collapsed {

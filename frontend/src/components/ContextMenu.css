@@ -7,7 +7,7 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -45,11 +45,11 @@
 }
 
 .ctx-menu__item:hover {
-  background: rgba(37, 99, 235, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .ctx-menu__item:active {
-  background: rgba(37, 99, 235, 0.25);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .ctx-menu__item--disabled {

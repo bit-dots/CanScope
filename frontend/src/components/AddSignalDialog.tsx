@@ -172,15 +172,15 @@ const AddSignalDialog: Component<AddSignalDialogProps> = (props) => {
           'add-signal-dialog__sig--existing': existing,
         }}
         style={selected ? {
-          background: 'rgba(217, 119, 6, 0.25)',
-          'border-left': '4px solid #D97706',
+          background: 'color-mix(in srgb, var(--accent) 25%, transparent)',
+          'border-left': '4px solid var(--accent)',
           'border-radius': '0 3px 3px 0',
         } : undefined}
         onClick={() => toggleSignal(canId, sig.name, sig.unit, sig.min, sig.max)}
       >
         <span
           class="dm-tree-sig__name"
-          style={selected ? { color: '#FBBF24', 'font-weight': '600' } : undefined}
+          style={selected ? { color: 'var(--accent-hover)', 'font-weight': '600' } : undefined}
         >
           <Activity size={12} class="dm-tree-sig__icon" />
           {' '}{existing ? '✓ ' : selected ? '● ' : ''}{sig.name}

@@ -2,17 +2,19 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg-primary: #0D0D0D;
-  --color-bg-secondary: #1A1A2E;
-  --color-bg-tertiary: #16213E;
-  --color-text-primary: #E2E8F0;
-  --color-text-secondary: #94A3B8;
-  --color-accent: #2563EB;
-  --color-accent-hover: #3B82F6;
-  --color-border: #2A2A3E;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
+  --color-bg-primary: #181A1B;
+  --color-bg-secondary: #202324;
+  --color-bg-tertiary: #282C2D;
+  --color-text-primary: #E2E5E3;
+  --color-text-secondary: #A1A8A5;
+  --color-text-muted: #7F8885;
+  --color-accent: #C68A4A;
+  --color-accent-hover: #D49A5B;
+  --color-accent-foreground: #181A1B;
+  --color-border: #393E3F;
+  --color-success: #64A77B;
+  --color-warning: #D4A04C;
+  --color-error: #D7746E;
   --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 }
@@ -26,17 +28,19 @@
 }
 
 :root {
-  --bg-primary: #0D0D0D;
-  --bg-secondary: #1A1A2E;
-  --bg-tertiary: #16213E;
-  --text-primary: #E2E8F0;
-  --text-secondary: #94A3B8;
-  --accent: #2563EB;
-  --accent-hover: #3B82F6;
-  --border: #2A2A3E;
-  --success: #22C55E;
-  --warning: #F59E0B;
-  --error: #EF4444;
+  --bg-primary: #181A1B;
+  --bg-secondary: #202324;
+  --bg-tertiary: #282C2D;
+  --text-primary: #E2E5E3;
+  --text-secondary: #A1A8A5;
+  --text-muted: #7F8885;
+  --accent: #C68A4A;
+  --accent-hover: #D49A5B;
+  --accent-foreground: #181A1B;
+  --border: #393E3F;
+  --success: #64A77B;
+  --warning: #D4A04C;
+  --error: #D7746E;
 
   font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;

@@ -368,7 +368,7 @@ select:focus-visible,
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
   display: none;
   flex-direction: column;
   gap: 1px;
@@ -410,7 +410,7 @@ select:focus-visible,
 }
 
 .frame-table__time-menu-item:hover {
-  background: rgba(37, 99, 235, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .frame-table__time-menu-item--selected {
@@ -628,7 +628,7 @@ select:focus-visible,
 }
 
 .frame-table__type-filter-menu-item:hover {
-  background: rgba(37, 99, 235, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .frame-table__type-filter-menu-item--selected {
@@ -984,7 +984,7 @@ select:focus-visible,
 }
 
 .frame-table__statusbar-item--error-active {
-  color: color-mix(in srgb, #e07070 40%, var(--text-secondary));
+  color: color-mix(in srgb, var(--error) 40%, var(--text-secondary));
 }
 
 .frame-table__statusbar-label {
@@ -1035,7 +1035,7 @@ select:focus-visible,
   padding: 0 4px;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
@@ -1364,7 +1364,7 @@ select:focus-visible,
 
 .welcome-btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
 }
 
 .welcome-btn-primary:hover {
@@ -1862,7 +1862,7 @@ select:focus-visible,
 
 .npd-browse-btn:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
   border-color: var(--accent);
 }
 
@@ -1947,7 +1947,7 @@ select:focus-visible,
 
 .npd-btn-create {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
 }
 
 .npd-btn-create:hover:not(:disabled) {
@@ -2024,7 +2024,7 @@ select:focus-visible,
   min-width: 400px;
   max-width: 92vw;
   box-shadow:
-    0 0 0 1px rgba(37, 99, 235, 0.04),
+    0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent),
     0 24px 64px rgba(0, 0, 0, 0.55);
   overflow: auto;
   display: flex;
@@ -2054,17 +2054,17 @@ select:focus-visible,
 @keyframes dm-dialog-flash {
   0% {
     box-shadow:
-      0 0 0 0 rgba(37, 99, 235, 0.5),
+      0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent),
       0 24px 64px rgba(0, 0, 0, 0.55);
   }
   50% {
     box-shadow:
-      0 0 0 5px rgba(37, 99, 235, 0.35),
+      0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent),
       0 24px 80px rgba(0, 0, 0, 0.6);
   }
   100% {
     box-shadow:
-      0 0 0 0 rgba(37, 99, 235, 0),
+      0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent),
       0 24px 64px rgba(0, 0, 0, 0.55);
   }
 }
@@ -2140,7 +2140,7 @@ select:focus-visible,
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow:
-    0 0 0 1px rgba(37, 99, 235, 0.04),
+    0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent),
     0 12px 32px rgba(0, 0, 0, 0.5);
   z-index: 1100;
   animation: dm-help-in 0.15s ease-out;
@@ -2485,8 +2485,8 @@ select:focus-visible,
 .dm-sidebar__channel {
   font-size: 12px;
   color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: 4px;
   padding: 1px 6px;
   font-variant-numeric: tabular-nums;
@@ -2612,7 +2612,7 @@ select:focus-visible,
   justify-content: center;
   height: 100%;
   padding: 32px 24px;
-  color: var(--text-muted, #64748B);
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
   line-height: 1.8;
@@ -2665,7 +2665,7 @@ select:focus-visible,
 .dm-channel-drop {
   position: absolute;
   z-index: 100;
-  background: var(--bg-secondary, #1a1a2e);
+  background: var(--bg-secondary, #202324);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
@@ -2927,7 +2927,7 @@ select:focus-visible,
 
 .dm-tree-node__name {
   font-weight: 600;
-  color: #7dd3fc;
+  color: var(--accent-hover);
 }
 
 .dm-tree-node__icon {
@@ -2974,8 +2974,8 @@ select:focus-visible,
 }
 
 .dm-files-badge--ldf {
-  background: color-mix(in srgb, #a78bfa 16%, transparent);
-  color: #a78bfa;
+  background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
+  color: var(--text-secondary);
 }
 
 .dm-files-cell--path {

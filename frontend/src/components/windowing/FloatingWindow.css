@@ -7,12 +7,12 @@
   min-width: 280px;
   min-height: 180px;
   overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
   transition: box-shadow 0.15s ease;
 }
 
 .floating-window:focus-within {
-  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 /* ---- Snap state variants ---- */
@@ -217,8 +217,8 @@
 /* Snap preview overlay */
 .snap-preview {
   position: absolute;
-  background: rgba(37, 99, 235, 0.12);
-  border: 2px dashed rgba(37, 99, 235, 0.4);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 2px dashed color-mix(in srgb, var(--accent) 40%, transparent);
   pointer-events: none;
   z-index: 9999;
   transition: all 0.1s ease;

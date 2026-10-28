@@ -303,18 +303,18 @@
 }
 
 .add-signal-dialog__sig--selected {
-  background: color-mix(in srgb, #D97706 35%, var(--bg-primary)) !important;
-  box-shadow: inset 4px 0 0 #D97706;
+  background: color-mix(in srgb, var(--accent) 25%, var(--bg-primary)) !important;
+  box-shadow: inset 4px 0 0 var(--accent);
   border-radius: 0 3px 3px 0;
 }
 
 .add-signal-dialog__sig--selected .dm-tree-sig__name {
-  color: #FBBF24;
+  color: var(--accent-hover);
   font-weight: 600;
 }
 
 .add-signal-dialog__sig--selected:hover {
-  background: color-mix(in srgb, #D97706 45%, var(--bg-primary)) !important;
+  background: color-mix(in srgb, var(--accent) 35%, var(--bg-primary)) !important;
 }
 
 .add-signal-dialog__sig--existing {
@@ -381,7 +381,7 @@
 
 .add-signal-dialog__btn--primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-foreground);
   border-color: var(--accent);
 }
 
