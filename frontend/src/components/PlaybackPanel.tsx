@@ -891,9 +891,17 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                               ? dp.offset
                               : (file.playEndOffset ?? file.duration);
                           const isDraggingThis = draggingOffset()?.fileIndex === index();
+                          const playhead = getFilePlayheadInfo(index());
+                          const showPlayhead =
+                            !isDraggingThis &&
+                            props.playbackState !== 'stopped' &&
+                            playhead.state === 'playing';
+                          const displayedStart = showPlayhead
+                            ? (playhead.percent / 100) * file.duration
+                            : effStart;
                           return (
                             <>
-                              {/* 进度条填充 — 跟随游标实时更新 */}
+                              {/* 播放范围填充 */}
                               <div
                                 class="playback-panel__file-timeline-fill"
                                 style={{
@@ -908,9 +916,9 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                                   'playback-panel__file-timeline-thumb--active':
                                     isDraggingThis && draggingOffset()!.handle === 'start',
                                 }}
-                                style={{ left: `${(effStart / file.duration) * 100}%` }}
+                                style={{ left: `${(displayedStart / file.duration) * 100}%` }}
                                 onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
-                                title="拖拽设置播放起始点"
+                                title={showPlayhead ? '当前播放位置（拖拽可调整播放起点）' : '拖拽设置播放起始点'}
                               />
                               {/* 右游标 — 结束位置，可拖动 */}
                               <div
