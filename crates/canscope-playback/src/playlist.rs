@@ -129,6 +129,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         if let Some(entry) = self.entries.get_mut(index) {
             entry.enabled = enabled;
         }
+        self.recalc_offsets();
     }
 
     /// 设置文件的播放裁剪区间
@@ -139,9 +140,20 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         play_end_offset: Option<f64>,
     ) {
         if let Some(entry) = self.entries.get_mut(index) {
-            entry.play_start_offset = play_start_offset.max(0.0);
-            entry.play_end_offset = play_end_offset;
+            if let Some(duration) = entry.engine.metadata().duration {
+                let min_span = 0.1_f64.min(duration);
+                let start = play_start_offset.clamp(0.0, (duration - min_span).max(0.0));
+                let end = play_end_offset
+                    .unwrap_or(duration)
+                    .clamp(start + min_span, duration);
+                entry.play_start_offset = start;
+                entry.play_end_offset = (end < duration).then_some(end);
+            } else {
+                entry.play_start_offset = play_start_offset.max(0.0);
+                entry.play_end_offset = play_end_offset;
+            }
         }
+        self.recalc_offsets();
     }
 
     /// 调整文件播放顺序
@@ -161,7 +173,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         self.recalc_offsets();
     }
 
-    /// 按原始时间戳排序并重新计算每个文件的全局时间偏移
+    /// 按原始时间戳排序并重新计算所选播放范围的全局时间偏移
     fn sort_and_recalc_offsets(&mut self) {
         self.entries.sort_by(|a, b| {
             let ta = a.engine.metadata().start_time.as_deref().unwrap_or("");
@@ -175,29 +187,55 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         let mut cumulative = 0.0;
         for entry in &mut self.entries {
             entry.global_start_offset = cumulative;
-            if let Some(dur) = entry.engine.metadata().duration {
-                cumulative += dur;
-                entry.global_end_offset = Some(cumulative);
+            if entry.enabled {
+                if let Some(dur) = Self::entry_play_duration(entry) {
+                    cumulative += dur;
+                }
+            }
+            if entry.enabled {
+                if Self::entry_play_duration(entry).is_some() {
+                    entry.global_end_offset = Some(cumulative);
+                } else {
+                    entry.global_end_offset = None;
+                }
             } else {
-                entry.global_end_offset = None;
+                entry.global_end_offset = Some(cumulative);
             }
         }
     }
 
-    /// 获取总时长（所有文件 duration 之和），单位秒
+    fn entry_play_end(entry: &PlaylistEntry<S>) -> Option<f64> {
+        entry
+            .engine
+            .metadata()
+            .duration
+            .map(|duration| entry.play_end_offset.unwrap_or(duration).min(duration))
+    }
+
+    fn entry_play_duration(entry: &PlaylistEntry<S>) -> Option<f64> {
+        let end = Self::entry_play_end(entry)?;
+        Some((end - entry.play_start_offset).max(0.0))
+    }
+
+    fn activate_entry(&mut self, index: usize) -> Result<(), PlaybackError> {
+        let dbcs = self.dbcs.clone();
+        let entry = &mut self.entries[index];
+        entry.engine.seek_to(entry.play_start_offset)?;
+        entry.engine.play();
+        entry.engine.set_dbcs(dbcs);
+        self.current_entry_index = index;
+        Ok(())
+    }
+
+    /// 获取所有启用文件的所选播放范围总时长，单位秒
     pub fn total_duration(&self) -> Option<f64> {
         let mut sum = 0.0;
-        let mut all_known = true;
         for entry in &self.entries {
             if entry.enabled {
-                if let Some(dur) = entry.engine.metadata().duration {
-                    sum += dur;
-                } else {
-                    all_known = false;
-                }
+                sum += Self::entry_play_duration(entry)?;
             }
         }
-        if all_known { Some(sum) } else { None }
+        Some(sum)
     }
 
     /// 获取所有启用文件的总帧数
@@ -213,10 +251,14 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                 }
             }
         }
-        if all_known { Some(sum) } else { None }
+        if all_known {
+            Some(sum)
+        } else {
+            None
+        }
     }
 
-    pub fn play(&mut self) {
+    pub fn play(&mut self) -> Result<(), PlaybackError> {
         match self.state {
             PlaybackState::Stopped => {
                 self.reset_all_entries();
@@ -225,7 +267,14 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                 self.global_frame_count = 0;
                 self.pending_frame = None;
                 self.playback_clock = None;
-                self.state = PlaybackState::Playing;
+                if self
+                    .entries
+                    .get(self.current_entry_index)
+                    .is_some_and(|entry| entry.enabled)
+                {
+                    self.activate_entry(self.current_entry_index)?;
+                    self.state = PlaybackState::Playing;
+                }
             }
             PlaybackState::Paused => {
                 self.state = PlaybackState::Playing;
@@ -236,6 +285,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             }
             PlaybackState::Playing => {}
         }
+        Ok(())
     }
 
     pub fn pause(&mut self) {
@@ -277,47 +327,35 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     }
 
     /// 推进到下一个启用的条目；返回 false 表示没有更多条目可播放
-    fn advance_entry(&mut self) -> bool {
-        if self.entries.is_empty() {
-            return false;
-        }
+    fn advance_entry(&mut self) -> Result<bool, PlaybackError> {
         let start = self.current_entry_index;
-        let dbcs = self.dbcs.clone();
         let len = self.entries.len();
+        if len == 0 {
+            return Ok(false);
+        }
 
-        if self.loop_enabled {
-            for i in 1..=len {
-                let idx = (start + i) % len;
-                if idx == start && i > 1 {
-                    return false;
-                }
-                if self.entries[idx].enabled {
-                    let _ = self.entries[idx].engine.seek_to(0.0);
-                    self.entries[idx].engine.play();
-                    self.entries[idx].engine.set_dbcs(dbcs.clone());
-                    self.current_entry_index = idx;
-                    return true;
-                }
-            }
+        let steps = if self.loop_enabled {
+            len
         } else {
-            for i in (start + 1)..len {
-                if self.entries[i].enabled {
-                    self.entries[i].engine.play();
-                    self.entries[i].engine.set_dbcs(dbcs.clone());
-                    self.current_entry_index = i;
-                    return true;
-                }
+            len.saturating_sub(start + 1)
+        };
+        for step in 1..=steps {
+            let idx = if self.loop_enabled {
+                (start + step) % len
+            } else {
+                start + step
+            };
+            if self.entries[idx].enabled {
+                self.activate_entry(idx)?;
+                return Ok(true);
             }
         }
-        false
+        Ok(false)
     }
 
     /// 获取下一批帧（串联播放，自动跨文件切换）
     pub fn next_batch(&mut self, max_count: usize) -> Result<Vec<PlaybackFrame>, PlaybackError> {
-        if self.state != PlaybackState::Playing {
-            return Ok(Vec::new());
-        }
-        if self.entries.is_empty() {
+        if self.state != PlaybackState::Playing || self.entries.is_empty() {
             return Ok(Vec::new());
         }
 
@@ -327,66 +365,54 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
         while remaining > 0 {
             if self.current_entry_index >= self.entries.len() {
-                if self.loop_enabled {
-                    self.reset_all_entries();
-                    self.current_entry_index = self.advance_to_next_enabled(0);
-                } else {
-                    self.state = PlaybackState::Stopped;
-                    break;
-                }
+                self.state = PlaybackState::Stopped;
+                break;
             }
 
-            let entry = &mut self.entries[self.current_entry_index];
-            if !entry.enabled {
-                if !self.advance_entry() {
-                    if self.loop_enabled {
-                        self.reset_all_entries();
-                        self.current_entry_index = self.advance_to_next_enabled(0);
-                        continue;
-                    }
+            if !self.entries[self.current_entry_index].enabled {
+                if !self.advance_entry()? {
                     self.state = PlaybackState::Stopped;
                     break;
                 }
                 continue;
             }
 
-            if entry.engine.state() != PlaybackState::Playing {
-                entry.engine.play();
-                entry.engine.set_dbcs(self.dbcs.clone());
-            }
-
-            let inner_batch = entry.engine.next_batch(remaining)?;
-
-            if inner_batch.is_empty() {
-                if !self.advance_entry() {
-                    if self.loop_enabled {
-                        self.reset_all_entries();
-                        self.current_entry_index = self.advance_to_next_enabled(0);
-                        continue;
-                    }
-                    self.state = PlaybackState::Stopped;
-                    break;
+            let (inner_batch, start, end, global_start, engine_stopped) = {
+                let entry = &mut self.entries[self.current_entry_index];
+                if entry.engine.state() != PlaybackState::Playing {
+                    entry.engine.play();
+                    entry.engine.set_dbcs(self.dbcs.clone());
                 }
-                continue;
-            }
+                let inner_batch = entry.engine.next_batch(remaining)?;
+                (
+                    inner_batch,
+                    entry.play_start_offset,
+                    Self::entry_play_end(entry).unwrap_or(f64::MAX),
+                    entry.global_start_offset,
+                    entry.engine.state() == PlaybackState::Stopped,
+                )
+            };
 
-            let offset = entry.global_start_offset;
-            let count = inner_batch.len();
+            let mut range_ended = false;
+            let before_count = batch.len();
             for mut frame in inner_batch {
-                frame.timestamp += offset;
+                if frame.timestamp < start {
+                    continue;
+                }
+                if frame.timestamp > end {
+                    range_ended = true;
+                    break;
+                }
+                frame.timestamp = global_start + frame.timestamp - start;
                 self.global_time = Some(frame.timestamp);
                 batch.push(frame);
             }
+            let count = batch.len() - before_count;
             self.global_frame_count += count as u64;
             remaining = remaining.saturating_sub(count);
 
-            if remaining > 0 && entry.engine.state() == PlaybackState::Stopped {
-                if !self.advance_entry() {
-                    if self.loop_enabled {
-                        self.reset_all_entries();
-                        self.current_entry_index = self.advance_to_next_enabled(0);
-                        continue;
-                    }
+            if range_ended || engine_stopped || count == 0 {
+                if !self.advance_entry()? {
                     self.state = PlaybackState::Stopped;
                     break;
                 }
@@ -473,8 +499,12 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
         for (i, entry) in self.entries.iter_mut().enumerate() {
             let end = entry.global_end_offset.unwrap_or(f64::MAX);
-            if global_timestamp >= entry.global_start_offset && global_timestamp < end {
-                let local_ts = global_timestamp - entry.global_start_offset;
+            if entry.enabled
+                && global_timestamp >= entry.global_start_offset
+                && global_timestamp < end
+            {
+                let local_ts =
+                    entry.play_start_offset + global_timestamp - entry.global_start_offset;
                 entry.engine.seek_to(local_ts)?;
                 entry.engine.play();
                 self.current_entry_index = i;
@@ -482,13 +512,19 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             }
         }
 
-        // 超出所有文件范围：定位到最后一个文件的末尾
-        if let Some(last) = self.entries.last_mut() {
-            if let Some(dur) = last.engine.metadata().duration {
-                last.engine.seek_to(dur)?;
+        // 超出所有文件范围：定位到最后一个启用文件的播放范围末尾
+        if let Some((index, last)) = self
+            .entries
+            .iter_mut()
+            .enumerate()
+            .rev()
+            .find(|(_, entry)| entry.enabled)
+        {
+            if let Some(end) = Self::entry_play_end(last) {
+                last.engine.seek_to(end)?;
             }
             last.engine.play();
-            self.current_entry_index = self.entries.len().saturating_sub(1);
+            self.current_entry_index = index;
         }
 
         Ok(())
@@ -515,53 +551,31 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             return Ok(None);
         }
 
-        if self.current_entry_index >= self.entries.len() {
-            self.current_entry_index = self.entries.len().saturating_sub(1);
-        }
-
-        // Check if current entry is disabled; if so, advance
-        if !self.entries[self.current_entry_index].enabled {
-            if !self.advance_entry() {
+        if self.state == PlaybackState::Stopped && self.global_time.is_none() {
+            self.reset_all_entries();
+            self.current_entry_index = self.advance_to_next_enabled(0);
+            if !self
+                .entries
+                .get(self.current_entry_index)
+                .is_some_and(|entry| entry.enabled)
+            {
                 return Ok(None);
             }
+            self.activate_entry(self.current_entry_index)?;
         }
 
-        let idx = self.current_entry_index;
-        let dbcs = self.dbcs.clone();
-        let entry = &mut self.entries[idx];
-        if entry.engine.state() != PlaybackState::Playing {
-            entry.engine.play();
-            entry.engine.set_dbcs(dbcs.clone());
-        }
-        let offset = entry.global_start_offset;
-
-        let result = entry.engine.next_batch(1)?;
-        if result.is_empty() {
-            if !self.advance_entry() {
-                return Ok(None);
+        let previous_state = self.state;
+        self.state = PlaybackState::Playing;
+        let result = self.next_batch(1);
+        if previous_state != PlaybackState::Playing {
+            match &result {
+                Ok(frames) if !frames.is_empty() => self.state = previous_state,
+                Err(_) => self.state = previous_state,
+                _ => {}
             }
-            let idx2 = self.current_entry_index;
-            let entry2 = &mut self.entries[idx2];
-            let dbcs2 = self.dbcs.clone();
-            entry2.engine.play();
-            entry2.engine.set_dbcs(dbcs2.clone());
-            let offset2 = entry2.global_start_offset;
-            let inner = entry2.engine.next_batch(1)?;
-            if let Some(mut frame) = inner.into_iter().next() {
-                frame.timestamp += offset2;
-                self.global_time = Some(frame.timestamp);
-                self.global_frame_count += 1;
-                return Ok(Some(frame));
-            }
-            return Ok(None);
         }
-
-        let mut frame = result.into_iter().next().unwrap();
-        frame.timestamp += offset;
-        self.global_time = Some(frame.timestamp);
-        self.global_frame_count += 1;
-
-        Ok(Some(frame))
+        self.playback_clock = None;
+        Ok(result?.into_iter().next())
     }
 
     /// 后退一帧
@@ -580,44 +594,38 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
         match entry.engine.step_back() {
             Ok(Some(mut frame)) => {
-                frame.timestamp += entry.global_start_offset;
-                self.global_time = Some(frame.timestamp);
-                self.global_frame_count = self.global_frame_count.saturating_sub(1);
-                return Ok(Some(frame));
+                if frame.timestamp >= entry.play_start_offset
+                    && Self::entry_play_end(entry).map_or(true, |end| frame.timestamp <= end)
+                {
+                    frame.timestamp =
+                        entry.global_start_offset + frame.timestamp - entry.play_start_offset;
+                    self.global_time = Some(frame.timestamp);
+                    self.global_frame_count = self.global_frame_count.saturating_sub(1);
+                    return Ok(Some(frame));
+                }
             }
             Ok(None) => {}
             Err(e) => return Err(e),
         }
 
-        // 当前条目无法后退：切换到前一个条目并 seek 到末尾
-        if self.current_entry_index > 0 {
-            let prev_idx = self.current_entry_index - 1;
+        // 当前条目无法后退：切换到前一个启用条目的播放范围末尾
+        if let Some(prev_idx) = (0..self.current_entry_index)
+            .rev()
+            .find(|&index| self.entries[index].enabled)
+        {
             let prev_entry = &mut self.entries[prev_idx];
-            if prev_entry.enabled {
-                if let Some(end_offset) = prev_entry.global_end_offset {
-                    let local_end = end_offset - prev_entry.global_start_offset;
-                    let seek_ts = (local_end - 0.001).max(0.0);
-                    prev_entry.engine.seek_to(seek_ts)?;
-                    prev_entry.engine.play();
-                    self.current_entry_index = prev_idx;
-                    // 读取一帧再 step_back 定位到最后一帧的准确位置
-                    if let Some(f) = prev_entry.engine.next_batch(1)?.into_iter().next() {
-                        let ts = f.timestamp;
-                        let _ = prev_entry.engine.seek_to(ts);
+            if let Some(end) = Self::entry_play_end(prev_entry) {
+                let seek_ts = (end - 0.001).max(prev_entry.play_start_offset);
+                prev_entry.engine.seek_to(seek_ts)?;
+                prev_entry.engine.play();
+                self.current_entry_index = prev_idx;
+                if let Some(mut frame) = prev_entry.engine.next_batch(1)?.into_iter().next() {
+                    if frame.timestamp <= end && frame.timestamp >= prev_entry.play_start_offset {
+                        let local_ts = frame.timestamp;
+                        frame.timestamp = prev_entry.global_start_offset + frame.timestamp
+                            - prev_entry.play_start_offset;
+                        prev_entry.engine.seek_to(local_ts)?;
                         prev_entry.engine.play();
-                        let mut frame = PlaybackFrame::from(canscope_core::CanFrame {
-                            timestamp: ts,
-                            bus_id: f.bus_id,
-                            can_id: f.can_id,
-                            is_extended: f.is_extended,
-                            is_remote: false,
-                            is_fd: f.is_fd,
-                            is_tx: f.is_tx,
-                            dlc: f.dlc,
-                            data: *f.data,
-                        });
-                        frame.signals = f.signals;
-                        frame.timestamp = ts + prev_entry.global_start_offset;
                         self.global_time = Some(frame.timestamp);
                         return Ok(Some(frame));
                     }
@@ -742,7 +750,7 @@ mod tests {
             play_end_offset: None,
         });
 
-        engine.play();
+        engine.play().unwrap();
         let batch = engine.next_batch(10).unwrap();
 
         assert_eq!(batch.len(), 4);
@@ -779,7 +787,7 @@ mod tests {
             play_start_offset: 0.0,
             play_end_offset: None,
         });
-        engine.play();
+        engine.play().unwrap();
 
         let start = Instant::now();
         let first = engine.next_batch_timed(100, start).unwrap();
@@ -803,6 +811,81 @@ mod tests {
             third.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
             [0x103]
         );
+    }
+
+    #[test]
+    fn playback_uses_each_entry_play_range() {
+        let frames_a = (0..=5).map(|i| make_frame(i as f64, 0x100 + i)).collect();
+        let frames_b = (0..=2).map(|i| make_frame(i as f64, 0x200 + i)).collect();
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(
+                frames_a,
+                "2026-01-01T10:00:00",
+                Some(5.0),
+            )),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(
+                frames_b,
+                "2026-01-01T11:00:00",
+                Some(2.0),
+            )),
+            file_name: "b.asc".into(),
+            file_path: "b.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+
+        engine.set_entry_offsets(0, 1.0, Some(3.0));
+        assert_eq!(engine.total_duration(), Some(4.0));
+        engine.play().unwrap();
+
+        let frames = engine.next_batch(10).unwrap();
+        assert_eq!(
+            frames.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x101, 0x102, 0x103, 0x200, 0x201, 0x202]
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| frame.timestamp)
+                .collect::<Vec<_>>(),
+            [0.0, 1.0, 2.0, 2.0, 3.0, 4.0]
+        );
+    }
+
+    #[test]
+    fn seek_uses_clipped_entry_offsets() {
+        let frames = (0..=5).map(|i| make_frame(i as f64, 0x100 + i)).collect();
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(frames, "2026-01-01T10:00:00", Some(5.0))),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.set_entry_offsets(0, 2.0, Some(4.0));
+        engine.play().unwrap();
+        engine.seek_to(1.0).unwrap();
+
+        let frame = engine.next_batch(1).unwrap().remove(0);
+        assert_eq!(frame.can_id, 0x103);
+        assert_eq!(frame.timestamp, 1.0);
     }
 
     #[test]
@@ -840,7 +923,7 @@ mod tests {
             play_end_offset: None,
         });
 
-        engine.play();
+        engine.play().unwrap();
         let batch = engine.next_batch(10).unwrap();
 
         assert_eq!(batch.len(), 1);
@@ -867,7 +950,7 @@ mod tests {
             play_end_offset: None,
         });
         engine.set_loop(true);
-        engine.play();
+        engine.play().unwrap();
 
         let batch = engine.next_batch(3).unwrap();
         assert_eq!(batch.len(), 3);
@@ -913,7 +996,7 @@ mod tests {
 
         // File A duration=2.0, File B starts at global 2.0
         // Seek to global 3.0 = File B local 1.0
-        engine.play();
+        engine.play().unwrap();
         engine.seek_to(3.0).unwrap();
 
         let batch = engine.next_batch(1).unwrap();
@@ -925,7 +1008,7 @@ mod tests {
     #[test]
     fn empty_playlist_returns_no_frames() {
         let mut engine: PlaylistEngine<MockStream> = PlaylistEngine::new();
-        engine.play();
+        engine.play().unwrap();
         let batch = engine.next_batch(10).unwrap();
         assert!(batch.is_empty());
     }

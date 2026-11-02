@@ -811,7 +811,7 @@ fn playback_control(action: String, state: State<AppState>) -> Result<String, St
     if let Some(ref mut playlist) = *engine_guard {
         match action.as_str() {
             "play" => {
-                playlist.play();
+                playlist.play().map_err(|e| e.to_string())?;
                 Ok("playing".into())
             }
             "pause" => {
@@ -972,7 +972,7 @@ fn playlist_add(
         let was_playing = playlist.state() == PlaybackState::Playing;
         playlist.add_entry(entry);
         if was_playing {
-            playlist.play();
+            playlist.play().map_err(|e| e.to_string())?;
         }
         Ok(build_playlist_info(playlist))
     } else {
@@ -1072,7 +1072,7 @@ fn playlist_add_folder(
         }
 
         if was_playing {
-            playlist.play();
+            playlist.play().map_err(|e| e.to_string())?;
         }
         Ok(build_playlist_info(playlist))
     } else {
