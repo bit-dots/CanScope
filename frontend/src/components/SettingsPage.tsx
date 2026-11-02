@@ -1,5 +1,5 @@
 import { Component, createEffect, onCleanup, createSignal } from 'solid-js';
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-solid';
+import { ChevronRight, SlidersHorizontal, X } from 'lucide-solid';
 import MeasurementSettingsPanel from './MeasurementSettingsPanel';
 import type { MeasurementSettings } from '../measurementSettings';
 
@@ -56,12 +56,12 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
               onClick={() => setMeasurementExpanded((expanded) => !expanded)}
               type="button"
             >
-              <span>测量</span>
-              <ChevronDown
+              <ChevronRight
                 size={14}
                 class="settings-page__category-icon"
-                classList={{ 'settings-page__category-icon--collapsed': !measurementExpanded() }}
+                classList={{ 'settings-page__category-icon--expanded': measurementExpanded() }}
               />
+              <span>测量</span>
             </button>
             <div id="settings-measurement-subcategories" hidden={!measurementExpanded()}>
               <button

@@ -1775,10 +1775,11 @@ select:focus-visible,
 .settings-page__subcategory {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 4px;
   color: var(--text-primary);
   background: transparent;
   border: 0;
@@ -1796,7 +1797,8 @@ select:focus-visible,
 }
 
 .settings-page__category {
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 .settings-page__category-icon {
@@ -1804,20 +1806,20 @@ select:focus-visible,
   transition: transform 0.15s ease;
 }
 
-.settings-page__category-icon--collapsed {
-  transform: rotate(-90deg);
+.settings-page__category-icon--expanded {
+  transform: rotate(90deg);
 }
 
 .settings-page__subcategory {
-  min-height: 34px;
+  min-height: 28px;
   padding-left: 24px;
   color: var(--text-secondary);
 }
 
 .settings-page__subcategory--active,
 .settings-page__subcategory--active:hover {
-  color: var(--accent-foreground);
-  background: var(--accent);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
 .settings-page__detail {
