@@ -312,6 +312,8 @@ function App() {
         setEstimatedCacheBytes(currentBytes + accepted.bytes);
         setFrameTotalCount((count) => count + accepted.frames.length);
       }
+      pendingTraceFrames = appended.slice(accepted.frames.length);
+      pendingTraceBytes = estimateFramesMemoryBytes(pendingTraceFrames);
       setHiddenTraceFrames((count) => count + accepted.dropped);
       setCacheLimitReached(true);
       pausePlaybackAtCacheLimit();
@@ -348,6 +350,15 @@ function App() {
     setFrameTotalCount(0);
     setEstimatedCacheBytes(0);
     lastFrameMonitorRefresh = 0;
+    setHiddenTraceFrames(0);
+    setCacheLimitReached(false);
+  };
+
+  const clearTraceCacheForResume = () => {
+    const cachedFrameCount = frames().length;
+    setFrameOffset((offset) => offset + cachedFrameCount);
+    setFrames([]);
+    setEstimatedCacheBytes(0);
     setHiddenTraceFrames(0);
     setCacheLimitReached(false);
   };
@@ -836,16 +847,14 @@ function App() {
           setTraceMode(true);
         }
         if (
+          prevState !== 'stopped' &&
           measurementSettings().cacheFullPolicy === 'stop-measurement' &&
-          estimatedCacheBytes() >= currentCacheLimitBytes()
+          cacheLimitReached()
         ) {
-          const pausedState: string = await invoke('playback_control', { action: 'pause' });
-          setPlaybackState(pausedState as PlaybackState);
-          setCacheLimitReached(true);
-          stopPolling();
-          return;
+          clearTraceCacheForResume();
+          flushTraceFrames();
+          if (cacheLimitReached()) return;
         }
-        if (prevState !== 'playing') setCacheLimitReached(false);
         if (!traceMode()) {
           resetTraceBuffer();
           setTraceMode(true);
