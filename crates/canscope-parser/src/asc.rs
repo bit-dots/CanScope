@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::VecDeque;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader};
@@ -10,7 +10,7 @@ use std::time::UNIX_EPOCH;
 use canscope_core::{
     BusType, CanFrame, CanFrameStream, FileFormat, SeekError, SourceType, StreamMetadata,
 };
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::error::ParseError;
 
@@ -49,6 +49,7 @@ fn parse_asc_date(raw: &str) -> Option<String> {
 /// ASC 格式读取器。源帧存储于可复用的 SQLite 索引中，读取时按页进入内存。
 pub struct AscReader {
     metadata: StreamMetadata,
+    timestamp_origin: f64,
     connection: Mutex<Connection>,
     cursor: u64,
     page: VecDeque<CanFrame>,
@@ -176,6 +177,12 @@ impl AscReader {
                 },
             )
             .map_err(|e| ParseError::IndexError(e.to_string()))?;
+        let timestamp_origin = connection
+            .query_row("SELECT MIN(timestamp) FROM frames", [], |row| {
+                row.get::<_, Option<f64>>(0)
+            })
+            .map_err(|e| ParseError::IndexError(e.to_string()))?
+            .unwrap_or(0.0);
 
         let metadata = StreamMetadata {
             source_type: SourceType::File {
@@ -186,11 +193,14 @@ impl AscReader {
             bus_count: cached.2,
             start_time: cached.3,
             total_frames: Some(cached.0),
-            duration: cached.1,
+            duration: cached
+                .1
+                .map(|last_timestamp| (last_timestamp - timestamp_origin).max(0.0)),
         };
 
         Ok(Self {
             metadata,
+            timestamp_origin,
             connection: Mutex::new(connection),
             cursor: 0,
             page: VecDeque::new(),
@@ -662,6 +672,10 @@ impl CanFrameStream for AscReader {
         &self.metadata
     }
 
+    fn timestamp_origin(&self) -> f64 {
+        self.timestamp_origin
+    }
+
     fn progress(&self) -> Option<f64> {
         let total = self.frame_count();
         if total == 0 {
@@ -728,6 +742,23 @@ End Triggerblock
         assert_eq!(f3.dlc, 3);
 
         assert!(reader.next().unwrap().is_none());
+    }
+
+    #[test]
+    fn duration_is_relative_to_first_frame_timestamp() {
+        let asc = r#"date Wed Dec 31 00:00:00 2025
+base hex  timestamps absolute
+Begin Triggerblock Wed Dec 31 00:00:00 2025
+  10.000000 1  100             Rx   d 1 AA
+  12.500000 1  200             Rx   d 1 BB
+End Triggerblock
+"#;
+        let path = write_temp_asc("nonzero_origin", asc);
+        let mut reader = AscReader::open(&path).unwrap();
+
+        assert_eq!(reader.timestamp_origin(), 10.0);
+        assert_eq!(reader.metadata().duration, Some(2.5));
+        assert_eq!(reader.next().unwrap().unwrap().timestamp, 10.0);
     }
 
     #[test]

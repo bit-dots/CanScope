@@ -142,6 +142,11 @@ pub trait CanFrameStream: Send + Sync {
     /// 返回数据源的元数据。
     fn metadata(&self) -> &StreamMetadata;
 
+    /// 返回帧时间戳原点。播放进度以此值作为文件内的 0 秒。
+    fn timestamp_origin(&self) -> f64 {
+        0.0
+    }
+
     /// 当前进度（0.0 ~ 1.0）。
     ///
     /// 文件源返回已消费数据的比例；实时源因无法预知终点，返回 `None`。

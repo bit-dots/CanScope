@@ -213,22 +213,24 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     }
 
     fn entry_play_end(entry: &PlaylistEntry<S>) -> Option<f64> {
-        entry
-            .engine
-            .metadata()
-            .duration
-            .map(|duration| entry.play_end_offset.unwrap_or(duration).min(duration))
+        entry.engine.metadata().duration.map(|duration| {
+            entry.engine.stream().timestamp_origin()
+                + entry.play_end_offset.unwrap_or(duration).min(duration)
+        })
     }
 
     fn entry_play_duration(entry: &PlaylistEntry<S>) -> Option<f64> {
-        let end = Self::entry_play_end(entry)?;
+        let duration = entry.engine.metadata().duration?;
+        let end = entry.play_end_offset.unwrap_or(duration).min(duration);
         Some((end - entry.play_start_offset).max(0.0))
     }
 
     fn activate_entry(&mut self, index: usize) -> Result<(), PlaybackError> {
         let dbcs = self.dbcs.clone();
         let entry = &mut self.entries[index];
-        entry.engine.seek_to(entry.play_start_offset)?;
+        entry
+            .engine
+            .seek_to(entry.engine.stream().timestamp_origin() + entry.play_start_offset)?;
         entry.engine.play();
         entry.engine.set_dbcs(dbcs);
         self.current_entry_index = index;
@@ -395,7 +397,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                 let inner_batch = entry.engine.next_batch(remaining)?;
                 (
                     inner_batch,
-                    entry.play_start_offset,
+                    entry.engine.stream().timestamp_origin() + entry.play_start_offset,
                     Self::entry_play_end(entry).unwrap_or(f64::MAX),
                     entry.global_start_offset,
                     entry.engine.state() == PlaybackState::Stopped,
@@ -512,8 +514,10 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                 && global_timestamp >= entry.global_start_offset
                 && global_timestamp < end
             {
-                let local_ts =
-                    entry.play_start_offset + global_timestamp - entry.global_start_offset;
+                let local_ts = entry.engine.stream().timestamp_origin()
+                    + entry.play_start_offset
+                    + global_timestamp
+                    - entry.global_start_offset;
                 entry.engine.seek_to(local_ts)?;
                 entry.engine.play();
                 self.current_entry_index = i;
@@ -608,11 +612,13 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
         match entry.engine.step_back() {
             Ok(Some(mut frame)) => {
-                if frame.timestamp >= entry.play_start_offset
+                let origin = entry.engine.stream().timestamp_origin();
+                if frame.timestamp >= origin + entry.play_start_offset
                     && Self::entry_play_end(entry).map_or(true, |end| frame.timestamp <= end)
                 {
-                    frame.timestamp =
-                        entry.global_start_offset + frame.timestamp - entry.play_start_offset;
+                    frame.timestamp = entry.global_start_offset + frame.timestamp
+                        - origin
+                        - entry.play_start_offset;
                     self.global_time = Some(frame.timestamp);
                     self.global_frame_count = self.global_frame_count.saturating_sub(1);
                     return Ok(Some(frame));
@@ -629,14 +635,18 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         {
             let prev_entry = &mut self.entries[prev_idx];
             if let Some(end) = Self::entry_play_end(prev_entry) {
-                let seek_ts = (end - 0.001).max(prev_entry.play_start_offset);
+                let origin = prev_entry.engine.stream().timestamp_origin();
+                let seek_ts = (end - 0.001).max(origin + prev_entry.play_start_offset);
                 prev_entry.engine.seek_to(seek_ts)?;
                 prev_entry.engine.play();
                 self.current_entry_index = prev_idx;
                 if let Some(mut frame) = prev_entry.engine.next_batch(1)?.into_iter().next() {
-                    if frame.timestamp <= end && frame.timestamp >= prev_entry.play_start_offset {
+                    if frame.timestamp <= end
+                        && frame.timestamp >= origin + prev_entry.play_start_offset
+                    {
                         let local_ts = frame.timestamp;
                         frame.timestamp = prev_entry.global_start_offset + frame.timestamp
+                            - origin
                             - prev_entry.play_start_offset;
                         prev_entry.engine.seek_to(local_ts)?;
                         prev_entry.engine.play();
@@ -661,6 +671,7 @@ mod tests {
     struct MockStream {
         frames: Vec<CanFrame>,
         cursor: usize,
+        timestamp_origin: f64,
         metadata: StreamMetadata,
     }
 
@@ -670,6 +681,7 @@ mod tests {
             Self {
                 frames,
                 cursor: 0,
+                timestamp_origin: 0.0,
                 metadata: StreamMetadata {
                     source_type: SourceType::File {
                         path: PathBuf::from("mock.asc"),
@@ -682,6 +694,11 @@ mod tests {
                     duration,
                 },
             }
+        }
+
+        fn with_timestamp_origin(mut self, timestamp_origin: f64) -> Self {
+            self.timestamp_origin = timestamp_origin;
+            self
         }
     }
 
@@ -705,6 +722,10 @@ mod tests {
 
         fn metadata(&self) -> &StreamMetadata {
             &self.metadata
+        }
+
+        fn timestamp_origin(&self) -> f64 {
+            self.timestamp_origin
         }
 
         fn progress(&self) -> Option<f64> {
@@ -855,6 +876,42 @@ mod tests {
         let progress = engine.progress().unwrap();
         assert!(progress > 0.5);
         assert!(progress < 0.51);
+    }
+
+    #[test]
+    fn playback_progress_is_relative_to_nonzero_timestamp_origin() {
+        let stream = MockStream::new(
+            vec![
+                make_frame(5.0, 0x100),
+                make_frame(7.0, 0x101),
+                make_frame(9.0, 0x102),
+            ],
+            "2026-01-01T10:00:00",
+            Some(4.0),
+        )
+        .with_timestamp_origin(5.0);
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(stream),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.play().unwrap();
+
+        let first = engine.next_batch_timed(1, Instant::now()).unwrap();
+        assert_eq!(first[0].timestamp, 0.0);
+        assert!(engine.progress().unwrap() < 0.01);
+        assert_eq!(engine.total_duration(), Some(4.0));
+
+        engine.seek_to(1.0).unwrap();
+        let sought = engine.next_batch(1).unwrap();
+        assert_eq!(sought[0].can_id, 0x101);
+        assert_eq!(sought[0].timestamp, 2.0);
     }
 
     #[test]
