@@ -280,10 +280,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                     .get(self.current_entry_index)
                     .is_some_and(|entry| entry.enabled)
                 {
-                    let start = self.entries[self.current_entry_index].global_start_offset;
                     self.activate_entry(self.current_entry_index)?;
                     self.state = PlaybackState::Playing;
-                    self.playback_clock = Some((Instant::now(), start));
                 }
             }
             PlaybackState::Paused => {
@@ -849,15 +847,14 @@ mod tests {
         });
         engine.play().unwrap();
 
-        assert!(engine
-            .next_batch_timed(10, Instant::now())
-            .unwrap()
-            .is_empty());
+        let first = engine.next_batch_timed(10, Instant::now()).unwrap();
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].timestamp, 5.0);
         std::thread::sleep(Duration::from_millis(20));
 
         let progress = engine.progress().unwrap();
-        assert!(progress > 0.0);
-        assert!(progress < 0.01);
+        assert!(progress > 0.5);
+        assert!(progress < 0.51);
     }
 
     #[test]
