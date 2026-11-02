@@ -221,25 +221,73 @@ function App() {
   onCleanup(cancelPendingLayoutSave);
 
   let frameQueryId = 0;
-  const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
+  const fetchFramePage = (
+    offset: number,
+    limit: number,
+    activeFilter: FilterConfig,
+    playbackTime?: number,
+  ) => invoke<FramePage>('get_frame_page', {
+    offset,
+    limit,
+    canId: parseCanId(activeFilter.canId),
+    timeStart: parseTime(activeFilter.timeStart),
+    timeEnd: parseTime(activeFilter.timeEnd),
+    playbackTime: playbackTime ?? null,
+  });
+
+  const requestFramePage = async (offset: number, limit: number) => {
     const requestId = ++frameQueryId;
     const activeFilter = filter();
     const cacheLimit = currentCacheLimitBytes();
-    const maxFramesByBudget = Math.max(1, Math.min(10_000, Math.floor(cacheLimit / 256)));
-    const page: FramePage = await invoke('get_frame_page', {
-      offset,
-      limit: Math.min(limit, playbackTime === undefined ? 512 : maxFramesByBudget),
-      canId: parseCanId(activeFilter.canId),
-      timeStart: parseTime(activeFilter.timeStart),
-      timeEnd: parseTime(activeFilter.timeEnd),
-      playbackTime: playbackTime ?? null,
-    });
+    const page = await fetchFramePage(offset, Math.min(limit, 512), activeFilter);
     if (requestId !== frameQueryId) return;
     const retained = retainNewestFrames(page.frames, cacheLimit);
     setFrames(retained.frames);
     setFrameOffset(page.offset + retained.dropped);
     setFrameTotalCount(page.totalCount);
     setEstimatedCacheBytes(retained.bytes);
+  };
+
+  const requestRecentFrameWindow = async (playbackTime: number) => {
+    const requestId = ++frameQueryId;
+    const activeFilter = filter();
+    const cacheLimit = currentCacheLimitBytes();
+    const pageSize = 4096;
+    const countPage = await fetchFramePage(0, 0, activeFilter, playbackTime);
+    if (requestId !== frameQueryId) return;
+
+    let nextEnd = countPage.totalCount;
+    let retainedBytes = 0;
+    let retainedStart = nextEnd;
+    const newestFirst: FrameInfo[] = [];
+
+    while (nextEnd > 0 && retainedBytes < cacheLimit) {
+      const offset = Math.max(0, nextEnd - pageSize);
+      const page = await fetchFramePage(offset, nextEnd - offset, activeFilter, playbackTime);
+      if (requestId !== frameQueryId) return;
+      if (page.frames.length === 0) break;
+
+      let reachedLimit = false;
+      for (let index = page.frames.length - 1; index >= 0; index--) {
+        const frame = page.frames[index];
+        const frameBytes = estimateFrameMemoryBytes(frame);
+        if (retainedBytes + frameBytes > cacheLimit) {
+          reachedLimit = true;
+          break;
+        }
+        newestFirst.push(frame);
+        retainedBytes += frameBytes;
+        retainedStart = page.offset + index;
+      }
+      if (reachedLimit) break;
+      nextEnd = page.offset;
+    }
+
+    newestFirst.reverse();
+    setFrames(newestFirst);
+    setFrameOffset(retainedStart);
+    setFrameTotalCount(countPage.totalCount);
+    setEstimatedCacheBytes(retainedBytes);
   };
 
   const queryChartData = (
@@ -887,7 +935,7 @@ function App() {
       setTraceDisplayFrozen(false);
       setHiddenTraceFrames(0);
       setCacheLimitReached(false);
-      return requestFramePage(0, Math.floor(currentCacheLimitBytes() / 256), currentTime()).catch((e) => {
+      return requestRecentFrameWindow(currentTime()).catch((e) => {
         console.error('Failed to resume the live trace view:', e);
       });
     }

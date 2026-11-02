@@ -603,11 +603,7 @@ fn get_frame_page(
 ) -> Result<FramePage, String> {
     let sources = frame_sources(&state)?;
     let cache_dir = frame_index_dir(&app)?;
-    let limit = limit.min(if playback_time.is_some() {
-        1_000_000
-    } else {
-        512
-    });
+    let limit = limit.min(if playback_time.is_some() { 4096 } else { 512 });
     let time_end = match (time_end, playback_time) {
         (Some(filter_end), Some(playback_time)) => Some(filter_end.min(playback_time)),
         (Some(filter_end), None) => Some(filter_end),
@@ -637,11 +633,7 @@ fn get_frame_page(
         indexed_sources.push((reader, source, source_count, local_start, local_end));
     }
 
-    let page_offset = if playback_time.is_some() && total_count > 0 {
-        total_count.saturating_sub(limit as u64)
-    } else {
-        offset
-    };
+    let page_offset = offset;
     let mut frames = Vec::with_capacity(limit);
     let mut skip = page_offset;
 
