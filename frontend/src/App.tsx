@@ -19,6 +19,8 @@ import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import DatabaseManagerDialog from './components/DatabaseManagerDialog';
 import {
+  cacheMemoryLimitBytes,
+  estimateFrameMemoryBytes,
   estimateFramesMemoryBytes,
   loadMeasurementSettings,
   saveMeasurementSettings,
@@ -38,6 +40,30 @@ import type {
 import { parseCanId, parseTime } from './types';
 import './App.css';
 
+function retainNewestFrames(frames: FrameInfo[], byteLimit: number) {
+  let start = frames.length;
+  let bytes = 0;
+  while (start > 0) {
+    const frameBytes = estimateFrameMemoryBytes(frames[start - 1]);
+    if (bytes + frameBytes > byteLimit) break;
+    bytes += frameBytes;
+    start--;
+  }
+  return { frames: frames.slice(start), bytes, dropped: start };
+}
+
+function retainOldestFrames(frames: FrameInfo[], byteLimit: number) {
+  let end = 0;
+  let bytes = 0;
+  while (end < frames.length) {
+    const frameBytes = estimateFrameMemoryBytes(frames[end]);
+    if (bytes + frameBytes > byteLimit) break;
+    bytes += frameBytes;
+    end++;
+  }
+  return { frames: frames.slice(0, end), bytes, dropped: frames.length - end };
+}
+
 function App() {
   const [project, setProject] = createSignal<ProjectInfo | null>(null);
   const [metadata, setMetadata] = createSignal<PlaylistInfo | null>(null);
@@ -46,11 +72,16 @@ function App() {
   const [frameTotalCount, setFrameTotalCount] = createSignal(0);
   const [traceMode, setTraceMode] = createSignal(false);
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
+  const [receivedFrameCount, setReceivedFrameCount] = createSignal(0);
+  const [transmittedFrameCount, setTransmittedFrameCount] = createSignal(0);
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
   const [measurementSettings, setMeasurementSettings] = createSignal(loadMeasurementSettings());
   const [estimatedCacheBytes, setEstimatedCacheBytes] = createSignal(0);
+  const [availableMemoryBytes, setAvailableMemoryBytes] = createSignal<number | null>(null);
+  const [automaticLimitBytes, setAutomaticLimitBytes] = createSignal<number | null>(null);
+  const [memoryInfoError, setMemoryInfoError] = createSignal<string | null>(null);
   const [traceViewFollowing, setTraceViewFollowing] = createSignal(true);
   const [traceDisplayFrozen, setTraceDisplayFrozen] = createSignal(false);
   const [hiddenTraceFrames, setHiddenTraceFrames] = createSignal(0);
@@ -76,6 +107,60 @@ function App() {
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
+
+  const resetMonitorCounters = () => {
+    setReceivedFrameCount(0);
+    setTransmittedFrameCount(0);
+  };
+
+  const countMonitorFrames = (batch: FrameInfo[]) => {
+    let received = 0;
+    let transmitted = 0;
+    for (const frame of batch) {
+      if (frame.is_tx) transmitted++;
+      else received++;
+    }
+    if (received > 0) setReceivedFrameCount((count) => count + received);
+    if (transmitted > 0) setTransmittedFrameCount((count) => count + transmitted);
+  };
+
+  const currentCacheLimitBytes = () =>
+    cacheMemoryLimitBytes(measurementSettings(), automaticLimitBytes());
+
+  const applyAutomaticLimit = (limit: number) => {
+    setAutomaticLimitBytes(limit);
+    frameQueryId++;
+    const retained = retainNewestFrames(frames(), limit);
+    if (retained.dropped > 0) {
+      setFrameOffset((offset) => offset + retained.dropped);
+      setHiddenTraceFrames((count) => count + retained.dropped);
+    }
+    setFrames(retained.frames);
+    setEstimatedCacheBytes(retained.bytes);
+  };
+
+  const refreshAvailableMemory = async (recalculateLimit = false) => {
+    const available = await invoke<number | null>('get_available_memory_bytes');
+    setAvailableMemoryBytes(available);
+    setMemoryInfoError(null);
+    if (
+      available !== null &&
+      measurementSettings().automaticMemoryLimit &&
+      (automaticLimitBytes() === null || recalculateLimit)
+    ) {
+      applyAutomaticLimit(Math.max(1024 * 1024, Math.floor(available / 2)));
+    }
+  };
+
+  const openSettings = () => {
+    setSettingsOpen(true);
+    if (measurementSettings().automaticMemoryLimit) {
+      void refreshAvailableMemory(true).catch((error) => {
+        setMemoryInfoError(String(error));
+        console.error('Failed to refresh available system memory:', error);
+      });
+    }
+  };
 
   const PANEL_DEFS = [
     { id: 'resource-manager', title: '资源管理器', defaultVisible: true, defaultPosition: { x: 0, y: 0, width: 280, height: 600 } },
@@ -139,19 +224,22 @@ function App() {
   const requestFramePage = async (offset: number, limit: number, playbackTime?: number) => {
     const requestId = ++frameQueryId;
     const activeFilter = filter();
+    const cacheLimit = currentCacheLimitBytes();
+    const maxFramesByBudget = Math.max(1, Math.min(10_000, Math.floor(cacheLimit / 256)));
     const page: FramePage = await invoke('get_frame_page', {
       offset,
-      limit: Math.min(limit, playbackTime === undefined ? 512 : measurementSettings().maxCachedFrames),
+      limit: Math.min(limit, playbackTime === undefined ? 512 : maxFramesByBudget),
       canId: parseCanId(activeFilter.canId),
       timeStart: parseTime(activeFilter.timeStart),
       timeEnd: parseTime(activeFilter.timeEnd),
       playbackTime: playbackTime ?? null,
     });
     if (requestId !== frameQueryId) return;
-    setFrames(page.frames);
-    setFrameOffset(page.offset);
+    const retained = retainNewestFrames(page.frames, cacheLimit);
+    setFrames(retained.frames);
+    setFrameOffset(page.offset + retained.dropped);
     setFrameTotalCount(page.totalCount);
-    setEstimatedCacheBytes(estimateFramesMemoryBytes(page.frames));
+    setEstimatedCacheBytes(retained.bytes);
   };
 
   const queryChartData = (
@@ -170,27 +258,32 @@ function App() {
   let playbackPollInFlight = false;
   let lastFrameMonitorRefresh = 0;
   let pendingTraceFrames: FrameInfo[] = [];
+  let pendingTraceBytes = 0;
 
   const flushTraceFrames = () => {
     if (pendingTraceFrames.length === 0) return;
     const appended = pendingTraceFrames;
     pendingTraceFrames = [];
+    pendingTraceBytes = 0;
     if (traceDisplayFrozen()) {
       setHiddenTraceFrames((count) => count + appended.length);
       return;
     }
 
     const currentFrames = frames();
-    const maxFrames = measurementSettings().maxCachedFrames;
-    const capacity = Math.max(0, maxFrames - currentFrames.length);
-    if (!traceViewFollowing() && appended.length >= capacity) {
-      const visible = appended.slice(0, capacity);
-      if (visible.length > 0) {
-        setFrames([...currentFrames, ...visible]);
-        setEstimatedCacheBytes((bytes) => bytes + estimateFramesMemoryBytes(visible));
-        setFrameTotalCount((count) => count + visible.length);
+    const cacheLimit = currentCacheLimitBytes();
+    const currentBytes = estimatedCacheBytes();
+    const appendedBytes = estimateFramesMemoryBytes(appended);
+    const exceedsLimit = currentBytes + appendedBytes > cacheLimit;
+
+    if (!traceViewFollowing() && exceedsLimit) {
+      const accepted = retainOldestFrames(appended, Math.max(0, cacheLimit - currentBytes));
+      if (accepted.frames.length > 0) {
+        setFrames([...currentFrames, ...accepted.frames]);
+        setEstimatedCacheBytes(currentBytes + accepted.bytes);
+        setFrameTotalCount((count) => count + accepted.frames.length);
       }
-      setHiddenTraceFrames((count) => count + appended.length - visible.length);
+      setHiddenTraceFrames((count) => count + accepted.dropped);
       setTraceDisplayFrozen(true);
       if (measurementSettings().cacheFullPolicy === 'stop-measurement') {
         setCacheLimitReached(true);
@@ -199,31 +292,24 @@ function App() {
       return;
     }
 
-    if (
-      measurementSettings().cacheFullPolicy === 'clear-all' &&
-      currentFrames.length + appended.length >= maxFrames
-    ) {
-      const retained = appended.slice(-maxFrames);
-      const discardedFromBatch = appended.length - retained.length;
-      setFrames(retained);
-      setFrameOffset((offset) => offset + currentFrames.length + discardedFromBatch);
-      setEstimatedCacheBytes(estimateFramesMemoryBytes(retained));
+    if (measurementSettings().cacheFullPolicy === 'clear-all' && exceedsLimit) {
+      const retained = retainNewestFrames(appended, cacheLimit);
+      setFrames(retained.frames);
+      setFrameOffset((offset) => offset + currentFrames.length + retained.dropped);
+      setEstimatedCacheBytes(retained.bytes);
       setFrameTotalCount((count) => count + appended.length);
-      setHiddenTraceFrames((count) => count + currentFrames.length + discardedFromBatch);
+      setHiddenTraceFrames((count) => count + currentFrames.length + retained.dropped);
       return;
     }
 
-    if (
-      measurementSettings().cacheFullPolicy === 'stop-measurement' &&
-      appended.length >= capacity
-    ) {
-      const accepted = appended.slice(0, capacity);
-      if (accepted.length > 0) {
-        setFrames([...currentFrames, ...accepted]);
-        setEstimatedCacheBytes((bytes) => bytes + estimateFramesMemoryBytes(accepted));
-        setFrameTotalCount((count) => count + accepted.length);
+    if (measurementSettings().cacheFullPolicy === 'stop-measurement' && exceedsLimit) {
+      const accepted = retainOldestFrames(appended, Math.max(0, cacheLimit - currentBytes));
+      if (accepted.frames.length > 0) {
+        setFrames([...currentFrames, ...accepted.frames]);
+        setEstimatedCacheBytes(currentBytes + accepted.bytes);
+        setFrameTotalCount((count) => count + accepted.frames.length);
       }
-      setHiddenTraceFrames((count) => count + appended.length - accepted.length);
+      setHiddenTraceFrames((count) => count + accepted.dropped);
       setTraceDisplayFrozen(true);
       setCacheLimitReached(true);
       pausePlaybackAtCacheLimit();
@@ -231,15 +317,10 @@ function App() {
     }
 
     const combined = [...currentFrames, ...appended];
-    const droppedCount = Math.max(0, combined.length - maxFrames);
-    const nextFrames = droppedCount > 0 ? combined.slice(droppedCount) : combined;
-    setFrames(nextFrames);
-    const appendedBytes = estimateFramesMemoryBytes(appended);
-    const droppedBytes = droppedCount > 0
-      ? estimateFramesMemoryBytes(combined.slice(0, droppedCount))
-      : 0;
-    setEstimatedCacheBytes((bytes) => Math.max(0, bytes + appendedBytes - droppedBytes));
-    if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
+    const retained = retainNewestFrames(combined, cacheLimit);
+    setFrames(retained.frames);
+    setEstimatedCacheBytes(retained.bytes);
+    if (retained.dropped > 0) setFrameOffset((offset) => offset + retained.dropped);
     setFrameTotalCount((count) => count + appended.length);
   };
 
@@ -255,6 +336,7 @@ function App() {
 
   const resetTraceBuffer = () => {
     pendingTraceFrames = [];
+    pendingTraceBytes = 0;
     frameQueryId++;
     setFrames([]);
     setFrameOffset(0);
@@ -274,16 +356,19 @@ function App() {
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
         if (batch.length > 0) {
+          countMonitorFrames(batch);
           if (!traceMode()) {
             resetTraceBuffer();
             setTraceMode(true);
           }
           pendingTraceFrames.push(...batch);
+          pendingTraceBytes += estimateFramesMemoryBytes(batch);
           setPlaybackFrameCount(prev => prev + batch.length);
           setCurrentTime(batch[batch.length - 1].timestamp);
           const now = Date.now();
           if (
             playbackState() !== 'playing' ||
+            estimatedCacheBytes() + pendingTraceBytes >= currentCacheLimitBytes() ||
             now - lastFrameMonitorRefresh >= 1000 / frameMonitorRefreshRate()
           ) {
             lastFrameMonitorRefresh = now;
@@ -369,6 +454,7 @@ function App() {
       setMetadata(null);
       setTraceMode(false);
       resetTraceBuffer();
+      resetMonitorCounters();
       setPlaybackFrameCount(0);
       setCurrentTime(0);
       setPlaybackState('stopped');
@@ -436,6 +522,7 @@ function App() {
     setLoading(true);
     setError(null);
     resetTraceBuffer();
+    resetMonitorCounters();
     setTraceMode(false);
     setDbcTree(null);
     setSelectedCanId(null);
@@ -631,6 +718,7 @@ function App() {
     setMetadata(null);
     setTraceMode(false);
     resetTraceBuffer();
+    resetMonitorCounters();
     setPlaybackFrameCount(0);
     setCurrentTime(0);
     setPlaybackState('stopped');
@@ -682,6 +770,7 @@ function App() {
       const wasPlaying = playbackState() === 'playing';
       if (wasPlaying) stopPolling();
       await invoke('seek_to', { timestamp });
+      if (timestamp <= 0) resetMonitorCounters();
       setCurrentTime(timestamp);
       resetTraceBuffer();
       setTraceMode(wasPlaying);
@@ -736,7 +825,12 @@ function App() {
       setPlaybackState(state as PlaybackState);
 
       if (state === 'playing') {
-        if (prevState === 'stopped') setPlaybackFrameCount(0);
+        if (prevState === 'stopped') {
+          setPlaybackFrameCount(0);
+          resetMonitorCounters();
+          resetTraceBuffer();
+          setTraceMode(true);
+        }
         if (prevState !== 'playing') setCacheLimitReached(false);
         if (!traceMode()) {
           resetTraceBuffer();
@@ -759,19 +853,31 @@ function App() {
 
   const handleMeasurementSettingsChange = (next: MeasurementSettings) => {
     const updated: MeasurementSettings = {
-      maxCachedFrames: Math.max(100, Math.min(1000000, Math.floor(next.maxCachedFrames))),
+      automaticMemoryLimit: next.automaticMemoryLimit,
+      customMemoryLimitMb: Math.max(1, Math.min(1_048_576, Math.floor(next.customMemoryLimitMb))),
       cacheFullPolicy: next.cacheFullPolicy,
     };
+    const available = availableMemoryBytes();
+    let autoLimit = automaticLimitBytes();
+    if (
+      updated.automaticMemoryLimit &&
+      !measurementSettings().automaticMemoryLimit &&
+      available !== null
+    ) {
+      autoLimit = Math.max(1024 * 1024, Math.floor(available / 2));
+      applyAutomaticLimit(autoLimit);
+    }
+    frameQueryId++;
     setMeasurementSettings(updated);
     saveMeasurementSettings(updated);
     const current = frames();
-    const droppedCount = Math.max(0, current.length - updated.maxCachedFrames);
-    if (droppedCount > 0) setFrameOffset((offset) => offset + droppedCount);
-    if (droppedCount > 0) {
-      const retained = current.slice(droppedCount);
-      setFrames(retained);
-      setEstimatedCacheBytes(estimateFramesMemoryBytes(retained));
-    }
+    const retained = retainNewestFrames(
+      current,
+      cacheMemoryLimitBytes(updated, autoLimit),
+    );
+    if (retained.dropped > 0) setFrameOffset((offset) => offset + retained.dropped);
+    setFrames(retained.frames);
+    setEstimatedCacheBytes(retained.bytes);
   };
 
   const handleTraceFollowChange = (following: boolean): Promise<void> | void => {
@@ -781,7 +887,7 @@ function App() {
       setTraceDisplayFrozen(false);
       setHiddenTraceFrames(0);
       setCacheLimitReached(false);
-      return requestFramePage(0, measurementSettings().maxCachedFrames, currentTime()).catch((e) => {
+      return requestFramePage(0, Math.floor(currentCacheLimitBytes() / 256), currentTime()).catch((e) => {
         console.error('Failed to resume the live trace view:', e);
       });
     }
@@ -789,17 +895,31 @@ function App() {
 
   const handleClearFrameMonitor = () => {
     pendingTraceFrames = [];
+    pendingTraceBytes = 0;
     frameQueryId++;
     setFrames([]);
     setFrameOffset(0);
     setFrameTotalCount(0);
     setEstimatedCacheBytes(0);
+    resetMonitorCounters();
     setTraceDisplayFrozen(false);
     setHiddenTraceFrames(0);
     setCacheLimitReached(false);
   };
 
   const hasSource = () => metadata() !== null;
+
+  onMount(() => {
+    const refreshMemory = () => {
+      void refreshAvailableMemory().catch((error) => {
+        setMemoryInfoError(String(error));
+        console.error('Failed to read available system memory:', error);
+      });
+    };
+    refreshMemory();
+    const timer = window.setInterval(refreshMemory, 5000);
+    onCleanup(() => window.clearInterval(timer));
+  });
 
   onMount(async () => {
     // 监听后端播放状态变更事件（如播放完毕自动停止）
@@ -904,6 +1024,7 @@ function App() {
         setTraceMode(false);
         setCurrentTime(frame.timestamp);
         setPlaybackFrameCount(prev => prev + 1);
+        countMonitorFrames([frame]);
         await requestFramePage(Math.max(0, playbackFrameCount()), 512);
       }
     } catch (e) {
@@ -932,6 +1053,7 @@ function App() {
         setMetadata(info);
         if (playbackState() !== 'playing') {
           resetTraceBuffer();
+          resetMonitorCounters();
           setTraceMode(false);
           setPlaybackFrameCount(0);
         }
@@ -1054,6 +1176,8 @@ function App() {
                         traceDisplayFrozen={traceDisplayFrozen()}
                         hiddenTraceFrames={hiddenTraceFrames()}
                         estimatedCacheBytes={estimatedCacheBytes()}
+                        receivedFrameCount={receivedFrameCount()}
+                        transmittedFrameCount={transmittedFrameCount()}
                         cacheFullPolicy={measurementSettings().cacheFullPolicy}
                         cacheLimitReached={cacheLimitReached()}
                         onTraceFollowChange={handleTraceFollowChange}
@@ -1171,7 +1295,7 @@ function App() {
             onOpenProject={handleOpenProject}
             onOpenRecent={handleOpenRecent}
             onRemoveRecent={handleRemoveRecent}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={openSettings}
           />
         )}
       </main>
@@ -1180,6 +1304,9 @@ function App() {
           settings={measurementSettings()}
           cachedFrameCount={frames().length}
           estimatedCacheBytes={estimatedCacheBytes()}
+          availableMemoryBytes={availableMemoryBytes()}
+          automaticLimitBytes={automaticLimitBytes()}
+          memoryInfoError={memoryInfoError()}
           onChange={handleMeasurementSettingsChange}
           onClose={() => setSettingsOpen(false)}
         />
@@ -1231,7 +1358,7 @@ function App() {
         <StatusBar
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={openSettings}
         />
       )}
     </div>

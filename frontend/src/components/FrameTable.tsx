@@ -18,6 +18,8 @@ interface FrameTableProps {
   traceDisplayFrozen: boolean;
   hiddenTraceFrames: number;
   estimatedCacheBytes: number;
+  receivedFrameCount: number;
+  transmittedFrameCount: number;
   cacheFullPolicy: 'evict-oldest' | 'clear-all' | 'stop-measurement';
   cacheLimitReached: boolean;
   onTraceFollowChange: (following: boolean) => void | Promise<void>;
@@ -1501,12 +1503,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               <span class="frame-table__statusbar-item" title="当前报文监控缓存的近似内存占用，不含应用其他内存">
                 缓存估算: {(props.estimatedCacheBytes / (1024 * 1024)).toFixed(1)} MB
               </span>
-              <span class="frame-table__statusbar-item" title="接收帧数">
-            <span>RX: {displayedFrames().filter(f => !f.is_tx).length.toLocaleString()}</span>
-          </span>
-          <span class="frame-table__statusbar-item" title="发送帧数">
-            <span>TX: {displayedFrames().filter(f => f.is_tx).length.toLocaleString()}</span>
-          </span>
+              <span class="frame-table__statusbar-item" title="本次回放实际输出的接收帧总数">
+                RX: {props.receivedFrameCount.toLocaleString()}
+              </span>
+              <span class="frame-table__statusbar-item" title="本次回放实际输出的发送帧总数">
+                TX: {props.transmittedFrameCount.toLocaleString()}
+              </span>
           <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="错误帧数">
             <span>Err: {errorCount().toLocaleString()}</span>
           </span>

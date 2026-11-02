@@ -414,6 +414,25 @@
   font-weight: 600;
 }
 
+.backstage__subheading--spaced {
+  margin-top: 28px;
+}
+
+.backstage__memory-auto {
+  margin: 10px 0 2px;
+}
+
+.backstage__memory-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.backstage__memory-input input:disabled {
+  opacity: 0.6;
+}
+
 .backstage__setting-row {
   display: flex;
   align-items: center;

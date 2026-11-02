@@ -866,6 +866,36 @@ fn get_progress(state: State<AppState>) -> Result<Option<f64>, String> {
 }
 
 #[tauri::command]
+fn get_available_memory_bytes() -> Result<Option<u64>, String> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+
+        let mut status = MEMORYSTATUSEX {
+            dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+            dwMemoryLoad: 0,
+            ullTotalPhys: 0,
+            ullAvailPhys: 0,
+            ullTotalPageFile: 0,
+            ullAvailPageFile: 0,
+            ullTotalVirtual: 0,
+            ullAvailVirtual: 0,
+            ullAvailExtendedVirtual: 0,
+        };
+        let succeeded = unsafe { GlobalMemoryStatusEx(&mut status) };
+        if succeeded == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        return Ok(Some(status.ullAvailPhys));
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
 fn set_speed(speed: f64, state: State<AppState>) -> Result<f64, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
@@ -1758,6 +1788,7 @@ pub fn run() {
             get_playback_state,
             seek_to,
             get_progress,
+            get_available_memory_bytes,
             set_speed,
             get_speed,
             set_loop,
@@ -1792,12 +1823,18 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::UiLayoutJson;
+    use super::{get_available_memory_bytes, UiLayoutJson};
 
     #[test]
     fn legacy_ui_layout_defaults_panel_layouts() {
         let layout: UiLayoutJson =
             serde_json::from_str(r#"{"panelWidth":260,"chartHeight":200}"#).unwrap();
         assert!(layout.panels.is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn reports_available_system_memory() {
+        assert!(get_available_memory_bytes().unwrap().unwrap() > 0);
     }
 }

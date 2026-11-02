@@ -18,3 +18,6 @@ canscope-core = { workspace = true }
 canscope-parser = { workspace = true }
 canscope-dbc = { workspace = true }
 canscope-playback = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_System_SystemInformation"] }

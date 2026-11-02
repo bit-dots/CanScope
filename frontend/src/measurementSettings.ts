@@ -1,13 +1,15 @@
 export type CacheFullPolicy = 'evict-oldest' | 'clear-all' | 'stop-measurement';
 
 export interface MeasurementSettings {
-  maxCachedFrames: number;
+  automaticMemoryLimit: boolean;
+  customMemoryLimitMb: number;
   cacheFullPolicy: CacheFullPolicy;
 }
 
 const STORAGE_KEY = 'canscope.measurement.settings';
 const DEFAULT_SETTINGS: MeasurementSettings = {
-  maxCachedFrames: 10000,
+  automaticMemoryLimit: true,
+  customMemoryLimitMb: 2000,
   cacheFullPolicy: 'evict-oldest',
 };
 
@@ -19,17 +21,15 @@ export function loadMeasurementSettings(projectName?: string): MeasurementSettin
         : null
     );
     if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed: Partial<MeasurementSettings> = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<MeasurementSettings>;
     const policies: CacheFullPolicy[] = ['evict-oldest', 'clear-all', 'stop-measurement'];
     return {
-      maxCachedFrames: Math.max(
-        100,
-        Math.min(
-          1000000,
-          Number('maxCachedFrames' in parsed ? parsed.maxCachedFrames : (parsed as { maxFrames?: number }).maxFrames) ||
-            DEFAULT_SETTINGS.maxCachedFrames,
-        ),
-      ),
+      automaticMemoryLimit: typeof parsed.automaticMemoryLimit === 'boolean'
+        ? parsed.automaticMemoryLimit
+        : DEFAULT_SETTINGS.automaticMemoryLimit,
+      customMemoryLimitMb: Number.isFinite(parsed.customMemoryLimitMb)
+        ? Math.max(1, Math.min(1_048_576, Math.floor(parsed.customMemoryLimitMb!)))
+        : DEFAULT_SETTINGS.customMemoryLimitMb,
       cacheFullPolicy: policies.includes(parsed.cacheFullPolicy as CacheFullPolicy)
         ? parsed.cacheFullPolicy as CacheFullPolicy
         : DEFAULT_SETTINGS.cacheFullPolicy,
@@ -46,6 +46,16 @@ export function saveMeasurementSettings(settings: MeasurementSettings): void {
   } catch (error) {
     console.error('Failed to save measurement settings:', error);
   }
+}
+
+export function cacheMemoryLimitBytes(
+  settings: MeasurementSettings,
+  automaticLimitBytes: number | null,
+): number {
+  const megabyte = 1024 * 1024;
+  return settings.automaticMemoryLimit && automaticLimitBytes !== null
+    ? Math.max(megabyte, automaticLimitBytes)
+    : settings.customMemoryLimitMb * megabyte;
 }
 
 export function estimateFrameMemoryBytes(frame: {

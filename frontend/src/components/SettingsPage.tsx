@@ -7,6 +7,9 @@ interface SettingsPageProps {
   settings: MeasurementSettings;
   cachedFrameCount: number;
   estimatedCacheBytes: number;
+  availableMemoryBytes: number | null;
+  automaticLimitBytes: number | null;
+  memoryInfoError: string | null;
   onChange: (settings: MeasurementSettings) => void;
   onClose: () => void;
 }
@@ -79,6 +82,9 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
               settings={props.settings}
               cachedFrameCount={props.cachedFrameCount}
               estimatedCacheBytes={props.estimatedCacheBytes}
+              availableMemoryBytes={props.availableMemoryBytes}
+              automaticLimitBytes={props.automaticLimitBytes}
+              memoryInfoError={props.memoryInfoError}
               onChange={props.onChange}
             />
           </section>

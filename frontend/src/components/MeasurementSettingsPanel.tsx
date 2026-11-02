@@ -1,49 +1,96 @@
 import type { Component } from 'solid-js';
-import type { MeasurementSettings } from '../measurementSettings';
+import { cacheMemoryLimitBytes, type MeasurementSettings } from '../measurementSettings';
 
 interface MeasurementSettingsPanelProps {
   settings: MeasurementSettings;
   cachedFrameCount: number;
   estimatedCacheBytes: number;
+  availableMemoryBytes: number | null;
+  automaticLimitBytes: number | null;
+  memoryInfoError: string | null;
   onChange: (settings: MeasurementSettings) => void;
 }
 
 const MeasurementSettingsPanel: Component<MeasurementSettingsPanelProps> = (props) => (
   <>
-    <h3 class="backstage__subheading">数据缓存</h3>
-    <p class="backstage__desc">
-      此缓存只控制报文监控界面，不会删除原始录制文件或磁盘索引。
-    </p>
-    <div class="backstage__setting-row">
-      <label for="cache-frame-limit">最大缓存帧数</label>
+    <h3 class="backstage__subheading">内存使用</h3>
+    <label class="backstage__setting-radio backstage__memory-auto">
       <input
-        id="cache-frame-limit"
-        type="number"
-        min={100}
-        max={1000000}
-        step={1000}
-        value={props.settings.maxCachedFrames}
-        onChange={(event) => {
-          const value = Number.parseInt(event.currentTarget.value, 10);
-          if (Number.isFinite(value)) {
-            props.onChange({
-              ...props.settings,
-              maxCachedFrames: Math.max(100, Math.min(1000000, value)),
-            });
-          }
-        }}
+        type="checkbox"
+        checked={props.settings.automaticMemoryLimit}
+        onChange={(event) => props.onChange({
+          ...props.settings,
+          automaticMemoryLimit: event.currentTarget.checked,
+        })}
       />
+      <span>根据系统可用内存自动计算</span>
+    </label>
+    <div class="backstage__setting-row">
+      <label for="cache-memory-limit">自定义:</label>
+      <div class="backstage__memory-input">
+        <input
+          id="cache-memory-limit"
+          type="number"
+          min={1}
+          max={1048576}
+          step={128}
+          value={props.settings.customMemoryLimitMb}
+          disabled={props.settings.automaticMemoryLimit}
+          onChange={(event) => {
+            const value = Number.parseInt(event.currentTarget.value, 10);
+            if (Number.isFinite(value)) {
+              props.onChange({
+                ...props.settings,
+                customMemoryLimitMb: Math.max(1, Math.min(1048576, value)),
+              });
+            }
+          }}
+        />
+        <span>MB</span>
+      </div>
     </div>
     <div class="backstage__cache-stats">
       <span>
-        当前缓存帧数：{props.cachedFrameCount.toLocaleString()} / {props.settings.maxCachedFrames.toLocaleString()}
+        可用内存：{props.availableMemoryBytes === null
+          ? '不可用'
+          : `${(props.availableMemoryBytes / (1024 * 1024)).toFixed(0)} MB`}
       </span>
       <span>
-        监控缓存估算：{(props.estimatedCacheBytes / (1024 * 1024)).toFixed(1)} MB
+        缓存上限：{(cacheMemoryLimitBytes(
+          props.settings,
+          props.automaticLimitBytes,
+        ) / (1024 * 1024)).toFixed(0)} MB
+      </span>
+    </div>
+    {props.settings.automaticMemoryLimit && props.availableMemoryBytes !== null && (
+      <p class="backstage__setting-note">
+        自动上限在打开设置或启用此选项时，按当时可用内存的一半计算；可用内存每 5 秒刷新。
+      </p>
+    )}
+    {props.memoryInfoError && (
+      <p class="backstage__setting-note">
+        无法读取系统可用内存，自动上限无法刷新，当前沿用最近一次计算值或自定义值。
+      </p>
+    )}
+    {!props.memoryInfoError && props.settings.automaticMemoryLimit && props.availableMemoryBytes === null && (
+      <p class="backstage__setting-note">
+        当前平台未提供可用内存信息，自动上限暂按自定义值执行。
+      </p>
+    )}
+    <h3 class="backstage__subheading backstage__subheading--spaced">数据缓存设置</h3>
+    <p class="backstage__desc">
+      此缓存只控制报文监控界面，不会删除原始录制文件或磁盘索引。
+    </p>
+    <div class="backstage__cache-stats">
+      <span>
+        当前缓存帧数：{props.cachedFrameCount.toLocaleString()}
+      </span>
+      <span>
+        缓存估算：{(props.estimatedCacheBytes / (1024 * 1024)).toFixed(1)} MB
       </span>
     </div>
     <p class="backstage__setting-note">
-      内存值是基于报文和解码信号对象的近似估算，不代表应用总内存；帧数上限是实际硬限制。
+      上限约束报文监控缓存，按报文和解码信号对象的估算内存执行，不代表应用进程总内存。
     </p>
     <div class="backstage__setting-group">
       <div class="backstage__setting-label">缓存达到上限时</div>
