@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
 
+use canscope_core::CanFrameStream;
 use canscope_dbc::{Dbc, DbcMessage, DbcSignal, DecodedSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{
@@ -319,6 +320,7 @@ struct PlaylistFileInfo {
     duration: Option<f64>,
     total_frames: Option<u64>,
     start_time: Option<String>,
+    timestamp_origin: f64,
     start_offset: f64,
     end_offset: Option<f64>,
     play_start_offset: f64,
@@ -472,6 +474,7 @@ fn build_playlist_info(playlist: &PlaylistEngine<AscReader>) -> PlaylistInfo {
             duration: e.engine.metadata().duration,
             total_frames: e.engine.total_frames(),
             start_time: e.engine.metadata().start_time.clone(),
+            timestamp_origin: e.engine.stream().timestamp_origin(),
             start_offset: e.global_start_offset,
             end_offset: e.global_end_offset,
             play_start_offset: e.play_start_offset,

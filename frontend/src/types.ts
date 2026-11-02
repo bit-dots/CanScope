@@ -14,6 +14,7 @@ export interface PlaylistFileInfo {
   duration: number | null;
   totalFrames: number | null;
   startTime: string | null;
+  timestampOrigin: number;
   startOffset: number;
   endOffset: number | null;
   playStartOffset: number;

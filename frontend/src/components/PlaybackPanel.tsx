@@ -28,40 +28,25 @@ function formatDuration(seconds: number | null): string {
 
 function formatTime(seconds: number | null): string {
   if (seconds === null || seconds === undefined) return '00:00:00.000';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
+  const totalMs = Math.max(0, Math.round(seconds * 1000));
+  const h = Math.floor(totalMs / 3_600_000);
+  const m = Math.floor((totalMs % 3_600_000) / 60_000);
+  const s = Math.floor((totalMs % 60_000) / 1000);
+  const ms = totalMs % 1000;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
 }
 
-function formatTimeHMS(seconds: number | null): string {
-  if (seconds === null || seconds === undefined) return '--:--:--';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
-// 绝对时间格式化：startTime + offset → HH:MM:SS 或 HH:MM:SS.mmm
-function formatAbsoluteTime(offsetSec: number | null, startTime: string | null): string {
-  if (offsetSec === null || offsetSec === undefined) return '--:--:--';
-  if (!startTime) return formatTimeHMS(offsetSec);
-  const base = new Date(startTime);
-  if (isNaN(base.getTime())) return formatTimeHMS(offsetSec);
-  const abs = new Date(base.getTime() + offsetSec * 1000);
-  const h = abs.getHours().toString().padStart(2, '0');
-  const m = abs.getMinutes().toString().padStart(2, '0');
-  const s = abs.getSeconds().toString().padStart(2, '0');
-  return `${h}:${m}:${s}`;
-}
-
-function formatAbsoluteTimeMs(offsetSec: number | null, startTime: string | null): string {
+function formatBoundaryTime(
+  offsetSec: number | null,
+  timestampOrigin: number,
+  startTime: string | null,
+): string {
   if (offsetSec === null || offsetSec === undefined) return '--:--:--.---';
-  if (!startTime) return formatTime(offsetSec);
+  const timestampSec = timestampOrigin + offsetSec;
+  if (!startTime) return formatTime(timestampSec);
   const base = new Date(startTime);
-  if (isNaN(base.getTime())) return formatTime(offsetSec);
-  const abs = new Date(base.getTime() + offsetSec * 1000);
+  if (isNaN(base.getTime())) return formatTime(timestampSec);
+  const abs = new Date(base.getTime() + Math.round(timestampSec * 1000));
   const h = abs.getHours().toString().padStart(2, '0');
   const m = abs.getMinutes().toString().padStart(2, '0');
   const s = abs.getSeconds().toString().padStart(2, '0');
@@ -948,11 +933,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                           );
                         })()}
                       </div>
-                      {/* 时间范围标签 — 拖拽时带毫秒，松手后恢复时分秒 */}
+                      {/* 时间范围标签始终显示到毫秒 */}
                       {(() => {
-                        const formatLabel = (isDragging: boolean, offsetSec: number, st: string | null) =>
-                          isDragging ? formatAbsoluteTimeMs(offsetSec, st) : formatAbsoluteTime(offsetSec, st);
-
                         const draggingStart =
                           dragPreview()?.fileIndex === index() && dragPreview()?.handle === 'start';
                         const draggingEnd =
@@ -976,7 +958,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                                 'playback-panel__file-timeline-label--custom': isStartCustom,
                               }}
                             >
-                              {formatLabel(draggingStart, startVal, file.startTime)}
+                              {formatBoundaryTime(startVal, file.timestampOrigin, file.startTime)}
                             </span>
                             <span
                               class="playback-panel__file-timeline-label"
@@ -984,7 +966,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                                 'playback-panel__file-timeline-label--custom': isEndCustom,
                               }}
                             >
-                              {formatLabel(draggingEnd, endVal, file.startTime)}
+                              {formatBoundaryTime(endVal, file.timestampOrigin, file.startTime)}
                             </span>
                           </div>
                         );
