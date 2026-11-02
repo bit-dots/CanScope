@@ -1,4 +1,6 @@
 .app-layout {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -1671,11 +1673,14 @@ select:focus-visible,
 }
 
 .settings-page-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 1200;
   display: flex;
-  background: var(--bg-primary);
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 2.5vw, 36px);
+  background: rgb(0 0 0 / 48%);
 }
 
 .npd-template {
@@ -1694,10 +1699,16 @@ select:focus-visible,
 .settings-page {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: min(1200px, 88vw);
+  height: min(760px, 84vh);
+  box-sizing: border-box;
   min-width: 0;
+  overflow: hidden;
   color: var(--text-primary);
   background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 56px rgb(0 0 0 / 38%);
 }
 
 .settings-page__header {
@@ -1830,6 +1841,10 @@ select:focus-visible,
 }
 
 @media (max-width: 600px) {
+  .settings-page-overlay {
+    padding: 8px;
+  }
+
   .settings-page__nav {
     width: 142px;
     padding: 12px 8px;
