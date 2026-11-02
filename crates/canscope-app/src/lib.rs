@@ -567,8 +567,8 @@ fn load_dbc(path: String, bus_id: u8, state: State<AppState>) -> Result<String, 
 
 #[tauri::command]
 fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameInfo>, String> {
-    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
 
     if let Some(ref mut playlist) = *engine_guard {
         playlist.set_dbcs(dbc_map.clone());
@@ -1348,15 +1348,25 @@ fn create_project(
         modified_at: now,
     };
 
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    let mut file_path_guard = state.file_path.lock().map_err(|e| e.to_string())?;
     let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
-    *project_guard = Some(project.clone());
-
     let mut project_path = state.project_path.lock().map_err(|e| e.to_string())?;
-    *project_path = None;
+    let mut dirty_guard = state.dirty.lock().map_err(|e| e.to_string())?;
 
-    if let Ok(mut dirty) = state.dirty.lock() {
-        *dirty = false;
-    }
+    *engine_guard = None;
+    dbc_map.clear();
+    *file_path_guard = None;
+    *project_guard = Some(project.clone());
+    *project_path = None;
+    *dirty_guard = false;
+    drop(engine_guard);
+    drop(dbc_map);
+    drop(file_path_guard);
+    drop(project_guard);
+    drop(project_path);
+    drop(dirty_guard);
 
     Ok(ProjectInfo {
         name: project.name,
@@ -1396,6 +1406,9 @@ fn create_project_as(
         modified_at: now,
     };
     let save_path = PathBuf::from(&path);
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    let mut file_path_guard = state.file_path.lock().map_err(|e| e.to_string())?;
     let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
     let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
     let mut dirty_guard = state.dirty.lock().map_err(|e| e.to_string())?;
@@ -1429,9 +1442,15 @@ fn create_project_as(
         };
     }
 
+    *engine_guard = None;
+    dbc_map.clear();
+    *file_path_guard = None;
     *project_guard = Some(project.clone());
     *project_path_guard = Some(save_path);
     *dirty_guard = false;
+    drop(engine_guard);
+    drop(dbc_map);
+    drop(file_path_guard);
     drop(project_guard);
     drop(project_path_guard);
     drop(dirty_guard);
@@ -1525,6 +1544,9 @@ fn open_project(
     let mut project: ProjectConfig =
         serde_json::from_str(&json).map_err(|e| format!("Invalid project file: {}", e))?;
 
+    let mut next_engine = None;
+    let mut next_file_path = None;
+
     if let Some(ref can_log_path) = project.can_log_path {
         let log_path = PathBuf::from(can_log_path);
         if !log_path.exists() {
@@ -1556,21 +1578,16 @@ fn open_project(
             let _ = playlist.seek_to(project.last_position);
         }
 
-        let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-        *engine_guard = Some(playlist);
-
-        let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
-        *file_path = Some(log_path);
+        next_engine = Some(playlist);
+        next_file_path = Some(log_path);
     }
 
-    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
-    dbc_map.clear();
-
+    let mut next_dbc_map = HashMap::new();
     for binding in &project.dbc_bindings {
         let dbc_path = PathBuf::from(&binding.path);
         if dbc_path.exists() {
             if let Ok(dbc) = canscope_dbc::parse_dbc(&dbc_path) {
-                dbc_map.insert(binding.bus_id, dbc);
+                next_dbc_map.insert(binding.bus_id, dbc);
             }
         }
     }
@@ -1578,17 +1595,28 @@ fn open_project(
     let now = now_iso();
     project.modified_at = now;
     let project_clone = project.clone();
-    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
-    *project_guard = Some(project);
 
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
+    let mut project_guard = state.project.lock().map_err(|e| e.to_string())?;
     let mut project_path_guard = state.project_path.lock().map_err(|e| e.to_string())?;
+    let mut dirty_guard = state.dirty.lock().map_err(|e| e.to_string())?;
+
+    *engine_guard = next_engine;
+    *dbc_map = next_dbc_map;
+    *file_path = next_file_path;
+    *project_guard = Some(project);
     *project_path_guard = Some(project_path.clone());
+    *dirty_guard = false;
+    drop(engine_guard);
+    drop(dbc_map);
+    drop(file_path);
+    drop(project_guard);
+    drop(project_path_guard);
+    drop(dirty_guard);
 
     add_to_recent(&app, &project_clone.name, &path);
-
-    if let Ok(mut dirty) = state.dirty.lock() {
-        *dirty = false;
-    }
 
     Ok(ProjectInfo {
         name: project_clone.name,

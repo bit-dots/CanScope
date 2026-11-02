@@ -337,6 +337,8 @@ function App() {
     projectGeneration++;
     cancelPendingLayoutSave();
     const previousPanelLayouts = windowManager.getPanelLayouts();
+    const previousPlaybackState = playbackState();
+    stopPolling();
 
     try {
       const sep = config.parentFolder.includes('\\') ? '\\' : '/';
@@ -362,6 +364,21 @@ function App() {
       });
 
       setProject(proj);
+      setMetadata(null);
+      setTraceMode(false);
+      resetTraceBuffer();
+      setPlaybackFrameCount(0);
+      setCurrentTime(0);
+      setPlaybackState('stopped');
+      setLoopEnabled(false);
+      setDbcTree(null);
+      setSelectedCanId(null);
+      setChartSignals([]);
+      setFilter({ canId: '', timeStart: '', timeEnd: '' });
+      setIndexProgress(null);
+      const loadedMeasurementSettings = loadMeasurementSettings(proj.name);
+      setMeasurementSettings(loadedMeasurementSettings);
+      saveMeasurementSettings(loadedMeasurementSettings);
       setStagingNewProjectWorkspace(false);
       setShowNewProjectDialog(false);
     } catch (e) {
@@ -369,6 +386,7 @@ function App() {
       windowManager.restorePanelLayouts(previousPanelLayouts);
       cancelPendingLayoutSave();
       setStagingNewProjectWorkspace(false);
+      if (previousPlaybackState === 'playing') startPolling();
       throw e;
     }
   };
@@ -429,6 +447,11 @@ function App() {
       setMeasurementSettings(loadedMeasurementSettings);
       saveMeasurementSettings(loadedMeasurementSettings);
       setProject(proj);
+      setMetadata(null);
+      setPlaybackFrameCount(0);
+      setCurrentTime(proj.lastPosition);
+      setPlaybackState('stopped');
+      setLoopEnabled(false);
 
       if (proj.canLogPath) {
         const info: PlaylistInfo | null = await invoke('playlist_get_files');
