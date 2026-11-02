@@ -1,32 +1,17 @@
-import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createSignal, onMount, Show } from 'solid-js';
 import { ArrowUpRight, Clock3, FolderOpen, Plus, Settings, X } from 'lucide-solid';
 import type { RecentProjectInfo } from '../types';
-import type { MeasurementSettings } from '../measurementSettings';
-import MeasurementSettingsPanel from './MeasurementSettingsPanel';
 
 interface WelcomeScreenProps {
   onNewProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (path: string) => void;
   onRemoveRecent: (path: string) => void;
-  measurementSettings: MeasurementSettings;
-  onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
+  onOpenSettings: () => void;
 }
 
 const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
-  const [settingsOpen, setSettingsOpen] = createSignal(false);
-
-  createEffect(() => {
-    if (!settingsOpen()) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSettingsOpen(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
-  });
 
   const isMac = navigator.platform.toUpperCase().includes('MAC');
   const modKey = isMac ? '⌘' : 'Ctrl';
@@ -101,7 +86,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
           type="button"
           aria-label="全局设置"
           title="全局设置"
-          onClick={() => setSettingsOpen(true)}
+          onClick={props.onOpenSettings}
         >
           <Settings size={17} />
         </button>
@@ -185,39 +170,6 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
         <span>新建工程 <kbd>{modKey}+N</kbd></span>
         <span>打开工程 <kbd>{modKey}+O</kbd></span>
       </footer>
-      <Show when={settingsOpen()}>
-        <div class="welcome-settings-overlay" onClick={() => setSettingsOpen(false)}>
-          <section
-            class="welcome-settings-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="welcome-settings-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header class="welcome-settings-header">
-              <h2 id="welcome-settings-title">全局设置</h2>
-              <button
-                type="button"
-                aria-label="关闭全局设置"
-                title="关闭"
-                onClick={() => setSettingsOpen(false)}
-              >
-                <X size={17} />
-              </button>
-            </header>
-            <div class="welcome-settings-body">
-              <div class="welcome-settings-panel">
-                <MeasurementSettingsPanel
-                  settings={props.measurementSettings}
-                  cachedFrameCount={0}
-                  estimatedCacheBytes={0}
-                  onChange={props.onMeasurementSettingsChange}
-                />
-              </div>
-            </div>
-          </section>
-        </div>
-      </Show>
     </div>
   );
 };

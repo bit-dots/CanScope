@@ -1,8 +1,6 @@
 import { Component, createEffect, createSignal, For } from 'solid-js';
-import { ChartLine, ChevronDown, Database, FolderOpen } from 'lucide-solid';
+import { ChartLine, Database, FolderOpen } from 'lucide-solid';
 import ContextMenu, { type ContextMenuItem } from '../ContextMenu';
-import MeasurementSettingsPanel from '../MeasurementSettingsPanel';
-import type { MeasurementSettings } from '../../measurementSettings';
 import type { NewProjectTemplate } from '../../types';
 import './Ribbon.css';
 
@@ -55,8 +53,8 @@ const PROJECT_TEMPLATES: Array<{
 
 export interface BackstageProps {
   visible: boolean;
-  settingsRequest: number;
   onClose: () => void;
+  onOpenSettings: () => void;
   onNewProject: (template: NewProjectTemplate) => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
@@ -64,21 +62,12 @@ export interface BackstageProps {
   onCloseProject: () => void;
   onOpenRecent: (path: string) => void;
   projectLoaded: boolean;
-  measurementSettings: MeasurementSettings;
-  cachedFrameCount: number;
-  estimatedCacheBytes: number;
-  onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
 }
 
 const Backstage: Component<BackstageProps> = (props) => {
   const [activeItem, setActiveItem] = createSignal('new');
-  const [settingsCategoryExpanded, setSettingsCategoryExpanded] = createSignal(true);
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
   const [menuError, setMenuError] = createSignal<string | null>(null);
-
-  createEffect(() => {
-    if (props.settingsRequest > 0) setActiveItem('options');
-  });
 
   const refreshRecentProjects = async () => {
     try {
@@ -96,6 +85,11 @@ const Backstage: Component<BackstageProps> = (props) => {
   });
 
   const handleItemClick = (item: BackstageMenuItem) => {
+    if (item.id === 'options') {
+      props.onOpenSettings();
+      props.onClose();
+      return;
+    }
     setActiveItem(item.id);
   };
 
@@ -279,53 +273,6 @@ const Backstage: Component<BackstageProps> = (props) => {
             ) : (
               <p class="backstage__desc" style={{ color: 'var(--text-secondary)' }}>当前未打开工程</p>
             )}
-          </div>
-
-          {/* 选项 */}
-          <div
-            class="backstage__options-page"
-            style={{ display: activeItem() === 'options' ? 'flex' : 'none' }}
-          >
-            <nav class="backstage__settings-nav" aria-label="设置分类">
-              <button
-                class="backstage__settings-category"
-                aria-expanded={settingsCategoryExpanded()}
-                aria-controls="backstage-settings-measurement"
-                onClick={() => setSettingsCategoryExpanded((expanded) => !expanded)}
-                type="button"
-              >
-                <span>测量</span>
-                <ChevronDown
-                  size={14}
-                  class="backstage__settings-category-icon"
-                  classList={{ 'backstage__settings-category-icon--collapsed': !settingsCategoryExpanded() }}
-                />
-              </button>
-              <div id="backstage-settings-measurement" hidden={!settingsCategoryExpanded()}>
-                <button
-                  class="backstage__settings-subcategory backstage__settings-subcategory--active"
-                  aria-current="page"
-                  onClick={() => document.getElementById('backstage-settings-detail')?.focus()}
-                  type="button"
-                >
-                  数据缓存
-                </button>
-              </div>
-            </nav>
-            <section
-              id="backstage-settings-detail"
-              class="backstage__settings-detail"
-              aria-labelledby="backstage-options-heading"
-              tabIndex={-1}
-            >
-              <h2 id="backstage-options-heading" class="backstage__heading">选项</h2>
-              <MeasurementSettingsPanel
-                settings={props.measurementSettings}
-                cachedFrameCount={props.cachedFrameCount}
-                estimatedCacheBytes={props.estimatedCacheBytes}
-                onChange={props.onMeasurementSettingsChange}
-              />
-            </section>
           </div>
 
           {/* 关闭工程 */}

@@ -1670,14 +1670,12 @@ select:focus-visible,
   }
 }
 
-.welcome-settings-overlay {
+.settings-page-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 1200;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  background: var(--bg-primary);
 }
 
 .npd-template {
@@ -1693,32 +1691,33 @@ select:focus-visible,
   background: rgba(0, 0, 0, 0.48);
 }
 
-.welcome-settings-dialog {
-  width: min(760px, 100%);
-  max-height: min(680px, 100%);
-  overflow: hidden;
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
   color: var(--text-primary);
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
 }
 
-.welcome-settings-header {
+.settings-page__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
+  gap: 12px;
+  height: 48px;
+  flex: 0 0 auto;
+  padding: 0 16px;
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
 }
 
-.welcome-settings-header h2 {
+.settings-page__header h1 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.welcome-settings-header button {
+.settings-page__close {
   display: grid;
   width: 30px;
   height: 30px;
@@ -1730,32 +1729,114 @@ select:focus-visible,
   cursor: pointer;
 }
 
-.welcome-settings-header button:hover {
+.settings-page__close:hover {
   color: var(--text-primary);
   background: var(--bg-tertiary);
 }
 
-.welcome-settings-body {
-  max-height: calc(min(680px, 100%) - 59px);
-  overflow: auto;
+.settings-page__close:focus-visible,
+.settings-page__category:focus-visible,
+.settings-page__subcategory:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-.welcome-settings-panel {
+.settings-page__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-page__nav {
+  width: 220px;
+  flex: 0 0 auto;
+  padding: 16px 12px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+}
+
+.settings-page__category,
+.settings-page__subcategory {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-page__category:hover,
+.settings-page__subcategory:hover {
+  background: var(--bg-tertiary);
+}
+
+.settings-page__category {
+  font-weight: 600;
+}
+
+.settings-page__category-icon {
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+}
+
+.settings-page__category-icon--collapsed {
+  transform: rotate(-90deg);
+}
+
+.settings-page__subcategory {
+  min-height: 34px;
+  padding-left: 24px;
+  color: var(--text-secondary);
+}
+
+.settings-page__subcategory--active,
+.settings-page__subcategory--active:hover {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.settings-page__detail {
+  flex: 1;
   min-width: 0;
-  padding: 20px 24px;
+  padding: 32px 48px;
+  overflow-y: auto;
 }
 
-.welcome-settings-panel .backstage__setting-row {
-  flex-wrap: wrap;
+.settings-page__heading {
+  margin: 0 0 20px;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .settings-page__nav {
+    width: 180px;
+  }
+
+  .settings-page__detail {
+    padding: 24px;
+  }
 }
 
 @media (max-width: 600px) {
-  .welcome-settings-overlay {
-    padding: 12px;
+  .settings-page__nav {
+    width: 142px;
+    padding: 12px 8px;
   }
 
-  .welcome-settings-panel {
-    padding: 16px;
+  .settings-page__detail {
+    padding: 20px 16px;
   }
 }
 

@@ -10,6 +10,7 @@ import StatusBar from './components/StatusBar';
 import WelcomeScreen from './components/WelcomeScreen';
 import { Radio, FilePlay, ChartLine } from 'lucide-solid';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
+import SettingsPage from './components/SettingsPage';
 import ConfirmDialog from './components/ConfirmDialog';
 import FloatingWindow from './components/windowing/FloatingWindow';
 import WindowTaskbar from './components/windowing/WindowTaskbar';
@@ -69,7 +70,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
-  const [settingsRequest, setSettingsRequest] = createSignal(0);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   const [stagingNewProjectWorkspace, setStagingNewProjectWorkspace] = createSignal(false);
   const [newProjectTemplate, setNewProjectTemplate] = createSignal<NewProjectTemplate>('can-analysis');
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
@@ -943,7 +944,6 @@ function App() {
   return (
     <div class="app-layout">
       {project() !== null && !loading() && <Ribbon
-          settingsRequest={settingsRequest()}
           projectLoaded={project() !== null}
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
@@ -967,10 +967,7 @@ function App() {
           onSaveProjectAs={handleSaveProjectAs}
           onCloseProject={handleCloseProject}
           onOpenRecent={handleOpenRecent}
-          measurementSettings={measurementSettings()}
-          cachedFrameCount={frames().length}
-          estimatedCacheBytes={estimatedCacheBytes()}
-          onMeasurementSettingsChange={handleMeasurementSettingsChange}
+          onOpenSettings={() => setSettingsOpen(true)}
       />}
       <main class="main-content">
         {error() && (
@@ -1175,11 +1172,19 @@ function App() {
             onOpenProject={handleOpenProject}
             onOpenRecent={handleOpenRecent}
             onRemoveRecent={handleRemoveRecent}
-            measurementSettings={measurementSettings()}
-            onMeasurementSettingsChange={handleMeasurementSettingsChange}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
       </main>
+      {settingsOpen() && (
+        <SettingsPage
+          settings={measurementSettings()}
+          cachedFrameCount={frames().length}
+          estimatedCacheBytes={estimatedCacheBytes()}
+          onChange={handleMeasurementSettingsChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       {showNewProjectDialog() && (
         <NewProjectDialog
           templateName={{
@@ -1227,7 +1232,7 @@ function App() {
         <StatusBar
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
-          onOpenSettings={() => setSettingsRequest((request) => request + 1)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
     </div>

@@ -1,10 +1,9 @@
-import { Component, createEffect, createSignal, For } from 'solid-js';
+import { Component, createSignal, For } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { Database, FilePlay, FolderOpen, ChartLine } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
 import RibbonButton from './RibbonButton';
 import Backstage from './Backstage';
-import type { MeasurementSettings } from '../../measurementSettings';
 import type { NewProjectTemplate } from '../../types';
 import './Ribbon.css';
 
@@ -91,7 +90,6 @@ const TABS: RibbonTabDef[] = [
    Ribbon Props
    ============================================ */
 export interface RibbonProps {
-  settingsRequest: number;
   playbackState: 'playing' | 'paused' | 'stopped';
   sourceLoaded: boolean;
   projectLoaded: boolean;
@@ -115,20 +113,12 @@ export interface RibbonProps {
   onSaveProjectAs: () => void;
   onCloseProject: () => void;
   onOpenRecent: (path: string) => void;
-  measurementSettings: MeasurementSettings;
-  cachedFrameCount: number;
-  estimatedCacheBytes: number;
-  onMeasurementSettingsChange: (settings: MeasurementSettings) => void;
+  onOpenSettings: () => void;
 }
 
 const Ribbon: Component<RibbonProps> = (props) => {
   const [activeTab, setActiveTab] = createSignal('analysis');
   const [backstageVisible, setBackstageVisible] = createSignal(false);
-
-  createEffect(() => {
-    if (props.settingsRequest === 0) return;
-    setBackstageVisible(true);
-  });
 
   const handleTabClick = (tabId: string) => {
     if (tabId === 'file') {
@@ -230,8 +220,8 @@ const Ribbon: Component<RibbonProps> = (props) => {
       <Portal>
         <Backstage
           visible={backstageVisible()}
-          settingsRequest={props.settingsRequest}
           onClose={handleCloseBackstage}
+          onOpenSettings={props.onOpenSettings}
           onNewProject={props.onNewProject}
           onOpenProject={props.onOpenProject}
           onSaveProject={props.onSaveProject}
@@ -239,10 +229,6 @@ const Ribbon: Component<RibbonProps> = (props) => {
           onCloseProject={props.onCloseProject}
           onOpenRecent={props.onOpenRecent}
           projectLoaded={props.projectLoaded}
-          measurementSettings={props.measurementSettings}
-          cachedFrameCount={props.cachedFrameCount}
-          estimatedCacheBytes={props.estimatedCacheBytes}
-          onMeasurementSettingsChange={props.onMeasurementSettingsChange}
         />
       </Portal>
     </div>
