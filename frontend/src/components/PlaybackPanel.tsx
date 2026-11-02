@@ -901,12 +901,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             : effStart;
                           return (
                             <>
-                              {/* 播放范围填充 */}
+                              {/* 已播放部分：从设定起点填充到当前播放位置 */}
                               <div
                                 class="playback-panel__file-timeline-fill"
                                 style={{
                                   left: `${(effStart / file.duration) * 100}%`,
-                                  width: `${((effEnd - effStart) / file.duration) * 100}%`,
+                                  width: `${
+                                    showPlayhead
+                                      ? (Math.max(0, Math.min(displayedStart, effEnd) - effStart) / file.duration) * 100
+                                      : 0
+                                  }%`,
                                 }}
                               />
                               {/* 左游标 — 开始位置，可拖动 */}
