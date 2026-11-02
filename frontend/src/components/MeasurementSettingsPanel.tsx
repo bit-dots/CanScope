@@ -95,7 +95,7 @@ const MeasurementSettingsPanel: Component<MeasurementSettingsPanelProps> = (prop
     <div class="backstage__setting-group">
       <div class="backstage__setting-label">缓存达到上限时</div>
       {([
-        ['evict-oldest', '删除最旧数据并持续接收'],
+        ['evict-oldest', '继续接收新报文，逐步淘汰缓存中最早的报文'],
         ['clear-all', '清空全部历史，再从新数据继续累积'],
         ['stop-measurement', '停止测量；数据回放时暂停播放'],
       ] as const).map(([policy, label]) => (
