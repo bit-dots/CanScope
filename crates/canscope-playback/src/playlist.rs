@@ -66,12 +66,20 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     }
 
     pub fn set_speed(&mut self, speed: f64) {
+        let now = Instant::now();
+        let current_time = self.clock_time(now).or(self.global_time);
         self.speed = speed.clamp(0.1, 32.0);
         if self.state == PlaybackState::Playing {
-            if let Some(timestamp) = self.global_time {
-                self.playback_clock = Some((Instant::now(), timestamp));
+            if let Some(timestamp) = current_time {
+                self.playback_clock = Some((now, timestamp));
             }
         }
+    }
+
+    fn clock_time(&self, now: Instant) -> Option<f64> {
+        self.playback_clock.map(|(started, media_started)| {
+            media_started + now.saturating_duration_since(started).as_secs_f64() * self.speed
+        })
     }
 
     pub fn set_loop(&mut self, enabled: bool) {
@@ -272,8 +280,10 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                     .get(self.current_entry_index)
                     .is_some_and(|entry| entry.enabled)
                 {
+                    let start = self.entries[self.current_entry_index].global_start_offset;
                     self.activate_entry(self.current_entry_index)?;
                     self.state = PlaybackState::Playing;
+                    self.playback_clock = Some((Instant::now(), start));
                 }
             }
             PlaybackState::Paused => {
@@ -290,6 +300,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     pub fn pause(&mut self) {
         if self.state == PlaybackState::Playing {
+            self.global_time = self.clock_time(Instant::now()).or(self.global_time);
             self.state = PlaybackState::Paused;
             self.playback_clock = None;
         }
@@ -536,7 +547,12 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         if total <= 0.0 {
             return None;
         }
-        self.global_time.map(|t| (t / total).clamp(0.0, 1.0))
+        let current_time = if self.state == PlaybackState::Playing {
+            self.clock_time(Instant::now()).or(self.global_time)
+        } else {
+            self.global_time
+        }?;
+        Some((current_time / total).clamp(0.0, 1.0))
     }
 
     /// 前进一帧
@@ -811,6 +827,37 @@ mod tests {
             third.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
             [0x103]
         );
+    }
+
+    #[test]
+    fn progress_advances_smoothly_between_sparse_frames() {
+        let stream = MockStream::new(
+            vec![make_frame(5.0, 0x100), make_frame(9.0, 0x101)],
+            "2026-01-01T10:00:00",
+            Some(10.0),
+        );
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(stream),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.play().unwrap();
+
+        assert!(engine
+            .next_batch_timed(10, Instant::now())
+            .unwrap()
+            .is_empty());
+        std::thread::sleep(Duration::from_millis(20));
+
+        let progress = engine.progress().unwrap();
+        assert!(progress > 0.0);
+        assert!(progress < 0.01);
     }
 
     #[test]
