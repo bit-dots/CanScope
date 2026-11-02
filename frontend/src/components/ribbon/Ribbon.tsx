@@ -1,4 +1,4 @@
-import { Component, createSignal, For } from 'solid-js';
+import { Component, createEffect, createSignal, For } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { Database, FilePlay, FolderOpen, ChartLine } from 'lucide-solid';
 import RibbonGroup from './RibbonGroup';
@@ -91,6 +91,7 @@ const TABS: RibbonTabDef[] = [
    Ribbon Props
    ============================================ */
 export interface RibbonProps {
+  settingsRequest: number;
   playbackState: 'playing' | 'paused' | 'stopped';
   sourceLoaded: boolean;
   projectLoaded: boolean;
@@ -123,6 +124,11 @@ export interface RibbonProps {
 const Ribbon: Component<RibbonProps> = (props) => {
   const [activeTab, setActiveTab] = createSignal('analysis');
   const [backstageVisible, setBackstageVisible] = createSignal(false);
+
+  createEffect(() => {
+    if (props.settingsRequest === 0) return;
+    setBackstageVisible(true);
+  });
 
   const handleTabClick = (tabId: string) => {
     if (tabId === 'file') {
@@ -224,6 +230,7 @@ const Ribbon: Component<RibbonProps> = (props) => {
       <Portal>
         <Backstage
           visible={backstageVisible()}
+          settingsRequest={props.settingsRequest}
           onClose={handleCloseBackstage}
           onNewProject={props.onNewProject}
           onOpenProject={props.onOpenProject}

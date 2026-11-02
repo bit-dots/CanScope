@@ -55,6 +55,7 @@ const PROJECT_TEMPLATES: Array<{
 
 export interface BackstageProps {
   visible: boolean;
+  settingsRequest: number;
   onClose: () => void;
   onNewProject: (template: NewProjectTemplate) => void;
   onOpenProject: () => void;
@@ -74,6 +75,10 @@ const Backstage: Component<BackstageProps> = (props) => {
   const [settingsCategoryExpanded, setSettingsCategoryExpanded] = createSignal(true);
   const [recentProjects, setRecentProjects] = createSignal<RecentProjectInfo[]>([]);
   const [menuError, setMenuError] = createSignal<string | null>(null);
+
+  createEffect(() => {
+    if (props.settingsRequest > 0) setActiveItem('options');
+  });
 
   const refreshRecentProjects = async () => {
     try {

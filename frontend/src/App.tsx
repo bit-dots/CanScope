@@ -69,6 +69,7 @@ function App() {
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
+  const [settingsRequest, setSettingsRequest] = createSignal(0);
   const [stagingNewProjectWorkspace, setStagingNewProjectWorkspace] = createSignal(false);
   const [newProjectTemplate, setNewProjectTemplate] = createSignal<NewProjectTemplate>('can-analysis');
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
@@ -942,6 +943,7 @@ function App() {
   return (
     <div class="app-layout">
       {project() !== null && !loading() && <Ribbon
+          settingsRequest={settingsRequest()}
           projectLoaded={project() !== null}
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
@@ -1225,6 +1227,7 @@ function App() {
         <StatusBar
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
+          onOpenSettings={() => setSettingsRequest((request) => request + 1)}
         />
       )}
     </div>

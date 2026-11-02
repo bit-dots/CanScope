@@ -1,10 +1,12 @@
 import { Component } from 'solid-js';
+import { Settings } from 'lucide-solid';
 import type { PlaybackState } from '../types';
 import './StatusBar.css';
 
 interface StatusBarProps {
   sourceLoaded: boolean;
   playbackState: PlaybackState;
+  onOpenSettings: () => void;
 }
 
 const stateLabel: Record<PlaybackState, string> = {
@@ -32,6 +34,17 @@ const StatusBar: Component<StatusBarProps> = (props) => {
 
   return (
     <div class="status-bar">
+      <div class="status-bar__left">
+        <button
+          class="status-bar__settings"
+          onClick={props.onOpenSettings}
+          type="button"
+          aria-label="打开设置"
+          title="设置"
+        >
+          <Settings size={14} />
+        </button>
+      </div>
       <div class="status-bar__right">
         {props.sourceLoaded && (
           <span class="status-bar__state" classList={{ [stateClass()]: true }}>
