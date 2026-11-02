@@ -113,7 +113,6 @@ export interface RibbonProps {
   onSaveProjectAs: () => void;
   onCloseProject: () => void;
   onOpenRecent: (path: string) => void;
-  onOpenSettings: () => void;
 }
 
 const Ribbon: Component<RibbonProps> = (props) => {
@@ -221,7 +220,6 @@ const Ribbon: Component<RibbonProps> = (props) => {
         <Backstage
           visible={backstageVisible()}
           onClose={handleCloseBackstage}
-          onOpenSettings={props.onOpenSettings}
           onNewProject={props.onNewProject}
           onOpenProject={props.onOpenProject}
           onSaveProject={props.onSaveProject}

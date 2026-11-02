@@ -21,7 +21,6 @@ const MENU_ITEMS: BackstageMenuItem[] = [
   { id: 'open', label: '打开' },
   { id: 'save', label: '保存' },
   { id: 'saveas', label: '另存为' },
-  { id: 'options', label: '选项' },
   { id: 'close', label: '关闭工程', danger: true },
 ];
 
@@ -54,7 +53,6 @@ const PROJECT_TEMPLATES: Array<{
 export interface BackstageProps {
   visible: boolean;
   onClose: () => void;
-  onOpenSettings: () => void;
   onNewProject: (template: NewProjectTemplate) => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
@@ -85,11 +83,6 @@ const Backstage: Component<BackstageProps> = (props) => {
   });
 
   const handleItemClick = (item: BackstageMenuItem) => {
-    if (item.id === 'options') {
-      props.onOpenSettings();
-      props.onClose();
-      return;
-    }
     setActiveItem(item.id);
   };
 

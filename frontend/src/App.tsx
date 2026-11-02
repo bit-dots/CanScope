@@ -967,7 +967,6 @@ function App() {
           onSaveProjectAs={handleSaveProjectAs}
           onCloseProject={handleCloseProject}
           onOpenRecent={handleOpenRecent}
-          onOpenSettings={() => setSettingsOpen(true)}
       />}
       <main class="main-content">
         {error() && (
