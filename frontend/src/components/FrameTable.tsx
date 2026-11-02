@@ -15,14 +15,12 @@ interface FrameTableProps {
   onRequestPage: (offset: number, limit: number) => Promise<void>;
   totalFrameCount: number;
   traceMode: boolean;
-  traceDisplayFrozen: boolean;
   hiddenTraceFrames: number;
   estimatedCacheBytes: number;
   receivedFrameCount: number;
   transmittedFrameCount: number;
   cacheFullPolicy: 'evict-oldest' | 'clear-all' | 'stop-measurement';
   cacheLimitReached: boolean;
-  onTraceFollowChange: (following: boolean) => void | Promise<void>;
   onMonitorRefreshRateChange: (rate: number) => void;
   hasDbc?: boolean;
   onClear?: () => void;
@@ -122,8 +120,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (s.autoScroll && !settings().autoScroll) {
       setIsFollowingPlayback(true);
       resumeTraceFollow();
-    } else if (!s.autoScroll) {
-      props.onTraceFollowChange(false);
     }
     setSettings(s);
     saveSettings(props.projectName, s);
@@ -140,25 +136,19 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       saveSettings(props.projectName, updated);
       resumeTraceFollow();
     } else {
-      props.onTraceFollowChange(false);
       setSettings(updated);
       saveSettings(props.projectName, updated);
     }
   };
 
   const resumeTraceFollow = () => {
-    Promise.resolve(props.onTraceFollowChange(true))
-      .then(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          if (containerRef) {
-            containerRef.scrollTop = containerRef.scrollHeight;
-            setScrollTop(containerRef.scrollTop);
-            setIsFollowingPlayback(true);
-          }
-          resolve();
-        });
-      }))
-      .catch((error) => console.error('Failed to follow the live trace:', error));
+    requestAnimationFrame(() => {
+      if (containerRef) {
+        containerRef.scrollTop = containerRef.scrollHeight;
+        setScrollTop(containerRef.scrollTop);
+        setIsFollowingPlayback(true);
+      }
+    });
   };
 
   // ---- 变化字节高亮 ----
@@ -847,7 +837,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   onMount(() => {
     props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
-    props.onTraceFollowChange(settings().autoScroll && isAtBottom());
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
   });
@@ -903,7 +892,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setScrollTop(containerRef.scrollTop);
     const atBottom = isAtBottom();
     setIsFollowingPlayback(atBottom);
-    props.onTraceFollowChange(settings().autoScroll && atBottom);
   };
 
   onMount(() => {
@@ -1484,20 +1472,20 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           <div class="frame-table__statusbar">
             <div class="frame-table__statusbar-left">
               {isPaused() && <span class="frame-table__statusbar-label">已暂停</span>}
-              {props.traceDisplayFrozen && (
+              {props.cacheLimitReached && (
                 <span class="frame-table__statusbar-label">
-                  {props.cacheLimitReached
-                    ? '缓存已满，回放已暂停'
-                    : `实时显示已冻结，${props.hiddenTraceFrames.toLocaleString()} 条新报文未显示`}
+                  缓存已满，回放已暂停
                 </span>
               )}
-              {!props.traceDisplayFrozen &&
-                props.cacheFullPolicy === 'clear-all' &&
-                props.hiddenTraceFrames > 0 && (
-                  <span class="frame-table__statusbar-label">
-                    缓存达到上限，已清理 {props.hiddenTraceFrames.toLocaleString()} 条历史报文
-                  </span>
-                )}
+              {props.hiddenTraceFrames > 0 && (
+                <span class="frame-table__statusbar-label">
+                  {props.cacheFullPolicy === 'evict-oldest'
+                    ? `缓存达到上限，已淘汰 ${props.hiddenTraceFrames.toLocaleString()} 条最旧报文`
+                    : props.cacheFullPolicy === 'clear-all'
+                      ? `缓存达到上限，已清理 ${props.hiddenTraceFrames.toLocaleString()} 条历史报文`
+                      : `缓存达到上限，${props.hiddenTraceFrames.toLocaleString()} 条超额报文未缓存`}
+                </span>
+              )}
             </div>
             <div class="frame-table__statusbar-right">
               <span class="frame-table__statusbar-item" title="当前报文监控缓存的近似内存占用，不含应用其他内存">

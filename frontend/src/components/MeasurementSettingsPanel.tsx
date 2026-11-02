@@ -114,10 +114,10 @@ const MeasurementSettingsPanel: Component<MeasurementSettingsPanelProps> = (prop
       ))}
     </div>
     <p class="backstage__setting-note">
-      关闭自动滚动并查看历史时，监控视图会冻结并统计未显示的新报文；该行为优先于自动淘汰，避免历史内容移动。
+      缓存达到上限时，无论是否正在查看历史，都会按所选策略处理；淘汰或清空后，监控视图会定位到当前保留数据的起点。
     </p>
     <p class="backstage__setting-note">
-      当前回放达到上限时会按所选策略处理；实时测量停止策略会在实时采集数据源接入后生效。
+      回放的停止策略会在当前批次处理后暂停；超出缓存预算的报文不会保留在监控缓存中。实时测量停止策略会在实时采集数据源接入后生效。
     </p>
   </>
 );

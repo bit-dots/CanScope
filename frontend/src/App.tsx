@@ -82,8 +82,6 @@ function App() {
   const [availableMemoryBytes, setAvailableMemoryBytes] = createSignal<number | null>(null);
   const [automaticLimitBytes, setAutomaticLimitBytes] = createSignal<number | null>(null);
   const [memoryInfoError, setMemoryInfoError] = createSignal<string | null>(null);
-  const [traceViewFollowing, setTraceViewFollowing] = createSignal(true);
-  const [traceDisplayFrozen, setTraceDisplayFrozen] = createSignal(false);
   const [hiddenTraceFrames, setHiddenTraceFrames] = createSignal(0);
   const [cacheLimitReached, setCacheLimitReached] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
@@ -127,16 +125,36 @@ function App() {
   const currentCacheLimitBytes = () =>
     cacheMemoryLimitBytes(measurementSettings(), automaticLimitBytes());
 
+  const applyCacheBudget = (limit: number, policy: MeasurementSettings['cacheFullPolicy']) => {
+    const currentFrames = frames();
+    if (estimatedCacheBytes() <= limit) return;
+
+    if (policy === 'clear-all') {
+      setFrames([]);
+      setFrameOffset((offset) => offset + currentFrames.length);
+      setEstimatedCacheBytes(0);
+      setHiddenTraceFrames((count) => count + currentFrames.length);
+      setCacheLimitReached(false);
+      return;
+    }
+
+    const retained = retainNewestFrames(currentFrames, limit);
+    if (retained.dropped === 0) return;
+    setFrames(retained.frames);
+    setFrameOffset((offset) => offset + retained.dropped);
+    setEstimatedCacheBytes(retained.bytes);
+    setHiddenTraceFrames((count) => count + retained.dropped);
+
+    if (policy === 'stop-measurement' && playbackState() === 'playing') {
+      setCacheLimitReached(true);
+      pausePlaybackAtCacheLimit();
+    }
+  };
+
   const applyAutomaticLimit = (limit: number) => {
     setAutomaticLimitBytes(limit);
     frameQueryId++;
-    const retained = retainNewestFrames(frames(), limit);
-    if (retained.dropped > 0) {
-      setFrameOffset((offset) => offset + retained.dropped);
-      setHiddenTraceFrames((count) => count + retained.dropped);
-    }
-    setFrames(retained.frames);
-    setEstimatedCacheBytes(retained.bytes);
+    applyCacheBudget(limit, measurementSettings().cacheFullPolicy);
   };
 
   const refreshAvailableMemory = async (recalculateLimit = false) => {
@@ -248,48 +266,6 @@ function App() {
     setEstimatedCacheBytes(retained.bytes);
   };
 
-  const requestRecentFrameWindow = async (playbackTime: number) => {
-    const requestId = ++frameQueryId;
-    const activeFilter = filter();
-    const cacheLimit = currentCacheLimitBytes();
-    const pageSize = 4096;
-    const countPage = await fetchFramePage(0, 0, activeFilter, playbackTime);
-    if (requestId !== frameQueryId) return;
-
-    let nextEnd = countPage.totalCount;
-    let retainedBytes = 0;
-    let retainedStart = nextEnd;
-    const newestFirst: FrameInfo[] = [];
-
-    while (nextEnd > 0 && retainedBytes < cacheLimit) {
-      const offset = Math.max(0, nextEnd - pageSize);
-      const page = await fetchFramePage(offset, nextEnd - offset, activeFilter, playbackTime);
-      if (requestId !== frameQueryId) return;
-      if (page.frames.length === 0) break;
-
-      let reachedLimit = false;
-      for (let index = page.frames.length - 1; index >= 0; index--) {
-        const frame = page.frames[index];
-        const frameBytes = estimateFrameMemoryBytes(frame);
-        if (retainedBytes + frameBytes > cacheLimit) {
-          reachedLimit = true;
-          break;
-        }
-        newestFirst.push(frame);
-        retainedBytes += frameBytes;
-        retainedStart = page.offset + index;
-      }
-      if (reachedLimit) break;
-      nextEnd = page.offset;
-    }
-
-    newestFirst.reverse();
-    setFrames(newestFirst);
-    setFrameOffset(retainedStart);
-    setFrameTotalCount(countPage.totalCount);
-    setEstimatedCacheBytes(retainedBytes);
-  };
-
   const queryChartData = (
     signals: ChartSignal[],
     timeStart: number,
@@ -313,32 +289,11 @@ function App() {
     const appended = pendingTraceFrames;
     pendingTraceFrames = [];
     pendingTraceBytes = 0;
-    if (traceDisplayFrozen()) {
-      setHiddenTraceFrames((count) => count + appended.length);
-      return;
-    }
-
     const currentFrames = frames();
     const cacheLimit = currentCacheLimitBytes();
     const currentBytes = estimatedCacheBytes();
     const appendedBytes = estimateFramesMemoryBytes(appended);
     const exceedsLimit = currentBytes + appendedBytes > cacheLimit;
-
-    if (!traceViewFollowing() && exceedsLimit) {
-      const accepted = retainOldestFrames(appended, Math.max(0, cacheLimit - currentBytes));
-      if (accepted.frames.length > 0) {
-        setFrames([...currentFrames, ...accepted.frames]);
-        setEstimatedCacheBytes(currentBytes + accepted.bytes);
-        setFrameTotalCount((count) => count + accepted.frames.length);
-      }
-      setHiddenTraceFrames((count) => count + accepted.dropped);
-      setTraceDisplayFrozen(true);
-      if (measurementSettings().cacheFullPolicy === 'stop-measurement') {
-        setCacheLimitReached(true);
-        pausePlaybackAtCacheLimit();
-      }
-      return;
-    }
 
     if (measurementSettings().cacheFullPolicy === 'clear-all' && exceedsLimit) {
       const retained = retainNewestFrames(appended, cacheLimit);
@@ -358,7 +313,6 @@ function App() {
         setFrameTotalCount((count) => count + accepted.frames.length);
       }
       setHiddenTraceFrames((count) => count + accepted.dropped);
-      setTraceDisplayFrozen(true);
       setCacheLimitReached(true);
       pausePlaybackAtCacheLimit();
       return;
@@ -368,7 +322,10 @@ function App() {
     const retained = retainNewestFrames(combined, cacheLimit);
     setFrames(retained.frames);
     setEstimatedCacheBytes(retained.bytes);
-    if (retained.dropped > 0) setFrameOffset((offset) => offset + retained.dropped);
+    if (retained.dropped > 0) {
+      setFrameOffset((offset) => offset + retained.dropped);
+      setHiddenTraceFrames((count) => count + retained.dropped);
+    }
     setFrameTotalCount((count) => count + appended.length);
   };
 
@@ -391,7 +348,6 @@ function App() {
     setFrameTotalCount(0);
     setEstimatedCacheBytes(0);
     lastFrameMonitorRefresh = 0;
-    setTraceDisplayFrozen(false);
     setHiddenTraceFrames(0);
     setCacheLimitReached(false);
   };
@@ -879,6 +835,16 @@ function App() {
           resetTraceBuffer();
           setTraceMode(true);
         }
+        if (
+          measurementSettings().cacheFullPolicy === 'stop-measurement' &&
+          estimatedCacheBytes() >= currentCacheLimitBytes()
+        ) {
+          const pausedState: string = await invoke('playback_control', { action: 'pause' });
+          setPlaybackState(pausedState as PlaybackState);
+          setCacheLimitReached(true);
+          stopPolling();
+          return;
+        }
         if (prevState !== 'playing') setCacheLimitReached(false);
         if (!traceMode()) {
           resetTraceBuffer();
@@ -900,11 +866,16 @@ function App() {
   };
 
   const handleMeasurementSettingsChange = (next: MeasurementSettings) => {
+    const previousSettings = measurementSettings();
     const updated: MeasurementSettings = {
       automaticMemoryLimit: next.automaticMemoryLimit,
       customMemoryLimitMb: Math.max(1, Math.min(1_048_576, Math.floor(next.customMemoryLimitMb))),
       cacheFullPolicy: next.cacheFullPolicy,
     };
+    if (updated.cacheFullPolicy !== previousSettings.cacheFullPolicy) {
+      setHiddenTraceFrames(0);
+      setCacheLimitReached(false);
+    }
     const available = availableMemoryBytes();
     let autoLimit = automaticLimitBytes();
     if (
@@ -913,32 +884,12 @@ function App() {
       available !== null
     ) {
       autoLimit = Math.max(1024 * 1024, Math.floor(available / 2));
-      applyAutomaticLimit(autoLimit);
+      setAutomaticLimitBytes(autoLimit);
     }
     frameQueryId++;
     setMeasurementSettings(updated);
     saveMeasurementSettings(updated);
-    const current = frames();
-    const retained = retainNewestFrames(
-      current,
-      cacheMemoryLimitBytes(updated, autoLimit),
-    );
-    if (retained.dropped > 0) setFrameOffset((offset) => offset + retained.dropped);
-    setFrames(retained.frames);
-    setEstimatedCacheBytes(retained.bytes);
-  };
-
-  const handleTraceFollowChange = (following: boolean): Promise<void> | void => {
-    const wasFollowing = traceViewFollowing();
-    setTraceViewFollowing(following);
-    if (following && !wasFollowing && traceDisplayFrozen()) {
-      setTraceDisplayFrozen(false);
-      setHiddenTraceFrames(0);
-      setCacheLimitReached(false);
-      return requestRecentFrameWindow(currentTime()).catch((e) => {
-        console.error('Failed to resume the live trace view:', e);
-      });
-    }
+    applyCacheBudget(cacheMemoryLimitBytes(updated, autoLimit), updated.cacheFullPolicy);
   };
 
   const handleClearFrameMonitor = () => {
@@ -950,7 +901,6 @@ function App() {
     setFrameTotalCount(0);
     setEstimatedCacheBytes(0);
     resetMonitorCounters();
-    setTraceDisplayFrozen(false);
     setHiddenTraceFrames(0);
     setCacheLimitReached(false);
   };
@@ -1221,14 +1171,12 @@ function App() {
                         onRequestPage={requestFramePage}
                         totalFrameCount={frameTotalCount()}
                         traceMode={traceMode()}
-                        traceDisplayFrozen={traceDisplayFrozen()}
                         hiddenTraceFrames={hiddenTraceFrames()}
                         estimatedCacheBytes={estimatedCacheBytes()}
                         receivedFrameCount={receivedFrameCount()}
                         transmittedFrameCount={transmittedFrameCount()}
                         cacheFullPolicy={measurementSettings().cacheFullPolicy}
                         cacheLimitReached={cacheLimitReached()}
-                        onTraceFollowChange={handleTraceFollowChange}
                         onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
