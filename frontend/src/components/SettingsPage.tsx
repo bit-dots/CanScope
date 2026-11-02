@@ -1,5 +1,5 @@
 import { Component, createEffect, onCleanup, createSignal } from 'solid-js';
-import { ChevronDown, X } from 'lucide-solid';
+import { ChevronDown, SlidersHorizontal, X } from 'lucide-solid';
 import MeasurementSettingsPanel from './MeasurementSettingsPanel';
 import type { MeasurementSettings } from '../measurementSettings';
 
@@ -33,7 +33,10 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         onClick={(event) => event.stopPropagation()}
       >
         <header class="settings-page__header">
-          <h1 id="settings-page-title">设置</h1>
+          <h1 id="settings-page-title">
+            <SlidersHorizontal size={16} />
+            设置
+          </h1>
           <button
             class="settings-page__close"
             type="button"

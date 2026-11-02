@@ -1723,6 +1723,9 @@ select:focus-visible,
 }
 
 .settings-page__header h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 14px;
   font-weight: 600;
