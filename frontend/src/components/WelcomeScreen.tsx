@@ -109,7 +109,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
           </Show>
 
           <div class="welcome-actions">
-            <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>
+            <button class="welcome-btn welcome-btn-primary" onClick={() => props.onNewProject()}>
               <Plus size={18} />
               新建工程
             </button>
