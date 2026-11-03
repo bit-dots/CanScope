@@ -120,9 +120,7 @@ const StatusBar: Component<StatusBarProps> = (props) => {
         >
           <Bell size={14} />
           {props.unreadNotificationCount > 0 && (
-            <span class="status-bar__notification-count">
-              {props.unreadNotificationCount > 99 ? '99+' : props.unreadNotificationCount}
-            </span>
+            <span class="status-bar__notification-indicator" aria-hidden="true" />
           )}
         </button>
       </div>

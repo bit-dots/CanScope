@@ -52,20 +52,15 @@
   outline-offset: 1px;
 }
 
-.status-bar__notification-count {
+.status-bar__notification-indicator {
   position: absolute;
-  top: -2px;
-  right: -3px;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 3px;
-  border-radius: 7px;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--bg-secondary);
+  border-radius: 50%;
   background: var(--accent);
-  color: var(--bg-primary);
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 13px;
-  text-align: center;
 }
 
 .status-bar__right {
