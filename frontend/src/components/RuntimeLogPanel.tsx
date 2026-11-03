@@ -1,24 +1,27 @@
 import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { Download, Eraser, Pause, Play, Search, X } from 'lucide-solid';
 import type { EventLevel, RuntimeLogEntry } from '../runtimeEvents';
+import { formatRuntimeLogTimestamp } from '../runtimeLogSettings';
 import './RuntimeLogPanel.css';
 
 interface RuntimeLogPanelProps {
   entries: RuntimeLogEntry[];
   maxEntries: number;
+  displayLimit: number;
+  timeFormat: 'date-time' | 'time' | 'iso';
+  enabledLevels: EventLevel[];
   onClose: () => void;
   onClear: () => void;
   onExport: () => void;
 }
 
 const levelLabels: Record<EventLevel, string> = {
+  debug: '调试',
+  critical: '严重错误',
   error: '错误',
   warning: '警告',
   info: '信息',
 };
-
-const formatTimestamp = (timestamp: number) =>
-  new Date(timestamp).toLocaleString(undefined, { hour12: false });
 
 const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
   const [level, setLevel] = createSignal<EventLevel | 'all'>('all');
@@ -33,7 +36,8 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
 
   const filteredEntries = createMemo(() => {
     const search = query().trim().toLocaleLowerCase();
-    return props.entries.filter((entry) =>
+    return props.entries.slice(-props.displayLimit).filter((entry) =>
+      props.enabledLevels.includes(entry.level) &&
       (level() === 'all' || entry.level === level()) &&
       (!search || `${entry.source} ${entry.message} ${entry.details ?? ''}`.toLocaleLowerCase().includes(search)),
     ).reverse();
@@ -86,6 +90,8 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
           <strong>日志</strong>
           <span>{props.entries.length.toLocaleString()} / {props.maxEntries.toLocaleString()}</span>
           <span class="runtime-log__counts">
+            <span>调 {levelCount('debug')}</span>
+            <span>严 {levelCount('critical')}</span>
             <span class="runtime-log__count--error">错 {levelCount('error')}</span>
             <span class="runtime-log__count--warning">警 {levelCount('warning')}</span>
             <span>信 {levelCount('info')}</span>
@@ -103,6 +109,8 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
           </label>
           <select aria-label="按等级筛选日志" value={level()} onChange={(event) => setLevel(event.currentTarget.value as EventLevel | 'all')}>
             <option value="all">全部等级</option>
+            <option value="debug">调试</option>
+            <option value="critical">严重错误</option>
             <option value="error">错误</option>
             <option value="warning">警告</option>
             <option value="info">信息</option>
@@ -147,7 +155,7 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
                   }}
                   onClick={() => setSelectedId(entry.id)}
                 >
-                  <time>{formatTimestamp(entry.timestamp)}</time>
+                  <time>{formatRuntimeLogTimestamp(entry.timestamp, props.timeFormat)}</time>
                   <span class="runtime-log__level">{levelLabels[entry.level]}</span>
                   <span class="runtime-log__source">{entry.source}</span>
                   <span class="runtime-log__message">
@@ -167,7 +175,7 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
                     {levelLabels[entry().level]}
                   </span>
                   <span>{entry().source}</span>
-                  <time>{formatTimestamp(entry().timestamp)}</time>
+                  <time>{formatRuntimeLogTimestamp(entry().timestamp, props.timeFormat)}</time>
                 </div>
                 <strong>{entry().message}</strong>
                 <Show when={(entry().occurrences ?? 1) > 1}>

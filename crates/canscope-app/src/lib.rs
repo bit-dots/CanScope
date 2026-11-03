@@ -106,6 +106,7 @@ struct RecentProjectEntry {
 struct AppState {
     engine: Mutex<Option<PlaylistEngine<AscReader>>>,
     dbc_map: Mutex<HashMap<u8, Dbc>>,
+    runtime_log_write_lock: Mutex<()>,
     file_path: Mutex<Option<PathBuf>>,
     project: Mutex<Option<ProjectConfig>>,
     project_path: Mutex<Option<PathBuf>>,
@@ -1726,6 +1727,79 @@ fn ensure_dir(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn append_runtime_log_file(
+    state: State<AppState>,
+    path: String,
+    entry: serde_json::Value,
+) -> Result<(), String> {
+    let _guard = state
+        .runtime_log_write_lock
+        .lock()
+        .map_err(|e| e.to_string())?;
+    let path = Path::new(&path);
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create log directory: {e}"))?;
+    }
+    let line =
+        serde_json::to_string(&entry).map_err(|e| format!("Failed to serialize log: {e}"))?;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("Failed to open log file: {e}"))?;
+    writeln!(file, "{line}").map_err(|e| format!("Failed to write log file: {e}"))
+}
+
+#[tauri::command]
+fn reveal_runtime_log_file(path: String) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    if path.as_os_str().is_empty() {
+        return Err("Log file path is empty".to_string());
+    }
+    let reveal_target = if path.exists() {
+        path.clone()
+    } else {
+        path.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "Log file directory does not exist".to_string())?
+    };
+
+    #[cfg(target_os = "windows")]
+    let result = if path.exists() {
+        std::process::Command::new("explorer.exe")
+            .arg(format!("/select,{}", reveal_target.display()))
+            .spawn()
+    } else {
+        std::process::Command::new("explorer.exe")
+            .arg(&reveal_target)
+            .spawn()
+    };
+    #[cfg(target_os = "macos")]
+    let result = if path.exists() {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(&reveal_target)
+            .spawn()
+    } else {
+        std::process::Command::new("open")
+            .arg(&reveal_target)
+            .spawn()
+    };
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open")
+        .arg(reveal_target)
+        .spawn();
+
+    result
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open log file location: {e}"))
+}
+
+#[tauri::command]
 fn is_project_dirty(state: State<AppState>) -> Result<bool, String> {
     let dirty = state.dirty.lock().map_err(|e| e.to_string())?;
     Ok(*dirty)
@@ -1757,6 +1831,7 @@ pub fn run() {
         .manage(AppState {
             engine: Mutex::new(None),
             dbc_map: Mutex::new(HashMap::new()),
+            runtime_log_write_lock: Mutex::new(()),
             file_path: Mutex::new(None),
             project: Mutex::new(None),
             project_path: Mutex::new(None),
@@ -1806,6 +1881,8 @@ pub fn run() {
             update_project_state,
             set_project_can_log,
             ensure_dir,
+            append_runtime_log_file,
+            reveal_runtime_log_file,
             is_project_dirty,
             close_project,
         ])

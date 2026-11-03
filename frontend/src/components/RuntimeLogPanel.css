@@ -198,7 +198,9 @@
 }
 
 .runtime-log__row--error .runtime-log__level,
-.runtime-log__detail-level--error {
+.runtime-log__detail-level--error,
+.runtime-log__row--critical .runtime-log__level,
+.runtime-log__detail-level--critical {
   color: var(--error);
 }
 
@@ -209,6 +211,11 @@
 
 .runtime-log__row--info .runtime-log__level,
 .runtime-log__detail-level--info {
+  color: var(--text-secondary);
+}
+
+.runtime-log__row--debug .runtime-log__level,
+.runtime-log__detail-level--debug {
   color: var(--text-secondary);
 }
 

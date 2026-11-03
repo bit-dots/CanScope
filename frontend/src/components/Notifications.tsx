@@ -12,6 +12,8 @@ interface NotificationsProps {
 }
 
 const labels: Record<EventLevel, string> = {
+  debug: '调试',
+  critical: '严重错误',
   error: '错误',
   warning: '警告',
   info: '信息',

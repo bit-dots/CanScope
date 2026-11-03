@@ -7,6 +7,10 @@
   color: var(--error);
 }
 
+.notification-item--critical .notification-item__top span {
+  color: var(--error);
+}
+
 .notification-item--warning .notification-item__top span {
   color: var(--warning);
 }

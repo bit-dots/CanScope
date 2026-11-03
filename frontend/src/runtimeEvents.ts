@@ -1,4 +1,4 @@
-export type EventLevel = 'error' | 'warning' | 'info';
+export type EventLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical';
 
 export interface RuntimeLogEntry {
   id: number;

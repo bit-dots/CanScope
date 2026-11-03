@@ -1,26 +1,89 @@
 import { Component, For, Show, createEffect, onCleanup, createSignal } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 import { ChevronRight, SlidersHorizontal, X } from 'lucide-solid';
 import MeasurementSettingsPanel from './MeasurementSettingsPanel';
 import type { MeasurementSettings } from '../measurementSettings';
-import { RUNTIME_LOG_LIMITS, type RuntimeLogLimit } from '../runtimeLogSettings';
+import type { EventLevel } from '../runtimeEvents';
+import {
+  RUNTIME_LOG_CACHE_LIMITS,
+  RUNTIME_LOG_DISPLAY_LIMITS,
+  RUNTIME_LOG_LEVELS,
+  RUNTIME_LOG_TIME_FORMATS,
+  formatRuntimeLogTimestamp,
+  type RuntimeLogSettings,
+} from '../runtimeLogSettings';
 
 interface SettingsPageProps {
   settings: MeasurementSettings;
-  runtimeLogLimit: RuntimeLogLimit;
+  runtimeLogSettings: RuntimeLogSettings;
+  runtimeLogPersistenceError: string | null;
   cachedFrameCount: number;
   estimatedCacheBytes: number;
   availableMemoryBytes: number | null;
   automaticLimitBytes: number | null;
   memoryInfoError: string | null;
   onChange: (settings: MeasurementSettings) => void;
-  onRuntimeLogLimitChange: (limit: RuntimeLogLimit) => void;
+  onRuntimeLogSettingsChange: (settings: RuntimeLogSettings) => void;
   onClose: () => void;
 }
+
+const levelLabels: Record<EventLevel, string> = {
+  debug: '调试',
+  info: '信息',
+  warning: '警告',
+  error: '错误',
+  critical: '严重错误',
+};
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
   const [measurementExpanded, setMeasurementExpanded] = createSignal(true);
   const [applicationExpanded, setApplicationExpanded] = createSignal(true);
   const [activeSection, setActiveSection] = createSignal<'cache' | 'logs'>('cache');
+  const [logSettingsError, setLogSettingsError] = createSignal<string | null>(null);
+  const timeFormatSampleTimestamp = Date.now();
+
+  const updateLogSettings = (updates: Partial<RuntimeLogSettings>) => {
+    props.onRuntimeLogSettingsChange({ ...props.runtimeLogSettings, ...updates });
+  };
+
+  const selectLogFile = async () => {
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const selected = await save({
+        title: '选择日志文件',
+        defaultPath: props.runtimeLogSettings.filePath || 'canscope-logs.jsonl',
+        filters: [{ name: 'JSON Lines', extensions: ['jsonl'] }],
+      });
+      if (typeof selected === 'string') {
+        updateLogSettings({ filePath: selected, saveToFile: true });
+        setLogSettingsError(null);
+      }
+    } catch (error) {
+      setLogSettingsError(`无法选择日志文件：${String(error)}`);
+    }
+  };
+
+  const toggleFileLogging = (enabled: boolean, input: HTMLInputElement) => {
+    if (!enabled) {
+      updateLogSettings({ saveToFile: false });
+      return;
+    }
+    if (props.runtimeLogSettings.filePath) {
+      updateLogSettings({ saveToFile: true });
+      return;
+    }
+    input.checked = false;
+    void selectLogFile();
+  };
+
+  const openLogFile = async () => {
+    try {
+      await invoke('reveal_runtime_log_file', { path: props.runtimeLogSettings.filePath });
+      setLogSettingsError(null);
+    } catch (error) {
+      setLogSettingsError(`无法打开日志文件位置：${String(error)}`);
+    }
+  };
 
   createEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -113,25 +176,123 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
               <>
                 <h2 id="settings-page-section-title" class="settings-page__heading">日志</h2>
                 <div class="backstage__setting-group">
-                  <label class="backstage__setting-row" for="runtime-log-limit">
-                    <span class="backstage__setting-label">当前会话日志上限</span>
+                  <label class="backstage__setting-row" for="runtime-log-display-limit">
+                    <span class="backstage__setting-label">最大显示行数</span>
                     <select
-                      id="runtime-log-limit"
+                      id="runtime-log-display-limit"
                       class="runtime-log-settings__select"
-                      value={props.runtimeLogLimit}
-                      onChange={(event) => props.onRuntimeLogLimitChange(
-                        Number(event.currentTarget.value) as RuntimeLogLimit,
-                      )}
+                      value={props.runtimeLogSettings.displayLimit}
+                      onChange={(event) => updateLogSettings({
+                        displayLimit: Number(event.currentTarget.value) as RuntimeLogSettings['displayLimit'],
+                      })}
                     >
-                      <For each={RUNTIME_LOG_LIMITS}>
+                      <For each={RUNTIME_LOG_DISPLAY_LIMITS}>
+                        {(limit) => <option value={limit}>{limit.toLocaleString()} 行</option>}
+                      </For>
+                    </select>
+                  </label>
+                  <fieldset class="runtime-log-settings__time-formats">
+                    <legend class="backstage__setting-label">时间格式</legend>
+                    <For each={RUNTIME_LOG_TIME_FORMATS}>
+                      {(format) => (
+                        <label
+                          class="runtime-log-settings__time-format"
+                          classList={{
+                            'runtime-log-settings__time-format--selected':
+                              props.runtimeLogSettings.timeFormat === format,
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="runtime-log-time-format"
+                            value={format}
+                            checked={props.runtimeLogSettings.timeFormat === format}
+                            onChange={() => updateLogSettings({ timeFormat: format })}
+                          />
+                          <span class="runtime-log-settings__time-format-name">
+                            {format === 'date-time' ? '日期与时间（本地）' : format === 'time' ? '仅时间（本地）' : 'ISO 8601（UTC）'}
+                          </span>
+                          <code>
+                            {formatRuntimeLogTimestamp(timeFormatSampleTimestamp, format)}
+                          </code>
+                        </label>
+                      )}
+                    </For>
+                  </fieldset>
+                  <div class="runtime-log-settings__levels" role="group" aria-labelledby="runtime-log-levels-label">
+                    <span id="runtime-log-levels-label" class="backstage__setting-label">日志等级</span>
+                    <div class="runtime-log-settings__level-options">
+                      <For each={RUNTIME_LOG_LEVELS}>
+                        {(level) => (
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={props.runtimeLogSettings.enabledLevels.includes(level)}
+                              onChange={(event) => {
+                                const enabledLevels = event.currentTarget.checked
+                                  ? [...props.runtimeLogSettings.enabledLevels, level]
+                                  : props.runtimeLogSettings.enabledLevels.filter((enabled) => enabled !== level);
+                                updateLogSettings({ enabledLevels });
+                              }}
+                            />
+                            <span>{levelLabels[level]}</span>
+                          </label>
+                        )}
+                      </For>
+                    </div>
+                  </div>
+                  <label class="backstage__setting-row" for="runtime-log-cache-limit">
+                    <span class="backstage__setting-label">最大缓存数量</span>
+                    <select
+                      id="runtime-log-cache-limit"
+                      class="runtime-log-settings__select"
+                      value={props.runtimeLogSettings.cacheLimit}
+                      onChange={(event) => updateLogSettings({
+                        cacheLimit: Number(event.currentTarget.value) as RuntimeLogSettings['cacheLimit'],
+                      })}
+                    >
+                      <For each={RUNTIME_LOG_CACHE_LIMITS}>
                         {(limit) => <option value={limit}>{limit.toLocaleString()} 条</option>}
                       </For>
                     </select>
                   </label>
                 </div>
                 <p class="backstage__setting-note">
-                  达到上限后，自动移除最早的日志。日志仅保留在当前运行会话，不会自动写入磁盘；需要长期留存时，可在日志面板中导出。
+                  最大显示行数只限制面板中展示的最近日志；达到缓存上限后，会从内存中移除最早的日志。
                 </p>
+                <h3 class="backstage__subheading backstage__subheading--spaced">日志文件</h3>
+                <label class="runtime-log-settings__file-toggle">
+                  <input
+                    type="checkbox"
+                    checked={props.runtimeLogSettings.saveToFile}
+                    onChange={(event) => toggleFileLogging(event.currentTarget.checked, event.currentTarget)}
+                  />
+                  <span>自动保存日志到文件</span>
+                </label>
+                <div class="runtime-log-settings__file-path">
+                  <input
+                    aria-label="日志文件路径"
+                    readOnly
+                    value={props.runtimeLogSettings.filePath}
+                    placeholder="尚未选择日志文件"
+                  />
+                  <button type="button" onClick={() => void selectLogFile()}>选择路径</button>
+                  <button
+                    type="button"
+                    disabled={!props.runtimeLogSettings.filePath}
+                    onClick={() => void openLogFile()}
+                  >
+                    打开文件位置
+                  </button>
+                </div>
+                <p class="backstage__setting-note">
+                  开启后新日志会以 JSON Lines 格式追加写入；文件不会随内存缓存上限自动清理。清空日志面板只清空当前会话缓存，不删除文件。
+                </p>
+                <Show when={props.runtimeLogPersistenceError || logSettingsError()}>
+                  <p class="runtime-log-settings__error" role="alert">
+                    {props.runtimeLogPersistenceError ?? logSettingsError()}
+                  </p>
+                </Show>
               </>
             }>
               <h2 id="settings-page-section-title" class="settings-page__heading">数据缓存</h2>

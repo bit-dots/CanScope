@@ -21,7 +21,11 @@ import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import DatabaseManagerDialog from './components/DatabaseManagerDialog';
 import type { AppNotification, EventLevel, RuntimeLogEntry } from './runtimeEvents';
-import { loadRuntimeLogLimit, saveRuntimeLogLimit, type RuntimeLogLimit } from './runtimeLogSettings';
+import {
+  loadRuntimeLogSettings,
+  saveRuntimeLogSettings,
+  type RuntimeLogSettings,
+} from './runtimeLogSettings';
 import {
   cacheMemoryLimitBytes,
   estimateFrameMemoryBytes,
@@ -97,7 +101,8 @@ function App() {
   } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [runtimeLogs, setRuntimeLogs] = createSignal<RuntimeLogEntry[]>([]);
-  const [runtimeLogLimit, setRuntimeLogLimit] = createSignal<RuntimeLogLimit>(loadRuntimeLogLimit());
+  const [runtimeLogSettings, setRuntimeLogSettings] = createSignal<RuntimeLogSettings>(loadRuntimeLogSettings());
+  const [runtimeLogPersistenceError, setRuntimeLogPersistenceError] = createSignal<string | null>(null);
   const [notifications, setNotifications] = createSignal<AppNotification[]>([]);
   const [notificationCenterOpen, setNotificationCenterOpen] = createSignal(false);
   const [logPanelOpen, setLogPanelOpen] = createSignal(false);
@@ -115,6 +120,7 @@ function App() {
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
   let nextRuntimeEventId = 1;
+  let lastRuntimeLogWriteError: string | null = null;
 
   const recordRuntimeEvent = (
     level: EventLevel,
@@ -142,8 +148,34 @@ function App() {
           { ...last, timestamp, occurrences: (last.occurrences ?? 1) + 1 },
         ];
       }
-      return [...previous, entry].slice(-runtimeLogLimit());
+      return [...previous, entry].slice(-runtimeLogSettings().cacheLimit);
     });
+    const logSettings = runtimeLogSettings();
+    if (logSettings.saveToFile && logSettings.filePath) {
+      void invoke('append_runtime_log_file', { path: logSettings.filePath, entry })
+        .then(() => {
+          lastRuntimeLogWriteError = null;
+          setRuntimeLogPersistenceError(null);
+        })
+        .catch((writeError) => {
+          const message = String(writeError);
+          setRuntimeLogPersistenceError(`写入日志文件失败：${message}`);
+          console.error('Failed to append runtime log file:', writeError);
+          if (lastRuntimeLogWriteError !== message) {
+            lastRuntimeLogWriteError = message;
+            const notification: AppNotification = {
+              id: nextRuntimeEventId++,
+              timestamp: Date.now(),
+              level: 'error',
+              source: '日志文件',
+              message: '写入日志文件失败',
+              details: message,
+              read: false,
+            };
+            setNotifications((previous) => [notification, ...previous].slice(0, 100));
+          }
+        });
+    }
     if (merged) return;
     if (!notify) return;
 
@@ -1092,10 +1124,20 @@ function App() {
     applyCacheBudget(cacheMemoryLimitBytes(updated, autoLimit), updated.cacheFullPolicy);
   };
 
-  const handleRuntimeLogLimitChange = (limit: RuntimeLogLimit) => {
-    setRuntimeLogLimit(limit);
-    saveRuntimeLogLimit(limit);
-    setRuntimeLogs((previous) => previous.slice(-limit));
+  const handleRuntimeLogSettingsChange = (settings: RuntimeLogSettings) => {
+    const previousSettings = runtimeLogSettings();
+    const updated = {
+      ...settings,
+      enabledLevels: [...settings.enabledLevels],
+      saveToFile: settings.saveToFile && settings.filePath.length > 0,
+    };
+    setRuntimeLogSettings(updated);
+    saveRuntimeLogSettings(updated);
+    setRuntimeLogs((previous) => previous.slice(-updated.cacheLimit));
+    if (!updated.saveToFile || updated.filePath !== previousSettings.filePath) {
+      lastRuntimeLogWriteError = null;
+      setRuntimeLogPersistenceError(null);
+    }
   };
 
   const handleClearFrameMonitor = () => {
@@ -1542,7 +1584,10 @@ function App() {
       {project() !== null && !loading() && logPanelOpen() && (
         <RuntimeLogPanel
           entries={runtimeLogs()}
-          maxEntries={runtimeLogLimit()}
+          maxEntries={runtimeLogSettings().cacheLimit}
+          displayLimit={runtimeLogSettings().displayLimit}
+          timeFormat={runtimeLogSettings().timeFormat}
+          enabledLevels={runtimeLogSettings().enabledLevels}
           onClose={() => setLogPanelOpen(false)}
           onClear={() => setRuntimeLogs([])}
           onExport={exportRuntimeLogs}
@@ -1551,14 +1596,15 @@ function App() {
       {settingsOpen() && (
         <SettingsPage
           settings={measurementSettings()}
-          runtimeLogLimit={runtimeLogLimit()}
+          runtimeLogSettings={runtimeLogSettings()}
+          runtimeLogPersistenceError={runtimeLogPersistenceError()}
           cachedFrameCount={frames().length}
           estimatedCacheBytes={estimatedCacheBytes()}
           availableMemoryBytes={availableMemoryBytes()}
           automaticLimitBytes={automaticLimitBytes()}
           memoryInfoError={memoryInfoError()}
           onChange={handleMeasurementSettingsChange}
-          onRuntimeLogLimitChange={handleRuntimeLogLimitChange}
+          onRuntimeLogSettingsChange={handleRuntimeLogSettingsChange}
           onClose={() => setSettingsOpen(false)}
         />
       )}
