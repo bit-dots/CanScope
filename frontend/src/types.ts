@@ -44,9 +44,11 @@ export interface FrameInfo {
   can_id: number;
   is_extended: boolean;
   is_fd: boolean;
+  is_brs?: boolean;
   is_tx?: boolean;
   dlc: number;
   data: number[];
+  message_name?: string | null;
   signals: DecodedSignalInfo[] | null;
 }
 

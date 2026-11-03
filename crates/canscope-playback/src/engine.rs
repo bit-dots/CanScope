@@ -22,9 +22,11 @@ pub struct PlaybackFrame {
     pub can_id: u32,
     pub is_extended: bool,
     pub is_fd: bool,
+    pub is_brs: bool,
     pub is_tx: bool,
     pub dlc: u8,
     pub data: Arc<[u8; 64]>,
+    pub message_name: Option<String>,
     pub signals: Option<Vec<DecodedSignal>>,
 }
 
@@ -36,9 +38,11 @@ impl From<CanFrame> for PlaybackFrame {
             can_id: f.can_id,
             is_extended: f.is_extended,
             is_fd: f.is_fd,
+            is_brs: f.is_brs,
             is_tx: f.is_tx,
             dlc: f.dlc,
             data: Arc::new(f.data),
+            message_name: None,
             signals: None,
         }
     }
@@ -177,6 +181,9 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
 
         let dbc = self.dbcs.get(&frame.bus_id);
         let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
+        let message_name = dbc
+            .and_then(|dbc| dbc.get_message(frame.can_id))
+            .map(|message| message.name.clone());
 
         Ok(Some(PlaybackFrame {
             timestamp: frame.timestamp,
@@ -184,9 +191,11 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
             can_id: frame.can_id,
             is_extended: frame.is_extended,
             is_fd: frame.is_fd,
+            is_brs: frame.is_brs,
             is_tx: frame.is_tx,
             dlc: frame.dlc,
             data: Arc::new(frame.data),
+            message_name,
             signals,
         }))
     }
@@ -216,6 +225,9 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
 
                     let dbc = self.dbcs.get(&frame.bus_id);
                     let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
+                    let message_name = dbc
+                        .and_then(|dbc| dbc.get_message(frame.can_id))
+                        .map(|message| message.name.clone());
 
                     batch.push(PlaybackFrame {
                         timestamp: ts,
@@ -223,9 +235,11 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                         can_id: frame.can_id,
                         is_extended: frame.is_extended,
                         is_fd: frame.is_fd,
+                        is_brs: frame.is_brs,
                         is_tx: frame.is_tx,
                         dlc: frame.dlc,
                         data: Arc::new(frame.data),
+                        message_name,
                         signals,
                     });
                     remaining -= 1;
@@ -330,6 +344,7 @@ mod tests {
             is_extended: false,
             is_remote: false,
             is_fd: false,
+            is_brs: false,
             is_tx: false,
             dlc: data.len() as u8,
             data: arr,

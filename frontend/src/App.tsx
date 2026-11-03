@@ -1464,7 +1464,7 @@ function App() {
                         startTime={metadata()?.files?.[0]?.startTime}
                         onClear={handleClearFrameMonitor}
                         onSelectMessage={handleSelectMessage}
-                        onFilterByCanId={(canId: number) => setFilter({ canId: '0x' + canId.toString(16).toUpperCase(), timeStart: '', timeEnd: '' })}
+                        onFilterByCanId={handleSelectMessage}
                       />
                     );
                   case 'chart':

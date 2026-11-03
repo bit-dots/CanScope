@@ -26,6 +26,10 @@ pub struct CanFrame {
     /// 是否为 CAN FD 帧
     pub is_fd: bool,
 
+    /// 是否启用 CAN FD 位速率切换
+    #[serde(default)]
+    pub is_brs: bool,
+
     /// 是否为发送帧（false = RX, true = TX）
     pub is_tx: bool,
 

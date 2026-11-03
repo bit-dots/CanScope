@@ -304,10 +304,12 @@ struct FrameInfo {
     can_id: u32,
     is_extended: bool,
     is_fd: bool,
+    is_brs: bool,
     is_tx: bool,
     dlc: u8,
     #[serde(with = "serde_bytes")]
     data: Vec<u8>,
+    message_name: Option<String>,
     signals: Option<Vec<DecodedSignalInfo>>,
 }
 
@@ -510,9 +512,11 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         can_id: f.can_id,
         is_extended: f.is_extended,
         is_fd: f.is_fd,
+        is_brs: f.is_brs,
         is_tx: f.is_tx,
         dlc: f.dlc,
         data: f.data[..dlc.min(64)].to_vec(),
+        message_name: f.message_name.clone(),
         signals: f
             .signals
             .as_ref()
@@ -661,18 +665,22 @@ fn get_frame_page(
     let frames = frames
         .iter()
         .map(|frame| {
-            let decoded = dbc_map
-                .get(&frame.bus_id)
-                .and_then(|dbc| dbc.decode_frame(frame).ok());
+            let dbc = dbc_map.get(&frame.bus_id);
+            let decoded = dbc.and_then(|dbc| dbc.decode_frame(frame).ok());
+            let message_name = dbc
+                .and_then(|dbc| dbc.get_message(frame.can_id))
+                .map(|message| message.name.clone());
             let playback_frame = PlaybackFrame {
                 timestamp: frame.timestamp,
                 bus_id: frame.bus_id,
                 can_id: frame.can_id,
                 is_extended: frame.is_extended,
                 is_fd: frame.is_fd,
+                is_brs: frame.is_brs,
                 is_tx: frame.is_tx,
                 dlc: frame.dlc,
                 data: std::sync::Arc::new(frame.data),
+                message_name,
                 signals: decoded,
             };
             frame_to_info(&playback_frame)

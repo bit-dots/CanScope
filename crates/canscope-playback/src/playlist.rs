@@ -744,6 +744,7 @@ mod tests {
             is_extended: false,
             is_remote: false,
             is_fd: false,
+            is_brs: false,
             is_tx: false,
             dlc: 8,
             data: [0u8; 64],

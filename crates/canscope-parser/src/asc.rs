@@ -19,7 +19,7 @@ const MONTH_NAMES: [&str; 12] = [
 ];
 const READ_PAGE_SIZE: usize = 512;
 const MAX_PAGE_SIZE: usize = 4096;
-const INDEX_SCHEMA_VERSION: i64 = 1;
+const INDEX_SCHEMA_VERSION: i64 = 2;
 
 /// 将 ASC 文件头部的 date 字符串（如 `Sun Oct 17 14:30:00.000 2026`）
 /// 转换为 ISO 8601 格式（`2026-10-17T14:30:00.000`）。
@@ -300,7 +300,8 @@ impl AscReader {
             let flags = i64::from(frame.is_extended)
                 | (i64::from(frame.is_remote) << 1)
                 | (i64::from(frame.is_fd) << 2)
-                | (i64::from(frame.is_tx) << 3);
+                | (i64::from(frame.is_tx) << 3)
+                | (i64::from(frame.is_brs) << 4);
             insert_frame
                 .execute(params![
                     frame_count as i64,
@@ -479,6 +480,7 @@ impl AscReader {
             is_remote: flags & 2 != 0,
             is_fd: flags & 4 != 0,
             is_tx: flags & 8 != 0,
+            is_brs: flags & 16 != 0,
             dlc: row.get(4)?,
             data,
         })
@@ -557,6 +559,7 @@ impl AscReader {
             is_extended,
             is_remote,
             is_fd: false,
+            is_brs: false,
             is_tx,
             dlc,
             data,
@@ -583,6 +586,11 @@ impl AscReader {
 
         let direction = parts[4];
         let is_tx = direction.eq_ignore_ascii_case("Tx");
+        let is_brs = match parts[5] {
+            "0" => false,
+            "1" => true,
+            _ => return Err(()),
+        };
 
         let is_remote = parts[7].eq_ignore_ascii_case("r");
 
@@ -610,6 +618,7 @@ impl AscReader {
             is_extended,
             is_remote,
             is_fd: true,
+            is_brs,
             is_tx,
             // CAN FD 的 DLC 是编码值(0-15)，需用 byte_count 作为实际数据长度
             dlc: byte_count as u8,
@@ -796,6 +805,20 @@ End Triggerblock
         let f = reader.next().unwrap().unwrap();
         assert!(f.is_remote);
         assert_eq!(f.dlc, 4);
+    }
+
+    #[test]
+    fn parse_canfd_brs_flags() {
+        let asc = r#"Begin Triggerblock
+0.000000 CANFD 1 100 Rx 1 0 d 8 8 00 01 02 03 04 05 06 07
+0.010000 CANFD 1 101 Rx 0 0 d 8 8 00 01 02 03 04 05 06 07
+End Triggerblock
+"#;
+        let path = write_temp_asc("canfd_brs", asc);
+        let mut reader = AscReader::open(&path).unwrap();
+
+        assert!(reader.next().unwrap().unwrap().is_brs);
+        assert!(!reader.next().unwrap().unwrap().is_brs);
     }
 
     #[test]

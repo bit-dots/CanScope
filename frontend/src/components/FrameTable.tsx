@@ -64,8 +64,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
   const [selectedRows, setSelectedRows] = createSignal<Set<number>>(new Set<number>());
   const [isPaused, setIsPaused] = createSignal(false);
+  const [pausedSnapshot, setPausedSnapshot] = createSignal<{
+    frames: FrameInfo[];
+    frameOffset: number;
+    totalFrameCount: number;
+  } | null>(null);
   const [clearConfirm, setClearConfirm] = createSignal(false);
   let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+  const displayFrames = () => pausedSnapshot()?.frames ?? props.frames;
+  const displayFrameOffset = () => pausedSnapshot()?.frameOffset ?? props.frameOffset;
+  const displayTotalFrameCount = () => pausedSnapshot()?.totalFrameCount ?? props.totalFrameCount;
 
   type FlatRow =
     | { kind: 'frame'; displayIdx: number; frame: FrameInfo }
@@ -109,6 +117,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   // ---- 设置 ----
   const [settings, setSettings] = createSignal<FrameTableSettings>(loadSettings(props.projectName));
+  const formatCanId = (canId: number, isExtended: boolean) => {
+    const formatted = formatHex(canId, isExtended ? 8 : 3);
+    return settings().canIdFormat === '0x-prefix' ? `0x${formatted}` : formatted;
+  };
   const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
   const [timeFormat, setTimeFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>(
     settings().timeFormat,
@@ -288,7 +300,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const frame = frameAt(idx);
     if (!frame) return [];
 
-    const isBrs = (frame as any).is_brs as boolean | undefined;
+    const isBrs = frame.is_brs;
     const typeLabel = frame.is_fd
       ? (isBrs ? 'CAN FD BRS' : 'CAN FD')
       : 'CAN';
@@ -314,7 +326,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     };
     nodes.push(basicNode);
 
-    const msgName = (frame as any).message_name as string | undefined;
+    const msgName = frame.message_name;
     if (msgName) {
       const dbcNode: TreeNode = {
         id: 'dbc',
@@ -433,15 +445,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   let _flatIdxArray: number[] = [];
   const frameRowCache = new Map<number, { frame: FrameInfo; row: FlatRow }>();
   let requestedOffset: number | null = null;
-  const frameAt = (displayIdx: number) => props.frames[displayIdx - props.frameOffset];
+  const frameAt = (displayIdx: number) => displayFrames()[displayIdx - displayFrameOffset()];
 
   createEffect(() => {
-    if (props.traceMode) return;
+    if (props.traceMode || isPaused()) return;
     const targetIndex = Math.max(0, Math.floor(scrollTop() / ROW_HEIGHT) - OVERSCAN);
     const targetOffset = Math.floor(targetIndex / PAGE_SIZE) * PAGE_SIZE;
-    if (targetOffset === props.frameOffset) {
+    if (targetOffset === displayFrameOffset()) {
       requestedOffset = null;
-    } else if (targetOffset !== requestedOffset && targetOffset < props.totalFrameCount) {
+    } else if (targetOffset !== requestedOffset && targetOffset < displayTotalFrameCount()) {
       requestedOffset = targetOffset;
       void props.onRequestPage(targetOffset, PAGE_SIZE).catch((error) => {
         requestedOffset = null;
@@ -459,8 +471,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
     const fn = filterName().trim().toLowerCase();
 
-    const frames = props.frames.filter((frame, index) => {
-      const absoluteIndex = props.frameOffset + index;
+    const frameOffset = displayFrameOffset();
+    const frames = displayFrames().filter((frame, index) => {
+      const absoluteIndex = frameOffset + index;
       if (ft && !formatTimestamp(frame, absoluteIndex).toLowerCase().includes(ft)) return false;
       if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
       if (fi) {
@@ -471,7 +484,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       if (fy && getFrameTypeLabel(frame) !== fy) return false;
       if (fd && frame.dlc.toString() !== fd) return false;
       if (fx && !formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase().includes(fx)) return false;
-      if (fn && !((frame as any).message_name ?? '').toLowerCase().includes(fn)) return false;
+      if (fn && !(frame.message_name ?? '').toLowerCase().includes(fn)) return false;
       return true;
     });
     const expanded = expandedFrames();
@@ -482,7 +495,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     _flatIdxArray = new Array(frames.length);
     let flatIdx = 0;
     for (let i = 0; i < frames.length; i++) {
-      const displayIdx = props.frameOffset + i;
+      const displayIdx = frameOffset + i;
       _flatIdxArray[i] = flatIdx;
       activeFrameIndexes.add(displayIdx);
       let cachedFrameRow = frameRowCache.get(displayIdx);
@@ -565,7 +578,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   } | null>(null);
 
   const formatRowText = (frame: FrameInfo): string => {
-    const isBrs = (frame as any).is_brs as boolean | undefined;
+    const isBrs = frame.is_brs;
     const typeLabel = frame.is_fd
       ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
       : 'CAN';
@@ -605,7 +618,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const getFrameTypeLabel = (frame: FrameInfo) => {
-    const isBrs = (frame as any).is_brs as boolean | undefined;
+    const isBrs = frame.is_brs;
     return frame.is_fd ? (isBrs ? 'CAN FD(加速)' : 'CAN FD') : 'CAN';
   };
 
@@ -613,7 +626,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const frameTypeOptions = () => {
     const types = new Set<string>();
-    for (const f of props.frames) {
+    for (const f of displayFrames()) {
       types.add(getFrameTypeLabel(f));
     }
     return [...types].sort();
@@ -677,11 +690,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (matches.length === 0) return null;
     const i = searchCurrentIndex();
     if (i < 0 || i >= matches.length) return null;
-    return props.frameOffset + matches[i];
+    return displayFrameOffset() + matches[i];
   };
 
   const handleScrollToMatch = (frameIndex: number) => {
-    const targetFlatIdx = flatIndexOfDisplayIdx(props.frameOffset + frameIndex);
+    const targetFlatIdx = flatIndexOfDisplayIdx(displayFrameOffset() + frameIndex);
     const targetY = targetFlatIdx * ROW_HEIGHT;
     const viewH = containerRef?.clientHeight ?? 600;
     containerRef && (containerRef.scrollTop = Math.max(0, targetY - viewH / 2 + ROW_HEIGHT / 2));
@@ -751,7 +764,18 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   };
 
   const handlePauseToggle = () => {
-    setIsPaused(!isPaused());
+    if (isPaused()) {
+      setIsPaused(false);
+      setPausedSnapshot(null);
+      if (settings().autoScroll) resumeTraceFollow();
+      return;
+    }
+    setPausedSnapshot({
+      frames: props.frames.slice(),
+      frameOffset: props.frameOffset,
+      totalFrameCount: props.totalFrameCount,
+    });
+    setIsPaused(true);
   };
 
   const handleClearClick = () => {
@@ -760,6 +784,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       setSelectedRow(null);
       setSelectedRows(new Set<number>());
       setIsPaused(false);
+      setPausedSnapshot(null);
       setClearConfirm(false);
       if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
       return;
@@ -777,13 +802,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const formatTimestamp = (frame: FrameInfo, index: number) => {
     switch (timeFormat()) {
       case 'relative-to-start':
-        if (props.frames.length > 0) {
-          const firstFrame = props.frames[0];
+        if (displayFrames().length > 0) {
+          const firstFrame = displayFrames()[0];
           return (frame.timestamp - firstFrame.timestamp).toFixed(6);
         }
         return frame.timestamp.toFixed(6);
       case 'relative-to-prev': {
-        if (index > props.frameOffset) {
+        if (index > displayFrameOffset()) {
           const prev = frameAt(index - 1);
           if (!prev) return '0.000000';
           return (frame.timestamp - prev.timestamp).toFixed(6);
@@ -846,8 +871,8 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     document.removeEventListener('click', closeTypeFilterMenu);
   });
 
-  const totalHeight = () => props.totalFrameCount * ROW_HEIGHT;
-  const localScrollTop = () => Math.max(0, scrollTop() - props.frameOffset * ROW_HEIGHT);
+  const totalHeight = () => displayTotalFrameCount() * ROW_HEIGHT;
+  const localScrollTop = () => Math.max(0, scrollTop() - displayFrameOffset() * ROW_HEIGHT);
   const startIndex = () => Math.max(0, Math.floor(localScrollTop() / ROW_HEIGHT) - OVERSCAN);
   const endIndex = () => Math.min(
     flattenedRows().length,
@@ -856,7 +881,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const visibleRows = () => flattenedRows().slice(startIndex(), endIndex());
 
   createEffect(on(
-    () => props.frameOffset,
+    () => displayFrameOffset(),
     (offset) => {
       if (!props.traceMode || !containerRef) return;
       if (settings().autoScroll && isFollowingPlayback()) return;
@@ -871,10 +896,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   createEffect(on(
     () => ({
-      enabled: settings().autoScroll && props.traceMode && isFollowingPlayback(),
-      frameCount: props.frames.length,
-      offset: props.frameOffset,
-      totalCount: props.totalFrameCount,
+      enabled: settings().autoScroll && props.traceMode && isFollowingPlayback() && !isPaused(),
+      frameCount: displayFrames().length,
+      offset: displayFrameOffset(),
+      totalCount: displayTotalFrameCount(),
     }),
     ({ enabled, frameCount }) => {
       if (!enabled || frameCount === 0) return;
@@ -1309,7 +1334,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   const signals: Record<string, { get: () => string; set: (v: string) => void }> = {
                     time: { get: filterTime, set: setFilterTime },
                     channel: { get: filterChannel, set: setFilterChannel },
-                    id: { get: filterId, set: setFilterId },
+                    canid: { get: filterId, set: setFilterId },
                     type: { get: filterType, set: setFilterType },
                     dlc: { get: filterDlc, set: setFilterDlc },
                     data: { get: filterData, set: setFilterData },
@@ -1351,7 +1376,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             )}
           </thead>
           <tbody>
-            <tr style={{ height: `${(props.frameOffset + startIndex()) * ROW_HEIGHT}px` }} />
+            <tr style={{ height: `${(displayFrameOffset() + startIndex()) * ROW_HEIGHT}px` }} />
             <For each={visibleRows()}>{(row) => {
               if (row.kind === 'signal') {
                 return (
@@ -1378,7 +1403,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               const idx = row.displayIdx;
               const isSelected = selectedRow() === idx;
               const isInMultiSelect = selectedRows().has(idx);
-              const isBrs = (frame as any).is_brs as boolean | undefined;
+              const isBrs = frame.is_brs;
               const typeLabel = frame.is_fd
                 ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
                 : 'CAN';
@@ -1421,10 +1446,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                   </td>
                   <td class="frame-table__td frame-table__td--channel">{channelLabel(frame.bus_id)}</td>
                   <td class="frame-table__td frame-table__td--canid">
-                    {formatHex(frame.can_id, frame.is_extended ? 8 : 3)}
+                    {formatCanId(frame.can_id, frame.is_extended)}
                   </td>
                   {visibleColumns().some((c) => c.key === 'name') && (
-                    <td class="frame-table__td frame-table__td--name">{(frame as any).message_name ?? ''}</td>
+                    <td class="frame-table__td frame-table__td--name">{frame.message_name ?? ''}</td>
                   )}
                   <td class="frame-table__td frame-table__td--type">
                     <span class={`frame-table__type-badge frame-table__type-badge--${typeClass}`}>
@@ -1456,12 +1481,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 </tr>
               );
             }}</For>
-            <tr style={{ height: `${Math.max(0, totalHeight() - (props.frameOffset + endIndex()) * ROW_HEIGHT)}px` }} />
+            <tr style={{ height: `${Math.max(0, totalHeight() - (displayFrameOffset() + endIndex()) * ROW_HEIGHT)}px` }} />
           </tbody>
         </table>
 
         {/* 空状态 */}
-        <Show when={props.totalFrameCount === 0}>
+        <Show when={displayTotalFrameCount() === 0}>
           <div class="frame-table__empty">
             <Activity size={40} stroke-width={1.2} />
           </div>
