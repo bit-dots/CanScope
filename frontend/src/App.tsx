@@ -1,4 +1,4 @@
-import { createSignal, createEffect, onCleanup, onMount, on, For } from 'solid-js';
+import { createSignal, createEffect, onCleanup, onMount, on, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -115,7 +115,6 @@ function App() {
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
   let nextRuntimeEventId = 1;
-  const notificationTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
   const recordRuntimeEvent = (
     level: EventLevel,
@@ -148,29 +147,14 @@ function App() {
     if (merged) return;
     if (!notify) return;
 
-    setNotifications((previous) => [
-      { ...entry, read: false, toastActive: true },
-      ...previous,
-    ].slice(0, 100));
-    const timer = setTimeout(() => {
-      notificationTimers.delete(id);
-      setNotifications((previous) => previous.map((item) =>
-        item.id === id ? { ...item, toastActive: false } : item,
-      ));
-    }, level === 'error' ? 10000 : 6500);
-    notificationTimers.set(id, timer);
+    setNotifications((previous) => [{ ...entry, read: false }, ...previous].slice(0, 100));
   };
 
   const dismissNotification = (id: number) => {
-    const timer = notificationTimers.get(id);
-    if (timer) clearTimeout(timer);
-    notificationTimers.delete(id);
     setNotifications((previous) => previous.filter((item) => item.id !== id));
   };
 
   const clearNotifications = () => {
-    for (const timer of notificationTimers.values()) clearTimeout(timer);
-    notificationTimers.clear();
     setNotifications([]);
   };
 
@@ -238,11 +222,6 @@ function App() {
       );
     }
   }));
-
-  onCleanup(() => {
-    for (const timer of notificationTimers.values()) clearTimeout(timer);
-    notificationTimers.clear();
-  });
 
   const resetMonitorCounters = () => {
     setReceivedFrameCount(0);
@@ -587,7 +566,7 @@ function App() {
         }
       } catch (e) {
         console.error('get_batch failed:', e);
-        recordRuntimeEvent('error', '数据回放', '读取回放数据失败', String(e), true);
+        setError(`读取回放数据失败：${String(e)}`);
       } finally {
         playbackPollInFlight = false;
       }
@@ -633,6 +612,7 @@ function App() {
 
   const handleConfirmNewProject = async (config: NewProjectConfig) => {
     projectGeneration++;
+    setError(null);
     cancelPendingLayoutSave();
     const previousPanelLayouts = windowManager.getPanelLayouts();
     const previousPlaybackState = playbackState();
@@ -683,7 +663,7 @@ function App() {
       setShowNewProjectDialog(false);
     } catch (e) {
       console.error('Failed to create project:', e);
-      recordRuntimeEvent('error', '工程', '创建工程失败', String(e), true);
+      setError(`创建工程失败：${String(e)}`);
       windowManager.restorePanelLayouts(previousPanelLayouts);
       cancelPendingLayoutSave();
       setStagingNewProjectWorkspace(false);
@@ -726,6 +706,7 @@ function App() {
       await invoke('remove_recent_project', { path });
     } catch (e) {
       console.error('Failed to remove recent project:', e);
+      setError(`从最近工程列表移除失败：${String(e)}`);
     }
   };
 
@@ -996,7 +977,7 @@ function App() {
       }
     } catch (e) {
       console.error('Seek failed:', e);
-      recordRuntimeEvent('error', '数据回放', '跳转播放位置失败', String(e), true);
+      setError(`跳转播放位置失败：${String(e)}`);
     }
   };
 
@@ -1229,6 +1210,7 @@ function App() {
       setSpeed(actual);
     } catch (e) {
       console.error('set_speed failed:', e);
+      setError(`调整回放速度失败：${String(e)}`);
     }
   };
 
@@ -1238,6 +1220,7 @@ function App() {
       setLoopEnabled(actual);
     } catch (e) {
       console.error('set_loop failed:', e);
+      setError(`设置循环回放失败：${String(e)}`);
     }
   };
 
@@ -1253,6 +1236,7 @@ function App() {
       }
     } catch (e) {
       console.error('step_forward failed:', e);
+      setError(`单步前进失败：${String(e)}`);
     }
   };
 
@@ -1267,6 +1251,7 @@ function App() {
       }
     } catch (e) {
       console.error('step_back failed:', e);
+      setError(`单步后退失败：${String(e)}`);
     }
   };
 
@@ -1284,6 +1269,7 @@ function App() {
       }
     } catch (e) {
       console.error('playlist_get_files failed:', e);
+      setError(`刷新回放列表失败：${String(e)}`);
     }
   };
 
@@ -1325,7 +1311,14 @@ function App() {
         {loading() ? (
           <div class="loading">Loading project...</div>
         ): (hasSource() || project() !== null || stagingNewProjectWorkspace()) ? (
-          <div
+            <>
+            <Show when={project() && error()}>
+              <div class="app-inline-error" role="alert">
+                <span>{error()}</span>
+                <button type="button" onClick={() => setError(null)}>关闭</button>
+              </div>
+            </Show>
+            <div
             class="workspace"
             onMouseMove={(e) => {
               windowManager.onDrag(e);
@@ -1533,6 +1526,7 @@ function App() {
               onRestore={restoreWorkspacePanel}
             />
           </div>
+          </>
         ) : (
           <WelcomeScreen
             onNewProject={handleNewProject}
@@ -1540,6 +1534,8 @@ function App() {
             onOpenRecent={handleOpenRecent}
             onRemoveRecent={handleRemoveRecent}
             onOpenSettings={openSettings}
+            error={error()}
+            onDismissError={() => setError(null)}
           />
         )}
       </main>

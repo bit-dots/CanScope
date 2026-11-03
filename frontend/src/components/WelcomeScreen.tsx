@@ -8,6 +8,8 @@ interface WelcomeScreenProps {
   onOpenRecent: (path: string) => void;
   onRemoveRecent: (path: string) => void;
   onOpenSettings: () => void;
+  error: string | null;
+  onDismissError: () => void;
 }
 
 const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
@@ -97,6 +99,14 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
           <span class="welcome-product-label">CAN 总线回放与分析</span>
           <h1>启动</h1>
           <p>创建一个新工程，或打开已有工程继续分析 CAN 数据。</p>
+          <Show when={props.error}>
+            <div class="welcome-error" role="alert">
+              <span>{props.error}</span>
+              <button type="button" aria-label="关闭错误信息" onClick={props.onDismissError}>
+                <X size={14} />
+              </button>
+            </div>
+          </Show>
 
           <div class="welcome-actions">
             <button class="welcome-btn welcome-btn-primary" onClick={props.onNewProject}>

@@ -12,5 +12,4 @@ export interface RuntimeLogEntry {
 
 export interface AppNotification extends RuntimeLogEntry {
   read: boolean;
-  toastActive: boolean;
 }

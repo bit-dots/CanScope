@@ -79,6 +79,28 @@ select:focus-visible,
   background: var(--bg-primary);
 }
 
+.app-inline-error {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+  background: color-mix(in srgb, var(--error) 10%, var(--bg-primary));
+  color: var(--error);
+  font-size: 12px;
+}
+
+.app-inline-error button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
 .workspace__viewport {
   position: absolute;
   inset: 0;
@@ -1356,6 +1378,43 @@ select:focus-visible,
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
+}
+
+.welcome-error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(100%, 340px);
+  margin: -12px 0 20px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--error) 10%, var(--bg-primary));
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.welcome-error button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.welcome-error button:hover {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
 }
 
 .welcome-actions {

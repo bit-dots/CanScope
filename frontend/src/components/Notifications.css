@@ -1,73 +1,16 @@
-.notification-toasts {
-  position: fixed;
-  z-index: 1200;
-  top: 52px;
-  right: 16px;
-  display: flex;
-  width: min(360px, calc(100vw - 32px));
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.notification-toast {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 11px 10px 11px 12px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--text-secondary);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
-  color: var(--text-primary);
-  pointer-events: auto;
-}
-
-.notification-toast--error {
-  border-left-color: var(--error);
-}
-
-.notification-toast--warning {
-  border-left-color: var(--warning);
-}
-
-.notification-toast--info {
-  border-left-color: var(--accent);
-}
-
-.notification-toast__content {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.notification-toast__level,
 .notification-item__top {
   color: var(--text-secondary);
   font-size: 10px;
 }
 
-.notification-toast--error .notification-toast__level,
 .notification-item--error .notification-item__top span {
   color: var(--error);
 }
 
-.notification-toast--warning .notification-toast__level,
 .notification-item--warning .notification-item__top span {
   color: var(--warning);
 }
 
-.notification-toast strong,
-.notification-toast__content > span:last-child {
-  overflow-wrap: anywhere;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-.notification-toast button,
 .notification-inbox__header button,
 .notification-item__dismiss {
   display: inline-flex;
@@ -83,7 +26,6 @@
   cursor: pointer;
 }
 
-.notification-toast button:hover,
 .notification-inbox__header button:hover,
 .notification-item__dismiss:hover {
   background: var(--bg-tertiary);
