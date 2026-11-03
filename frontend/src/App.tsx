@@ -84,6 +84,7 @@ function App() {
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
   const [receivedFrameCount, setReceivedFrameCount] = createSignal(0);
   const [transmittedFrameCount, setTransmittedFrameCount] = createSignal(0);
+  const [errorFrameCount, setErrorFrameCount] = createSignal(0);
   const [currentTime, setCurrentTime] = createSignal(0);
   const [playbackState, setPlaybackState] = createSignal<PlaybackState>('stopped');
   const [frameMonitorRefreshRate, setFrameMonitorRefreshRate] = createSignal(5);
@@ -260,17 +261,21 @@ function App() {
   const resetMonitorCounters = () => {
     setReceivedFrameCount(0);
     setTransmittedFrameCount(0);
+    setErrorFrameCount(0);
   };
 
   const countMonitorFrames = (batch: FrameInfo[]) => {
     let received = 0;
     let transmitted = 0;
+    let errors = 0;
     for (const frame of batch) {
       if (frame.is_tx) transmitted++;
       else received++;
+      if (frame.is_error) errors++;
     }
     if (received > 0) setReceivedFrameCount((count) => count + received);
     if (transmitted > 0) setTransmittedFrameCount((count) => count + transmitted);
+    if (errors > 0) setErrorFrameCount((count) => count + errors);
   };
 
   const currentCacheLimitBytes = () =>
@@ -1471,6 +1476,7 @@ function App() {
                         estimatedCacheBytes={estimatedCacheBytes()}
                         receivedFrameCount={receivedFrameCount()}
                         transmittedFrameCount={transmittedFrameCount()}
+                        errorFrameCount={errorFrameCount()}
                         cacheFullPolicy={measurementSettings().cacheFullPolicy}
                         cacheLimitReached={cacheLimitReached()}
                         onMonitorRefreshRateChange={handleFrameMonitorRefreshRateChange}

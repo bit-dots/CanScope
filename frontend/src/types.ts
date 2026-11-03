@@ -45,6 +45,7 @@ export interface FrameInfo {
   is_extended: boolean;
   is_fd: boolean;
   is_brs?: boolean;
+  is_error?: boolean;
   is_tx?: boolean;
   dlc: number;
   data: number[];

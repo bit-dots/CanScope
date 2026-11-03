@@ -305,6 +305,7 @@ struct FrameInfo {
     is_extended: bool,
     is_fd: bool,
     is_brs: bool,
+    is_error: bool,
     is_tx: bool,
     dlc: u8,
     #[serde(with = "serde_bytes")]
@@ -530,6 +531,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         is_extended: f.is_extended,
         is_fd: f.is_fd,
         is_brs: f.is_brs,
+        is_error: f.is_error,
         is_tx: f.is_tx,
         dlc: f.dlc,
         data: f.data[..dlc.min(64)].to_vec(),
@@ -699,7 +701,9 @@ fn matches_frame_table_filter(
 
     let type_filter = filter.frame_type.trim();
     if !type_filter.is_empty() {
-        let frame_type = if frame.is_fd {
+        let frame_type = if frame.is_error {
+            "ErrorFrame"
+        } else if frame.is_fd {
             if frame.is_brs {
                 "CAN FD(加速)"
             } else {
@@ -815,9 +819,12 @@ fn get_frame_page(
                     }
 
                     let dbc = dbc_map.get(&frame.bus_id);
-                    let message_name = dbc
-                        .and_then(|dbc| dbc.get_message(frame.can_id))
-                        .map(|message| message.name.as_str());
+                    let message_name = if frame.is_error {
+                        None
+                    } else {
+                        dbc.and_then(|dbc| dbc.get_message(frame.can_id))
+                            .map(|message| message.name.as_str())
+                    };
                     if !matches_frame_table_filter(
                         &frame,
                         message_name,
@@ -830,7 +837,9 @@ fn get_frame_page(
                     }
 
                     if total_count >= offset && frames.len() < limit {
-                        let decoded = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
+                        let decoded = dbc
+                            .filter(|_| !frame.is_error)
+                            .and_then(|dbc| dbc.decode_frame(&frame).ok());
                         let message_name = message_name.map(str::to_owned);
                         let playback_frame = PlaybackFrame {
                             timestamp,
@@ -839,6 +848,7 @@ fn get_frame_page(
                             is_extended: frame.is_extended,
                             is_fd: frame.is_fd,
                             is_brs: frame.is_brs,
+                            is_error: frame.is_error,
                             is_tx: frame.is_tx,
                             dlc: frame.dlc,
                             data: std::sync::Arc::new(frame.data),
@@ -924,8 +934,11 @@ fn get_frame_page(
         .iter()
         .map(|frame| {
             let dbc = dbc_map.get(&frame.bus_id);
-            let decoded = dbc.and_then(|dbc| dbc.decode_frame(frame).ok());
+            let decoded = dbc
+                .filter(|_| !frame.is_error)
+                .and_then(|dbc| dbc.decode_frame(frame).ok());
             let message_name = dbc
+                .filter(|_| !frame.is_error)
                 .and_then(|dbc| dbc.get_message(frame.can_id))
                 .map(|message| message.name.clone());
             let playback_frame = PlaybackFrame {
@@ -935,6 +948,7 @@ fn get_frame_page(
                 is_extended: frame.is_extended,
                 is_fd: frame.is_fd,
                 is_brs: frame.is_brs,
+                is_error: frame.is_error,
                 is_tx: frame.is_tx,
                 dlc: frame.dlc,
                 data: std::sync::Arc::new(frame.data),
@@ -2230,6 +2244,7 @@ mod tests {
             is_remote: false,
             is_fd: true,
             is_brs: true,
+            is_error: false,
             is_tx: false,
             dlc: 2,
             data,
@@ -2263,6 +2278,7 @@ mod tests {
             is_remote: false,
             is_fd: false,
             is_brs: false,
+            is_error: false,
             is_tx: true,
             dlc: 0,
             data: [0; 64],

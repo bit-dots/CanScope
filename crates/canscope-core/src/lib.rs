@@ -30,6 +30,10 @@ pub struct CanFrame {
     #[serde(default)]
     pub is_brs: bool,
 
+    /// 是否为 CAN 错误帧
+    #[serde(default)]
+    pub is_error: bool,
+
     /// 是否为发送帧（false = RX, true = TX）
     pub is_tx: bool,
 

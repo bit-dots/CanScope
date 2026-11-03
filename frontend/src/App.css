@@ -1022,6 +1022,11 @@ select:focus-visible,
   color: var(--accent-hover);
 }
 
+.frame-table__type-badge--error {
+  background: color-mix(in srgb, var(--error) 18%, transparent);
+  color: var(--error);
+}
+
 /* 方向 Badge */
 .frame-table__direction-badge {
   display: inline-block;

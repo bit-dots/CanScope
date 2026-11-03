@@ -19,7 +19,7 @@ const MONTH_NAMES: [&str; 12] = [
 ];
 const READ_PAGE_SIZE: usize = 512;
 const MAX_PAGE_SIZE: usize = 4096;
-const INDEX_SCHEMA_VERSION: i64 = 2;
+const INDEX_SCHEMA_VERSION: i64 = 3;
 
 /// 将 ASC 文件头部的 date 字符串（如 `Sun Oct 17 14:30:00.000 2026`）
 /// 转换为 ISO 8601 格式（`2026-10-17T14:30:00.000`）。
@@ -301,7 +301,8 @@ impl AscReader {
                 | (i64::from(frame.is_remote) << 1)
                 | (i64::from(frame.is_fd) << 2)
                 | (i64::from(frame.is_tx) << 3)
-                | (i64::from(frame.is_brs) << 4);
+                | (i64::from(frame.is_brs) << 4)
+                | (i64::from(frame.is_error) << 5);
             insert_frame
                 .execute(params![
                     frame_count as i64,
@@ -481,12 +482,13 @@ impl AscReader {
             is_fd: flags & 4 != 0,
             is_tx: flags & 8 != 0,
             is_brs: flags & 16 != 0,
+            is_error: flags & 32 != 0,
             dlc: row.get(4)?,
             data,
         })
     }
 
-    /// 解析一行 ASC CAN 帧（支持标准 CAN 和 CAN FD）。
+    /// 解析一行 ASC CAN 帧（支持标准 CAN、CAN FD 和 CAN/CAN FD 错误帧）。
     ///
     /// 标准 CAN 格式：`<timestamp> <channel> <can_id>[x] Rx|Tx d|r <dlc> [<hex_byte>...]`
     /// CAN FD 格式：  `<timestamp> CANFD <channel> <can_id>[x] Rx|Tx <BRS> <ESI> d|r <dlc> <byte_count> [<hex_byte>...]`
@@ -500,6 +502,13 @@ impl AscReader {
         }
 
         let timestamp: f64 = parts[0].parse().map_err(|_| ())?;
+
+        if parts
+            .get(4)
+            .is_some_and(|part| part.eq_ignore_ascii_case("ErrorFrame"))
+        {
+            return Self::parse_error_frame(timestamp, &parts);
+        }
 
         // parts[1] 可能是 channel 号，也可能是 "CANFD" 标记
         let is_fd = parts[1].eq_ignore_ascii_case("CANFD");
@@ -560,6 +569,7 @@ impl AscReader {
             is_remote,
             is_fd: false,
             is_brs: false,
+            is_error: false,
             is_tx,
             dlc,
             data,
@@ -619,11 +629,107 @@ impl AscReader {
             is_remote,
             is_fd: true,
             is_brs,
+            is_error: false,
             is_tx,
             // CAN FD 的 DLC 是编码值(0-15)，需用 byte_count 作为实际数据长度
             dlc: byte_count as u8,
             data,
         })
+    }
+
+    fn parse_error_frame(timestamp: f64, parts: &[&str]) -> Result<CanFrame, ()> {
+        if parts.len() < 22 || !parts[1].eq_ignore_ascii_case("CANFD") {
+            return Err(());
+        }
+        let bus_id = parts[2].parse::<u8>().map_err(|_| ())?.saturating_sub(1);
+        let is_tx = match parts[3].to_ascii_lowercase().as_str() {
+            "tx" => true,
+            "rx" => false,
+            _ => return Err(()),
+        };
+
+        // ErrorText varies in length; locate fields using DataLength and the fixed trailer.
+        for field_start in 5..parts.len() {
+            if field_start + 17 > parts.len() {
+                break;
+            }
+
+            let Ok(data_len) = parts[field_start + 9].parse::<usize>() else {
+                continue;
+            };
+            if data_len > 64 || parts.len() != field_start + 17 + data_len {
+                continue;
+            }
+
+            if u32::from_str_radix(parts[field_start], 16).is_err()
+                || u32::from_str_radix(parts[field_start + 1], 16).is_err()
+                || u32::from_str_radix(parts[field_start + 2], 16).is_err()
+                || parts[field_start + 4].parse::<u32>().is_err()
+            {
+                continue;
+            }
+            let can_id_str = parts[field_start + 5]
+                .strip_suffix('x')
+                .unwrap_or(parts[field_start + 5]);
+            let Ok(can_id) = u32::from_str_radix(can_id_str, 16) else {
+                continue;
+            };
+            let Ok(brs) = parts[field_start + 6].parse::<u8>() else {
+                continue;
+            };
+            let Ok(esi) = parts[field_start + 7].parse::<u8>() else {
+                continue;
+            };
+            let Ok(dlc) = u8::from_str_radix(parts[field_start + 8], 16) else {
+                continue;
+            };
+            if brs > 1 || esi > 1 || dlc > 15 {
+                continue;
+            }
+
+            let data_start = field_start + 10;
+            let mut data = [0u8; 64];
+            let mut valid_data = true;
+            for (index, byte) in parts[data_start..data_start + data_len].iter().enumerate() {
+                match u8::from_str_radix(byte, 16) {
+                    Ok(value) => data[index] = value,
+                    Err(_) => {
+                        valid_data = false;
+                        break;
+                    }
+                }
+            }
+            if !valid_data {
+                continue;
+            }
+
+            let duration_index = data_start + data_len;
+            if parts[duration_index].parse::<u64>().is_err() {
+                continue;
+            }
+            let Ok(ext_flags) = u8::from_str_radix(parts[duration_index + 1], 16) else {
+                continue;
+            };
+            if ext_flags & !0x1f != 0 {
+                continue;
+            }
+
+            return Ok(CanFrame {
+                timestamp,
+                bus_id,
+                can_id,
+                is_extended: can_id > 0x7ff,
+                is_remote: false,
+                is_fd: ext_flags & 1 != 0,
+                is_brs: ext_flags & 2 != 0,
+                is_error: true,
+                is_tx,
+                dlc: data_len as u8,
+                data,
+            });
+        }
+
+        Err(())
     }
 }
 
@@ -819,6 +925,37 @@ End Triggerblock
 
         assert!(reader.next().unwrap().unwrap().is_brs);
         assert!(!reader.next().unwrap().unwrap().is_brs);
+    }
+
+    #[test]
+    fn parses_classic_and_canfd_error_frames() {
+        let data = vec!["00"; 64].join(" ");
+        let asc = format!(
+            "Begin Triggerblock\n\
+             0.051203 CANFD 1 Rx ErrorFrame Stuff Error fffe 82 20a2 Arb.5 0 0 0 0 0 0 11984 10 0 46500250 460a0250 20011736 20010205\n\
+             10.006898 CANFD 1 Tx ErrorFrame Not Acknowledge error, dominant error flag fffe c7 31ca Arb.556 44 0 0 0 f 64 {data} 1331984 11 0 46500250 460a0250 20011736 20010205\n\
+             End Triggerblock\n"
+        );
+        let path = write_temp_asc("error_frames", &asc);
+        let mut reader = AscReader::open(&path).unwrap();
+
+        assert_eq!(reader.metadata().total_frames, Some(2));
+
+        let classic = reader.next().unwrap().unwrap();
+        assert!(classic.is_error);
+        assert!(!classic.is_fd);
+        assert!(!classic.is_tx);
+        assert_eq!(classic.timestamp, 0.051203);
+        assert_eq!(classic.dlc, 0);
+
+        let canfd = reader.next().unwrap().unwrap();
+        assert!(canfd.is_error);
+        assert!(canfd.is_fd);
+        assert!(canfd.is_tx);
+        assert_eq!(canfd.can_id, 0);
+        assert_eq!(canfd.dlc, 64);
+        assert_eq!(canfd.payload(), &[0; 64]);
+        assert!(reader.next().unwrap().is_none());
     }
 
     #[test]

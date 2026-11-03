@@ -19,6 +19,7 @@ interface FrameTableProps {
   estimatedCacheBytes: number;
   receivedFrameCount: number;
   transmittedFrameCount: number;
+  errorFrameCount: number;
   cacheFullPolicy: 'evict-oldest' | 'clear-all' | 'stop-measurement';
   cacheLimitReached: boolean;
   onMonitorRefreshRateChange: (rate: number) => void;
@@ -302,12 +303,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (!frame) return [];
 
     const isBrs = frame.is_brs;
-    const typeLabel = frame.is_fd
-      ? (isBrs ? 'CAN FD BRS' : 'CAN FD')
-      : 'CAN';
-    const typeBadge = frame.is_fd
-      ? (isBrs ? 'canfd-brs' : 'canfd')
-      : 'can';
+    const typeLabel = frame.is_error
+      ? 'ErrorFrame'
+      : frame.is_fd
+        ? (isBrs ? 'CAN FD BRS' : 'CAN FD')
+        : 'CAN';
+    const typeBadge = frame.is_error
+      ? 'error'
+      : frame.is_fd
+        ? (isBrs ? 'canfd-brs' : 'canfd')
+        : 'can';
 
     const nodes: TreeNode[] = [];
 
@@ -668,9 +673,11 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const formatRowText = (frame: FrameInfo): string => {
     const isBrs = frame.is_brs;
-    const typeLabel = frame.is_fd
-      ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
-      : 'CAN';
+    const typeLabel = frame.is_error
+      ? 'ErrorFrame'
+      : frame.is_fd
+        ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
+        : 'CAN';
     return `${channelLabel(frame.bus_id)}\t${formatHex(frame.can_id, frame.is_extended ? 8 : 3)}\t${typeLabel}\t${getDirection(frame)}\t${frame.dlc}\t${formatDataHex(frame.data, frame.dlc)}`;
   };
 
@@ -708,13 +715,17 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
   const getFrameTypeLabel = (frame: FrameInfo) => {
     const isBrs = frame.is_brs;
-    return frame.is_fd ? (isBrs ? 'CAN FD(加速)' : 'CAN FD') : 'CAN';
+    return frame.is_error
+      ? 'ErrorFrame'
+      : frame.is_fd
+        ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
+        : 'CAN';
   };
 
   const getDirection = (frame: FrameInfo): 'RX' | 'TX' => frame.is_tx ? 'TX' : 'RX';
 
   const frameTypeOptions = () => {
-    return ['CAN', 'CAN FD', 'CAN FD(加速)'];
+    return ['CAN', 'CAN FD', 'CAN FD(加速)', 'ErrorFrame'];
   };
 
   const searchMatchIndices = (): number[] => {
@@ -1089,8 +1100,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     setContextMenuState({ x: e.clientX, y: e.clientY, frame });
   };
 
-  const errorCount = () => displayedFrames().filter((f) => (f as any).is_error).length;
-  const hasError = () => errorCount() > 0;
+  const hasError = () => props.errorFrameCount > 0;
 
   return (
     <div class="frame-table">
@@ -1574,12 +1584,16 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               const isSelected = selectedRow() === idx;
               const isInMultiSelect = selectedRows().has(idx);
               const isBrs = frame.is_brs;
-              const typeLabel = frame.is_fd
-                ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
-                : 'CAN';
-              const typeClass = frame.is_fd
-                ? (isBrs ? 'canfd-brs' : 'canfd')
-                : 'can';
+              const typeLabel = frame.is_error
+                ? 'ErrorFrame'
+                : frame.is_fd
+                  ? (isBrs ? 'CAN FD(加速)' : 'CAN FD')
+                  : 'CAN';
+              const typeClass = frame.is_error
+                ? 'error'
+                : frame.is_fd
+                  ? (isBrs ? 'canfd-brs' : 'canfd')
+                  : 'can';
               const hasSignals = !!(frame.signals && frame.signals.length > 0);
               return (
                 <tr
@@ -1692,9 +1706,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
               <span class="frame-table__statusbar-item" title="本次回放实际输出的发送帧总数">
                 TX: {props.transmittedFrameCount.toLocaleString()}
               </span>
-          <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="错误帧数">
-            <span>Err: {errorCount().toLocaleString()}</span>
-          </span>
+              <span class="frame-table__statusbar-item" classList={{ 'frame-table__statusbar-item--error': !hasError(), 'frame-table__statusbar-item--error-active': hasError() }} title="本次回放错误帧总数">
+                <span>Err: {props.errorFrameCount.toLocaleString()}</span>
+              </span>
             </div>
           </div>
         </div>

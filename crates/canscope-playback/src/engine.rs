@@ -23,6 +23,7 @@ pub struct PlaybackFrame {
     pub is_extended: bool,
     pub is_fd: bool,
     pub is_brs: bool,
+    pub is_error: bool,
     pub is_tx: bool,
     pub dlc: u8,
     pub data: Arc<[u8; 64]>,
@@ -39,6 +40,7 @@ impl From<CanFrame> for PlaybackFrame {
             is_extended: f.is_extended,
             is_fd: f.is_fd,
             is_brs: f.is_brs,
+            is_error: f.is_error,
             is_tx: f.is_tx,
             dlc: f.dlc,
             data: Arc::new(f.data),
@@ -179,7 +181,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
         self.current_time = Some(frame.timestamp);
         self.frame_count = self.frame_count.saturating_sub(1);
 
-        let dbc = self.dbcs.get(&frame.bus_id);
+        let dbc = self.dbcs.get(&frame.bus_id).filter(|_| !frame.is_error);
         let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
         let message_name = dbc
             .and_then(|dbc| dbc.get_message(frame.can_id))
@@ -192,6 +194,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
             is_extended: frame.is_extended,
             is_fd: frame.is_fd,
             is_brs: frame.is_brs,
+            is_error: frame.is_error,
             is_tx: frame.is_tx,
             dlc: frame.dlc,
             data: Arc::new(frame.data),
@@ -223,7 +226,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                     self.current_time = Some(ts);
                     self.frame_count += 1;
 
-                    let dbc = self.dbcs.get(&frame.bus_id);
+                    let dbc = self.dbcs.get(&frame.bus_id).filter(|_| !frame.is_error);
                     let signals = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
                     let message_name = dbc
                         .and_then(|dbc| dbc.get_message(frame.can_id))
@@ -236,6 +239,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
                         is_extended: frame.is_extended,
                         is_fd: frame.is_fd,
                         is_brs: frame.is_brs,
+                        is_error: frame.is_error,
                         is_tx: frame.is_tx,
                         dlc: frame.dlc,
                         data: Arc::new(frame.data),
@@ -345,6 +349,7 @@ mod tests {
             is_remote: false,
             is_fd: false,
             is_brs: false,
+            is_error: false,
             is_tx: false,
             dlc: data.len() as u8,
             data: arr,

@@ -202,6 +202,7 @@ mod tests {
             is_remote: false,
             is_fd: false,
             is_brs: false,
+            is_error: false,
             is_tx: false,
             dlc: len as u8,
             data: frame_data,
