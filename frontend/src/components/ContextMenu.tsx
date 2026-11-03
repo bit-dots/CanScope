@@ -1,4 +1,4 @@
-import { Component, createSignal, onCleanup, onMount, JSX } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, onMount, JSX } from 'solid-js';
 import './ContextMenu.css';
 
 export interface ContextMenuItem {
@@ -20,6 +20,7 @@ interface ContextMenuProps {
 const ContextMenu: Component<ContextMenuProps> = (props) => {
   const [adjustedPos, setAdjustedPos] = createSignal({ x: props.x, y: props.y });
   let menuRef: HTMLDivElement | undefined;
+  let positionFrame: number | undefined;
 
   const adjustPosition = () => {
     if (!menuRef) return;
@@ -42,21 +43,36 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
     setAdjustedPos({ x: newX, y: newY });
   };
 
-  onMount(() => {
-    adjustPosition();
-    const handleClick = () => props.onClose();
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        props.onClose();
-      }
-    };
-    setTimeout(() => {
-      document.addEventListener('click', handleClick, { once: true });
-      document.addEventListener('keydown', handleKeyDown, { once: true });
-    }, 0);
+  createEffect(() => {
+    props.x;
+    props.y;
+    if (positionFrame !== undefined) cancelAnimationFrame(positionFrame);
+    positionFrame = requestAnimationFrame(adjustPosition);
   });
 
-  onCleanup(() => { /* cleanup handled by once:true */ });
+  const handleDocumentClick = (event: MouseEvent) => {
+    if (menuRef && !menuRef.contains(event.target as Node)) {
+      props.onClose();
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      props.onClose();
+    }
+  };
+
+  onMount(() => {
+    adjustPosition();
+    document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('keydown', handleKeyDown);
+  });
+
+  onCleanup(() => {
+    if (positionFrame !== undefined) cancelAnimationFrame(positionFrame);
+    document.removeEventListener('click', handleDocumentClick);
+    document.removeEventListener('keydown', handleKeyDown);
+  });
 
   const handleItemClick = (item: ContextMenuItem) => {
     if (item.disabled || item.separator) return;
