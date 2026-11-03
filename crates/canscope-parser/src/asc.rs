@@ -648,23 +648,46 @@ impl AscReader {
             _ => return Err(()),
         };
 
-        // ErrorText varies in length; locate fields using DataLength and the fixed trailer.
-        for field_start in 5..parts.len() {
-            if field_start + 17 > parts.len() {
-                break;
-            }
+        // ErrorText varies in length; extFlags and its fixed trailer identify the payload layout.
+        let ext_flags_index = parts.len().checked_sub(6).ok_or(())?;
+        let ext_flags = u8::from_str_radix(parts[ext_flags_index], 16).map_err(|_| ())?;
+        if ext_flags & !0x1f != 0 {
+            return Err(());
+        }
 
-            let Ok(data_len) = parts[field_start + 9].parse::<usize>() else {
-                continue;
-            };
-            if data_len > 64 || parts.len() != field_start + 17 + data_len {
-                continue;
+        let is_fd = ext_flags & 1 != 0;
+        for field_start in 5..ext_flags_index {
+            let duration_index;
+            let data_start;
+            let data_len;
+
+            if is_fd {
+                if field_start + 10 > ext_flags_index {
+                    continue;
+                }
+                let Ok(length) = parts[field_start + 9].parse::<usize>() else {
+                    continue;
+                };
+                if length > 64 || ext_flags_index != field_start + 11 + length {
+                    continue;
+                }
+                data_len = length;
+                data_start = field_start + 10;
+                duration_index = data_start + data_len;
+            } else {
+                if ext_flags_index != field_start + 10 {
+                    continue;
+                }
+                data_len = 0;
+                data_start = field_start + 9;
+                duration_index = data_start;
             }
 
             if u32::from_str_radix(parts[field_start], 16).is_err()
                 || u32::from_str_radix(parts[field_start + 1], 16).is_err()
                 || u32::from_str_radix(parts[field_start + 2], 16).is_err()
                 || parts[field_start + 4].parse::<u32>().is_err()
+                || parts[duration_index].parse::<u64>().is_err()
             {
                 continue;
             }
@@ -683,11 +706,10 @@ impl AscReader {
             let Ok(dlc) = u8::from_str_radix(parts[field_start + 8], 16) else {
                 continue;
             };
-            if brs > 1 || esi > 1 || dlc > 15 {
+            if brs > 1 || esi > 1 || dlc > 15 || (!is_fd && dlc > 8) {
                 continue;
             }
 
-            let data_start = field_start + 10;
             let mut data = [0u8; 64];
             let mut valid_data = true;
             for (index, byte) in parts[data_start..data_start + data_len].iter().enumerate() {
@@ -703,24 +725,13 @@ impl AscReader {
                 continue;
             }
 
-            let duration_index = data_start + data_len;
-            if parts[duration_index].parse::<u64>().is_err() {
-                continue;
-            }
-            let Ok(ext_flags) = u8::from_str_radix(parts[duration_index + 1], 16) else {
-                continue;
-            };
-            if ext_flags & !0x1f != 0 {
-                continue;
-            }
-
             return Ok(CanFrame {
                 timestamp,
                 bus_id,
                 can_id,
                 is_extended: can_id > 0x7ff,
                 is_remote: false,
-                is_fd: ext_flags & 1 != 0,
+                is_fd,
                 is_brs: ext_flags & 2 != 0,
                 is_error: true,
                 is_tx,
@@ -932,7 +943,7 @@ End Triggerblock
         let data = vec!["00"; 64].join(" ");
         let asc = format!(
             "Begin Triggerblock\n\
-             0.051203 CANFD 1 Rx ErrorFrame Stuff Error fffe 82 20a2 Arb.5 0 0 0 0 0 0 11984 10 0 46500250 460a0250 20011736 20010205\n\
+             0.051203 CANFD 1 Rx ErrorFrame Stuff Error fffe 82 20a2 Arb.5 0 0 0 0 0 11984 10 0 46500250 460a0250 20011736 20010205\n\
              10.006898 CANFD 1 Tx ErrorFrame Not Acknowledge error, dominant error flag fffe c7 31ca Arb.556 44 0 0 0 f 64 {data} 1331984 11 0 46500250 460a0250 20011736 20010205\n\
              End Triggerblock\n"
         );
@@ -946,7 +957,9 @@ End Triggerblock
         assert!(!classic.is_fd);
         assert!(!classic.is_tx);
         assert_eq!(classic.timestamp, 0.051203);
+        assert_eq!(classic.can_id, 0);
         assert_eq!(classic.dlc, 0);
+        assert!(!classic.is_brs);
 
         let canfd = reader.next().unwrap().unwrap();
         assert!(canfd.is_error);
