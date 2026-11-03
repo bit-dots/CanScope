@@ -166,7 +166,7 @@ function App() {
       measurementSettings().automaticMemoryLimit &&
       (automaticLimitBytes() === null || recalculateLimit)
     ) {
-      applyAutomaticLimit(Math.max(1024 * 1024, Math.floor(available / 2)));
+      applyAutomaticLimit(Math.max(1024 * 1024, Math.floor(available * 0.9)));
     }
   };
 
@@ -892,7 +892,7 @@ function App() {
       !measurementSettings().automaticMemoryLimit &&
       available !== null
     ) {
-      autoLimit = Math.max(1024 * 1024, Math.floor(available / 2));
+      autoLimit = Math.max(1024 * 1024, Math.floor(available * 0.9));
       setAutomaticLimitBytes(autoLimit);
     }
     frameQueryId++;

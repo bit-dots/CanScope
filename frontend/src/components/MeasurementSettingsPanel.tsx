@@ -64,7 +64,7 @@ const MeasurementSettingsPanel: Component<MeasurementSettingsPanelProps> = (prop
     </div>
     {props.settings.automaticMemoryLimit && props.availableMemoryBytes !== null && (
       <p class="backstage__setting-note">
-        自动上限在打开设置或启用此选项时，按当时可用内存的一半计算；可用内存每 5 秒刷新。
+        自动上限在打开设置或启用此选项时，按当时可用内存的 90% 计算；可用内存每 5 秒刷新。
       </p>
     )}
     {props.memoryInfoError && (
