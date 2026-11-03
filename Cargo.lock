@@ -251,6 +251,7 @@ dependencies = [
  "canscope-dbc",
  "canscope-parser",
  "canscope-playback",
+ "libc",
  "serde",
  "serde_bytes",
  "serde_json",

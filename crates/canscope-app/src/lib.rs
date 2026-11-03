@@ -882,7 +882,53 @@ fn get_available_memory_bytes() -> Result<Option<u64>, String> {
         return Ok(Some(status.ullAvailPhys));
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        #[link(name = "System")]
+        unsafe extern "C" {
+            fn mach_port_deallocate(
+                task: libc::mach_port_t,
+                name: libc::mach_port_t,
+            ) -> libc::kern_return_t;
+        }
+
+        #[allow(deprecated)]
+        let host = unsafe { libc::mach_host_self() };
+        let mut stats = unsafe { std::mem::zeroed::<libc::vm_statistics64_data_t>() };
+        let mut count = libc::HOST_VM_INFO64_COUNT;
+        #[allow(deprecated)]
+        let result = unsafe {
+            libc::host_statistics64(
+                host,
+                libc::HOST_VM_INFO64,
+                &mut stats as *mut _ as *mut libc::integer_t,
+                &mut count,
+            )
+        };
+        #[allow(deprecated)]
+        let deallocate_result = unsafe { mach_port_deallocate(libc::mach_task_self(), host) };
+
+        if result != libc::KERN_SUCCESS {
+            return Err(format!("host_statistics64 failed with code {result}"));
+        }
+        if deallocate_result != libc::KERN_SUCCESS {
+            return Err(format!(
+                "mach_port_deallocate failed with code {deallocate_result}"
+            ));
+        }
+
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+        if page_size <= 0 {
+            return Err("Failed to determine the system page size".into());
+        }
+
+        let available_pages = u64::from(stats.free_count)
+            + u64::from(stats.inactive_count)
+            + u64::from(stats.speculative_count);
+        return Ok(Some(available_pages * page_size as u64));
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Ok(None)
     }
@@ -1892,7 +1938,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_available_memory_bytes, UiLayoutJson};
+    use super::{UiLayoutJson, get_available_memory_bytes};
 
     #[test]
     fn legacy_ui_layout_defaults_panel_layouts() {
@@ -1901,7 +1947,7 @@ mod tests {
         assert!(layout.panels.is_empty());
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     #[test]
     fn reports_available_system_memory() {
         assert!(get_available_memory_bytes().unwrap().unwrap() > 0);
