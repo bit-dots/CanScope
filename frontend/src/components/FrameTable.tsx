@@ -282,7 +282,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [isPropertiesOpen, setIsPropertiesOpen] = createSignal(false);
   const [propertiesWidth, setPropertiesWidth] = createSignal(280);
   const [propertiesSplitPct, setPropertiesSplitPct] = createSignal(50);
+  const [selectedByteIndex, setSelectedByteIndex] = createSignal<number | null>(null);
   const [expandedNodes, setExpandedNodes] = createSignal(new Set<string>(['basic', 'dbc', 'signals']));
+  createEffect(on(
+    () => {
+      const index = selectedRow();
+      return index === null ? null : frameAt(index);
+    },
+    () => setSelectedByteIndex(null),
+  ));
 
   const toggleNode = (nodeId: string) => {
     const next = new Set(expandedNodes());
@@ -1334,19 +1342,88 @@ const FrameTable: Component<FrameTableProps> = (props) => {
             {/* 上下分割拖拽条 */}
             <div class="panel-resizer-v" onMouseDown={handleVerticalResizeStart} />
 
-            {/* 下半部分：数据 hex */}
+            {/* 下半部分：字节视图 */}
             <div class="property-panel__lower">
               <Show
                 when={selectedRow() !== null}
                 fallback={<div class="property-panel__empty">未选中报文</div>}
               >
-                <div class="property-data__hex">
-                  {(() => {
-                    const idx = selectedRow()!;
-                    const frame = frameAt(idx);
-                    return frame ? formatDataHex(frame.data, frame.dlc) : '';
-                  })()}
-                </div>
+                {(() => {
+                  const frame = frameAt(selectedRow()!);
+                  if (!frame) return null;
+                  const bytes = frame.data.slice(0, frame.dlc);
+                  const rows = Array.from({ length: Math.ceil(bytes.length / 8) }, (_, index) => ({
+                    offset: index * 8,
+                    bytes: bytes.slice(index * 8, index * 8 + 8).map((value, byteIndex) => ({
+                      index: index * 8 + byteIndex,
+                      value,
+                    })),
+                  }));
+                  const toAscii = (value: number) =>
+                    value >= 0x20 && value <= 0x7e ? String.fromCharCode(value) : '.';
+
+                  return (
+                    <div class="property-data">
+                      <div class="property-data__toolbar">
+                        <span>数据</span>
+                        <span>{bytes.length} bytes</span>
+                      </div>
+                      <Show
+                        when={bytes.length > 0}
+                        fallback={
+                          <div class="property-data__empty">
+                            {frame.is_error ? '错误帧，无数据负载' : '无数据负载'}
+                          </div>
+                        }
+                      >
+                        <div class="property-data__scroll">
+                          <div class="property-data__column-head">
+                            <span class="property-data__offset-label">偏移</span>
+                            <span class="property-data__hex-label">Hex</span>
+                            <span class="property-data__ascii-label">ASCII</span>
+                          </div>
+                          <For each={rows}>{(row) => (
+                            <div class="property-data__row">
+                              <span class="property-data__offset">
+                                {row.offset.toString(16).padStart(4, '0').toUpperCase()}
+                              </span>
+                              <div class="property-data__hex">
+                                <For each={row.bytes}>{(byte) => (
+                                  <button
+                                    type="button"
+                                    class="property-data__byte"
+                                    classList={{
+                                      'property-data__byte--selected': selectedByteIndex() === byte.index,
+                                    }}
+                                    aria-label={`字节 ${byte.index}，十六进制 ${byte.value.toString(16).padStart(2, '0').toUpperCase()}，十进制 ${byte.value}`}
+                                    aria-pressed={selectedByteIndex() === byte.index}
+                                    title={`偏移 ${byte.index}，0x${byte.value.toString(16).padStart(2, '0').toUpperCase()} (${byte.value})`}
+                                    onClick={() => setSelectedByteIndex(byte.index)}
+                                  >
+                                    {byte.value.toString(16).padStart(2, '0').toUpperCase()}
+                                  </button>
+                                )}</For>
+                              </div>
+                              <span class="property-data__divider" />
+                              <div class="property-data__ascii">
+                                <For each={row.bytes}>{(byte) => (
+                                  <span
+                                    class="property-data__ascii-byte"
+                                    classList={{
+                                      'property-data__ascii-byte--selected': selectedByteIndex() === byte.index,
+                                    }}
+                                  >
+                                    {toAscii(byte.value)}
+                                  </span>
+                                )}</For>
+                              </div>
+                            </div>
+                          )}</For>
+                        </div>
+                      </Show>
+                    </div>
+                  );
+                })()}
               </Show>
             </div>
           </div>
