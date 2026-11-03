@@ -329,7 +329,50 @@ function App() {
   ];
 
   const [workspaceEl, setWorkspaceEl] = createSignal<HTMLElement | null>(null);
+  const [workspaceViewportSize, setWorkspaceViewportSize] = createSignal({ width: 0, height: 0 });
   const windowManager = useWindowManager(PANEL_DEFS, workspaceEl);
+  const workspaceCanvasSize = () => {
+    const viewport = workspaceViewportSize();
+    const panels = windowManager.visiblePanels();
+    const minX = Math.min(0, ...panels.map((panel) => panel.window.rect.x));
+    const minY = Math.min(0, ...panels.map((panel) => panel.window.rect.y));
+    const maxX = Math.max(viewport.width, ...panels.map((panel) => panel.window.rect.x + panel.window.rect.width));
+    const maxY = Math.max(viewport.height, ...panels.map((panel) => panel.window.rect.y + panel.window.rect.height));
+    return {
+      originX: minX,
+      originY: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      contentWidth: maxX,
+      contentHeight: maxY,
+    };
+  };
+  const restoreWorkspacePanel = (id: string) => {
+    windowManager.restorePanel(id);
+    requestAnimationFrame(() => {
+      const workspace = workspaceEl();
+      const panel = windowManager.visiblePanels().find((item) => item.id === id);
+      if (!workspace || !panel) return;
+      const { rect } = panel.window;
+      const originX = Number(workspace.dataset.originX ?? 0);
+      const originY = Number(workspace.dataset.originY ?? 0);
+      const worldLeft = workspace.scrollLeft + originX;
+      const worldTop = workspace.scrollTop + originY;
+      const worldRight = worldLeft + workspace.clientWidth;
+      const worldBottom = worldTop + workspace.clientHeight;
+      const left = rect.x < worldLeft
+        ? rect.x - originX
+        : rect.x + rect.width > worldRight
+          ? rect.x + rect.width - workspace.clientWidth - originX
+          : workspace.scrollLeft;
+      const top = rect.y < worldTop
+        ? rect.y - originY
+        : rect.y + rect.height > worldBottom
+          ? rect.y + rect.height - workspace.clientHeight - originY
+          : workspace.scrollTop;
+      workspace.scrollTo({ left: Math.max(0, left), top: Math.max(0, top) });
+    });
+  };
   let layoutSaveTimeout: number | undefined;
   let projectGeneration = 0;
   let lastLayoutRevision = windowManager.layoutRevision();
@@ -373,6 +416,20 @@ function App() {
   });
 
   onCleanup(cancelPendingLayoutSave);
+
+  createEffect(() => {
+    const workspace = workspaceEl();
+    if (!workspace) return;
+    const resizeObserver = new ResizeObserver(() => {
+      setWorkspaceViewportSize({
+        width: workspace.clientWidth,
+        height: workspace.clientHeight,
+      });
+      windowManager.syncMaximizedPanelsToWorkspace();
+    });
+    resizeObserver.observe(workspace);
+    onCleanup(() => resizeObserver.disconnect());
+  });
 
   let frameQueryId = 0;
   const fetchFramePage = (
@@ -1261,7 +1318,6 @@ function App() {
           <div class="loading">Loading project...</div>
         ): (hasSource() || project() !== null || stagingNewProjectWorkspace()) ? (
           <div
-            ref={setWorkspaceEl}
             class="workspace"
             onMouseMove={(e) => {
               windowManager.onDrag(e);
@@ -1272,20 +1328,43 @@ function App() {
               windowManager.endResize();
             }}
           >
-            {/* Snap preview overlay */}
-            {windowManager.snapPreview() && (
+            <div
+              ref={setWorkspaceEl}
+              class="workspace__viewport"
+              data-origin-x={workspaceCanvasSize().originX}
+              data-origin-y={workspaceCanvasSize().originY}
+              style={{ bottom: `${windowManager.minimizedPanels().length > 0 ? 30 : 0}px` }}
+            >
               <div
-                class="snap-preview"
+                class="workspace__canvas"
                 style={{
-                  left: `${windowManager.snapPreview()!.rect.x}px`,
-                  top: `${windowManager.snapPreview()!.rect.y}px`,
-                  width: `${windowManager.snapPreview()!.rect.width}px`,
-                  height: `${windowManager.snapPreview()!.rect.height}px`,
+                  width: `${workspaceCanvasSize().width}px`,
+                  height: `${workspaceCanvasSize().height}px`,
                 }}
-              />
-            )}
-            {/* Rendered panels as floating windows */}
-            <For each={windowManager.visiblePanels()}>
+              >
+                <div
+                  class="workspace__canvas-content"
+                  style={{
+                    top: `${-workspaceCanvasSize().originY}px`,
+                    left: `${-workspaceCanvasSize().originX}px`,
+                    width: `${workspaceCanvasSize().contentWidth}px`,
+                    height: `${workspaceCanvasSize().contentHeight}px`,
+                  }}
+                >
+                  {/* Snap preview overlay */}
+                  {windowManager.snapPreview() && (
+                    <div
+                      class="snap-preview"
+                      style={{
+                        left: `${windowManager.snapPreview()!.rect.x}px`,
+                        top: `${windowManager.snapPreview()!.rect.y}px`,
+                        width: `${windowManager.snapPreview()!.rect.width}px`,
+                        height: `${windowManager.snapPreview()!.rect.height}px`,
+                      }}
+                    />
+                  )}
+                  {/* Rendered panels as floating windows */}
+                  <For each={windowManager.visiblePanels()}>
               {(panel) => {
               const panelContent = (() => {
                 switch (panel.id) {
@@ -1436,11 +1515,14 @@ function App() {
                 </FloatingWindow>
               );
             }}
-            </For>
+                  </For>
+                </div>
+              </div>
+            </div>
             {/* Minimized windows taskbar */}
             <WindowTaskbar
               panels={windowManager.minimizedPanels()}
-              onRestore={(id) => windowManager.restorePanel(id)}
+              onRestore={restoreWorkspacePanel}
             />
           </div>
         ) : (

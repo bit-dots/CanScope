@@ -46,8 +46,6 @@ export function useWindowManager(
 
   let globalDragCleanup: (() => void) | null = null;
   let globalResizeCleanup: (() => void) | null = null;
-  let _wsRectCache: WindowRect = { x: 0, y: 0, width: 0, height: 0 };
-  let _wsViewportCache = { left: 0, top: 0 };
   let _dragRafPending = false;
   let _lastDragPos: { clientX: number; clientY: number } | null = null;
   let followsWorkspaceSize: NewProjectTemplate | null = null;
@@ -81,15 +79,22 @@ export function useWindowManager(
   function getWorkspaceRect(): WindowRect {
     const el = workspaceRef();
     if (!el) return { x: 0, y: 0, width: 1200, height: 800 };
-    const r = el.getBoundingClientRect();
-    return { x: 0, y: 0, width: r.width, height: r.height };
+    return {
+      x: el.scrollLeft + Number(el.dataset.originX ?? 0),
+      y: el.scrollTop + Number(el.dataset.originY ?? 0),
+      width: el.clientWidth,
+      height: el.clientHeight,
+    };
   }
 
   function getWorkspaceViewportOffset(): { left: number; top: number } {
     const el = workspaceRef();
     if (!el) return { left: 0, top: 0 };
     const r = el.getBoundingClientRect();
-    return { left: r.left, top: r.top };
+    return {
+      left: r.left + el.clientLeft - el.scrollLeft - Number(el.dataset.originX ?? 0),
+      top: r.top + el.clientTop - el.scrollTop - Number(el.dataset.originY ?? 0),
+    };
   }
 
   function bringToFront(id: string) {
@@ -268,12 +273,33 @@ export function useWindowManager(
     const workspace = getWorkspaceRect();
     for (const panel of Object.values(state.panels)) {
       if (!panel.visible || panel.window.snapState === 'floating') continue;
-      const rect = panel.window.snapState === 'maximized'
-        ? { x: 0, y: 0, width: workspace.width, height: workspace.height }
-        : getSnapRect(panel.window.snapState, workspace);
-      setState('panels', panel.id, 'window', 'rect', rect);
+      setState('panels', panel.id, 'window', 'rect', getSnapRect(panel.window.snapState, workspace));
     }
     setLayoutRevision(v => v + 1);
+  }
+
+  function syncMaximizedPanelsToWorkspace() {
+    const workspace = getWorkspaceRect();
+    let changed = false;
+    for (const panel of Object.values(state.panels)) {
+      if (!panel.visible || panel.window.snapState !== 'maximized') continue;
+      const rect = {
+        x: workspace.x,
+        y: workspace.y,
+        width: workspace.width,
+        height: workspace.height,
+      };
+      const current = panel.window.rect;
+      if (
+        current.x === rect.x &&
+        current.y === rect.y &&
+        current.width === rect.width &&
+        current.height === rect.height
+      ) continue;
+      setState('panels', panel.id, 'window', 'rect', rect);
+      changed = true;
+    }
+    if (changed) setLayoutRevision(v => v + 1);
   }
 
   const isPanelVisible = (id: string): boolean => {
@@ -340,23 +366,23 @@ export function useWindowManager(
     const h = workspace.height;
     switch (snapState) {
       case 'snapped-left':
-        return { x: 0, y: 0, width: w / 2, height: h };
+        return { x: workspace.x, y: workspace.y, width: w / 2, height: h };
       case 'snapped-right':
-        return { x: w / 2, y: 0, width: w / 2, height: h };
+        return { x: workspace.x + w / 2, y: workspace.y, width: w / 2, height: h };
       case 'snapped-top':
-        return { x: 0, y: 0, width: w, height: h / 2 };
+        return { x: workspace.x, y: workspace.y, width: w, height: h / 2 };
       case 'snapped-bottom':
-        return { x: 0, y: h / 2, width: w, height: h / 2 };
+        return { x: workspace.x, y: workspace.y + h / 2, width: w, height: h / 2 };
       case 'snapped-top-left':
-        return { x: 0, y: 0, width: w / 2, height: h / 2 };
+        return { x: workspace.x, y: workspace.y, width: w / 2, height: h / 2 };
       case 'snapped-top-right':
-        return { x: w / 2, y: 0, width: w / 2, height: h / 2 };
+        return { x: workspace.x + w / 2, y: workspace.y, width: w / 2, height: h / 2 };
       case 'snapped-bottom-left':
-        return { x: 0, y: h / 2, width: w / 2, height: h / 2 };
+        return { x: workspace.x, y: workspace.y + h / 2, width: w / 2, height: h / 2 };
       case 'snapped-bottom-right':
-        return { x: w / 2, y: h / 2, width: w / 2, height: h / 2 };
+        return { x: workspace.x + w / 2, y: workspace.y + h / 2, width: w / 2, height: h / 2 };
       default:
-        return { x: 0, y: 0, width: w, height: h };
+        return { x: workspace.x, y: workspace.y, width: w, height: h };
     }
   }
 
@@ -375,9 +401,6 @@ export function useWindowManager(
     bringToFront(panelId);
     setDraggingPanelId(panelId);
 
-    // Cache workspace dims once at drag start — they don't change mid-drag
-    _wsRectCache = getWorkspaceRect();
-    _wsViewportCache = getWorkspaceViewportOffset();
     _dragRafPending = false;
     _lastDragPos = null;
 
@@ -398,8 +421,9 @@ export function useWindowManager(
       // Position so cursor appears at roughly 40% into the title bar
       const wsX = e.clientX - viewportOffset.left;
       const wsY = e.clientY - viewportOffset.top;
-      const snappedRestoreX = Math.max(0, wsX - preSnap.width * 0.4);
-      const snappedRestoreY = Math.max(0, wsY - 15);
+      const workspace = getWorkspaceRect();
+      const snappedRestoreX = Math.max(workspace.x, wsX - preSnap.width * 0.4);
+      const snappedRestoreY = Math.max(workspace.y, wsY - 15);
       setState('panels', panelId, 'window', 'rect', {
         x: snappedRestoreX,
         y: snappedRestoreY,
@@ -440,15 +464,20 @@ export function useWindowManager(
       const p = state.panels[currentPanelId];
       if (!p) return;
 
-      const workspace = _wsRectCache;
+      const workspace = getWorkspaceRect();
+      const viewportOffset = getWorkspaceViewportOffset();
       const offset = dragOffset();
 
-      const wsX = pos.clientX - _wsViewportCache.left;
-      const wsY = pos.clientY - _wsViewportCache.top;
+      const wsX = pos.clientX - viewportOffset.left;
+      const wsY = pos.clientY - viewportOffset.top;
       const newX = wsX - offset.x;
       const newY = wsY - offset.y;
 
-      const snap = getSnapFromCursor(wsX, wsY, workspace);
+      const snap = getSnapFromCursor(
+        wsX - workspace.x,
+        wsY - workspace.y,
+        { ...workspace, x: 0, y: 0 },
+      );
 
       if (snap !== 'floating') {
         const snapRect = getSnapRect(snap, workspace);
@@ -459,8 +488,8 @@ export function useWindowManager(
 
       const MIN_VISIBLE = 20;
       setState('panels', currentPanelId, 'window', 'rect', {
-        x: Math.max(-p.window.rect.width + MIN_VISIBLE, Math.min(newX, workspace.width - MIN_VISIBLE)),
-        y: Math.max(-p.window.rect.height + MIN_VISIBLE, Math.min(newY, workspace.height - MIN_VISIBLE)),
+        x: Math.max(workspace.x - p.window.rect.width + MIN_VISIBLE, Math.min(newX, workspace.x + workspace.width - MIN_VISIBLE)),
+        y: Math.max(workspace.y - p.window.rect.height + MIN_VISIBLE, Math.min(newY, workspace.y + workspace.height - MIN_VISIBLE)),
         width: p.window.rect.width,
         height: p.window.rect.height,
       });
@@ -517,8 +546,8 @@ export function useWindowManager(
         snapState: p.window.snapState,
       });
       setState('panels', panelId, 'window', 'rect', {
-        x: 0,
-        y: 0,
+        x: workspace.x,
+        y: workspace.y,
         width: workspace.width,
         height: workspace.height,
       });
@@ -581,7 +610,6 @@ export function useWindowManager(
     const p = state.panels[panelId];
     if (!p || p.window.snapState === 'maximized') return;
 
-    const workspace = getWorkspaceRect();
     const viewportOffset = getWorkspaceViewportOffset();
     const wsX = e.clientX - viewportOffset.left;
     const wsY = e.clientY - viewportOffset.top;
@@ -591,7 +619,6 @@ export function useWindowManager(
 
     if (dir.includes('e')) {
       rect.width = Math.max(minW, wsX - rect.x);
-      rect.width = Math.min(rect.width, workspace.width - rect.x);
     }
     if (dir.includes('w')) {
       const newWidth = rect.x + rect.width - wsX;
@@ -602,7 +629,6 @@ export function useWindowManager(
     }
     if (dir.includes('s')) {
       rect.height = Math.max(minH, wsY - rect.y);
-      rect.height = Math.min(rect.height, workspace.height - rect.y);
     }
     if (dir.includes('n')) {
       const newHeight = rect.y + rect.height - wsY;
@@ -670,6 +696,7 @@ export function useWindowManager(
     resetToNewProjectLayout,
     syncNewProjectLayoutToWorkspace,
     syncSnappedPanelsToWorkspace,
+    syncMaximizedPanelsToWorkspace,
     draggingPanelId,
     isPanelVisible,
     openPanel,

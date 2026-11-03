@@ -13,7 +13,7 @@
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  z-index: 1000;
+  z-index: 1;
 }
 
 .window-taskbar::-webkit-scrollbar {

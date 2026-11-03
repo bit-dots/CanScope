@@ -73,11 +73,29 @@ select:focus-visible,
 .workspace {
   position: relative;
   width: 100%;
-  height: auto;
   min-height: 0;
   flex: 1;
-  overflow: visible;
+  overflow: hidden;
   background: var(--bg-primary);
+}
+
+.workspace__viewport {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: auto;
+  overscroll-behavior: auto;
+}
+
+.workspace__canvas {
+  position: relative;
+}
+
+.workspace__canvas-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
 }
 
 /* Snap preview overlay is in components/windowing/FloatingWindow.css */
