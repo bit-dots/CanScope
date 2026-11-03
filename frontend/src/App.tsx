@@ -21,6 +21,7 @@ import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import DatabaseManagerDialog from './components/DatabaseManagerDialog';
 import type { AppNotification, EventLevel, RuntimeLogEntry } from './runtimeEvents';
+import { loadRuntimeLogLimit, saveRuntimeLogLimit, type RuntimeLogLimit } from './runtimeLogSettings';
 import {
   cacheMemoryLimitBytes,
   estimateFrameMemoryBytes,
@@ -96,6 +97,7 @@ function App() {
   } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [runtimeLogs, setRuntimeLogs] = createSignal<RuntimeLogEntry[]>([]);
+  const [runtimeLogLimit, setRuntimeLogLimit] = createSignal<RuntimeLogLimit>(loadRuntimeLogLimit());
   const [notifications, setNotifications] = createSignal<AppNotification[]>([]);
   const [notificationCenterOpen, setNotificationCenterOpen] = createSignal(false);
   const [logPanelOpen, setLogPanelOpen] = createSignal(false);
@@ -141,7 +143,7 @@ function App() {
           { ...last, timestamp, occurrences: (last.occurrences ?? 1) + 1 },
         ];
       }
-      return [...previous, entry].slice(-5000);
+      return [...previous, entry].slice(-runtimeLogLimit());
     });
     if (merged) return;
     if (!notify) return;
@@ -1109,6 +1111,12 @@ function App() {
     applyCacheBudget(cacheMemoryLimitBytes(updated, autoLimit), updated.cacheFullPolicy);
   };
 
+  const handleRuntimeLogLimitChange = (limit: RuntimeLogLimit) => {
+    setRuntimeLogLimit(limit);
+    saveRuntimeLogLimit(limit);
+    setRuntimeLogs((previous) => previous.slice(-limit));
+  };
+
   const handleClearFrameMonitor = () => {
     pendingTraceFrames = [];
     pendingTraceBytes = 0;
@@ -1538,6 +1546,7 @@ function App() {
       {project() !== null && !loading() && logPanelOpen() && (
         <RuntimeLogPanel
           entries={runtimeLogs()}
+          maxEntries={runtimeLogLimit()}
           onClose={() => setLogPanelOpen(false)}
           onClear={() => setRuntimeLogs([])}
           onExport={exportRuntimeLogs}
@@ -1546,12 +1555,14 @@ function App() {
       {settingsOpen() && (
         <SettingsPage
           settings={measurementSettings()}
+          runtimeLogLimit={runtimeLogLimit()}
           cachedFrameCount={frames().length}
           estimatedCacheBytes={estimatedCacheBytes()}
           availableMemoryBytes={availableMemoryBytes()}
           automaticLimitBytes={automaticLimitBytes()}
           memoryInfoError={memoryInfoError()}
           onChange={handleMeasurementSettingsChange}
+          onRuntimeLogLimitChange={handleRuntimeLogLimitChange}
           onClose={() => setSettingsOpen(false)}
         />
       )}

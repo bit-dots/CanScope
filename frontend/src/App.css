@@ -1851,6 +1851,16 @@ select:focus-visible,
   font-weight: 700;
 }
 
+.runtime-log-settings__select {
+  min-width: 120px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
 @media (max-width: 900px) {
   .settings-page__nav {
     width: 180px;

@@ -5,6 +5,7 @@ import './RuntimeLogPanel.css';
 
 interface RuntimeLogPanelProps {
   entries: RuntimeLogEntry[];
+  maxEntries: number;
   onClose: () => void;
   onClear: () => void;
   onExport: () => void;
@@ -83,7 +84,7 @@ const RuntimeLogPanel: Component<RuntimeLogPanelProps> = (props) => {
       <header class="runtime-log__header">
         <div class="runtime-log__title">
           <strong>日志</strong>
-          <span>{props.entries.length.toLocaleString()} / 5,000</span>
+          <span>{props.entries.length.toLocaleString()} / {props.maxEntries.toLocaleString()}</span>
           <span class="runtime-log__counts">
             <span class="runtime-log__count--error">错 {levelCount('error')}</span>
             <span class="runtime-log__count--warning">警 {levelCount('warning')}</span>
