@@ -65,6 +65,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [viewHeight, setViewHeight] = createSignal(0);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
   const [selectedRows, setSelectedRows] = createSignal<Set<number>>(new Set<number>());
+  const [selectionAnchor, setSelectionAnchor] = createSignal<number | null>(null);
   const [isPaused, setIsPaused] = createSignal(false);
   const [pausedSnapshot, setPausedSnapshot] = createSignal<{
     frames: FrameInfo[];
@@ -518,6 +519,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       requestedOffset = 0;
       setSelectedRow(null);
       setSelectedRows(new Set<number>());
+      setSelectionAnchor(null);
       setScrollTop(0);
       if (containerRef) containerRef.scrollTop = 0;
       if (props.traceMode || isPaused()) return;
@@ -887,6 +889,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       props.onClear?.();
       setSelectedRow(null);
       setSelectedRows(new Set<number>());
+      setSelectionAnchor(null);
       setIsPaused(false);
       setPausedSnapshot(null);
       setClearConfirm(false);
@@ -1079,21 +1082,30 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       const next = new Set(selectedRows());
       if (next.has(idx)) {
         next.delete(idx);
+        const nextSelectedRow = selectedRow() === idx
+          ? (Array.from(next).pop() ?? null)
+          : selectedRow();
+        setSelectedRows(next);
+        setSelectedRow(nextSelectedRow);
+        if (selectionAnchor() === idx) setSelectionAnchor(nextSelectedRow);
       } else {
         next.add(idx);
+        setSelectedRows(next);
+        setSelectedRow(idx);
+        setSelectionAnchor(idx);
       }
-      setSelectedRows(next);
-      setSelectedRow(idx);
-    } else if (shift && selectedRow() !== null) {
-      const anchor = selectedRow()!;
+    } else if (shift && selectionAnchor() !== null) {
+      const anchor = selectionAnchor()!;
       const lo = Math.min(anchor, idx);
       const hi = Math.max(anchor, idx);
       const next = new Set<number>();
       for (let i = lo; i <= hi; i++) next.add(i);
       setSelectedRows(next);
+      setSelectedRow(idx);
     } else {
       setSelectedRow(idx);
       setSelectedRows(new Set([idx]));
+      setSelectionAnchor(idx);
     }
   };
 
@@ -1104,6 +1116,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (!selectedRows().has(idx)) {
       setSelectedRow(idx);
       setSelectedRows(new Set([idx]));
+      setSelectionAnchor(idx);
+    } else {
+      setSelectedRow(idx);
     }
     setContextMenuState({ x: e.clientX, y: e.clientY, frame });
   };
