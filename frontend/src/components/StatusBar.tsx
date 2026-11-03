@@ -69,6 +69,32 @@ const StatusBar: Component<StatusBarProps> = (props) => {
             <Settings size={14} />
           </button>
         )}
+      </div>
+      <div class="status-bar__right">
+        {props.projectLoaded && (
+          <span
+            class="status-bar__cache"
+            classList={{ [cacheClass()]: cacheClass() !== '' }}
+            title={`报文监控缓存估算占用 ${formatMemory(props.estimatedCacheBytes)}，上限 ${formatMemory(props.cacheLimitBytes)}`}
+          >
+            缓存 {formatMemory(props.estimatedCacheBytes)} / {formatMemory(props.cacheLimitBytes)}
+          </span>
+        )}
+        {props.projectLoaded && props.availableMemoryBytes !== null && props.availableMemoryBytes < 1024 ** 3 && (
+          <span
+            class="status-bar__memory-warning"
+            title={`系统可用内存仅 ${formatMemory(props.availableMemoryBytes)}`}
+            role="status"
+          >
+            可用内存不足
+          </span>
+        )}
+        {props.sourceLoaded && (
+          <span class="status-bar__state" classList={{ [stateClass()]: true }}>
+            <span class="status-bar__state-dot" classList={{ [dotClass()]: true }} />
+            {stateLabel[props.playbackState]}
+          </span>
+        )}
         {props.projectLoaded && (
           <button
             class="status-bar__action"
@@ -99,33 +125,6 @@ const StatusBar: Component<StatusBarProps> = (props) => {
             </span>
           )}
         </button>
-      </div>
-      <div class="status-bar__right">
-        {props.projectLoaded && (
-          <span
-            class="status-bar__cache"
-            classList={{ [cacheClass()]: cacheClass() !== '' }}
-            title={`报文监控缓存估算占用 ${formatMemory(props.estimatedCacheBytes)}，上限 ${formatMemory(props.cacheLimitBytes)}`}
-          >
-            缓存 {formatMemory(props.estimatedCacheBytes)} / {formatMemory(props.cacheLimitBytes)}
-          </span>
-        )}
-        {props.projectLoaded && props.availableMemoryBytes !== null && props.availableMemoryBytes < 1024 ** 3 && (
-          <span
-            class="status-bar__memory-warning"
-            title={`系统可用内存仅 ${formatMemory(props.availableMemoryBytes)}`}
-            role="status"
-          >
-            可用内存不足
-          </span>
-        )}
-        {props.sourceLoaded && (
-          <span class="status-bar__state" classList={{ [stateClass()]: true }}>
-            <span class="status-bar__state-dot" classList={{ [dotClass()]: true }} />
-            {stateLabel[props.playbackState]}
-          </span>
-        )}
-        <span class="status-bar__version">CanScope v0.1</span>
       </div>
     </div>
   );

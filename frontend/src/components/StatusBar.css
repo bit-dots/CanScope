@@ -139,8 +139,3 @@
 .status-bar__state-dot--stopped {
   background: var(--text-secondary);
 }
-
-.status-bar__version {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
