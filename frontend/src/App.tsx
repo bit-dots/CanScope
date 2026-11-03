@@ -1516,14 +1516,16 @@ function App() {
           onConfirm={handleDatabaseManagerConfirm}
         />
       )}
-      <Notifications
-        entries={notifications()}
-        open={notificationCenterOpen()}
-        onClose={() => setNotificationCenterOpen(false)}
-        onDismiss={dismissNotification}
-        onClear={clearNotifications}
-      />
-      {!loading() && (
+      {project() !== null && !loading() && (
+        <Notifications
+          entries={notifications()}
+          open={notificationCenterOpen()}
+          onClose={() => setNotificationCenterOpen(false)}
+          onDismiss={dismissNotification}
+          onClear={clearNotifications}
+        />
+      )}
+      {project() !== null && !loading() && (
         <StatusBar
           projectLoaded={project() !== null}
           sourceLoaded={hasSource()}
