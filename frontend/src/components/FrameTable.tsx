@@ -585,7 +585,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   });
 
   const flatIndexOfDisplayIdx = (displayIdx: number): number => {
-    return Math.max(0, displayIdx);
+    const rowIndex = flattenedRows().findIndex(
+      (row) => row.kind === 'frame' && row.displayIdx === displayIdx,
+    );
+    return displayFrameOffset() + (rowIndex >= 0 ? rowIndex : Math.max(0, displayIdx - displayFrameOffset()));
   };
 
   // ---- 搜索 ----
