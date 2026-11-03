@@ -1,4 +1,4 @@
-import { createSignal, createEffect, onCleanup, onMount, For } from 'solid-js';
+import { createSignal, createEffect, onCleanup, onMount, on, For } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -7,6 +7,8 @@ import SignalTree from './components/SignalTree';
 import FrameTable from './components/FrameTable';
 import SignalChart from './components/SignalChart';
 import StatusBar from './components/StatusBar';
+import RuntimeLogPanel from './components/RuntimeLogPanel';
+import Notifications from './components/Notifications';
 import WelcomeScreen from './components/WelcomeScreen';
 import { Radio, FilePlay, ChartLine } from 'lucide-solid';
 import NewProjectDialog, { type NewProjectConfig } from './components/NewProjectDialog';
@@ -18,6 +20,7 @@ import { useWindowManager } from './components/windowing/useWindowManager';
 import ResourceManager from './components/ResourceManager';
 import PlaybackPanel from './components/PlaybackPanel';
 import DatabaseManagerDialog from './components/DatabaseManagerDialog';
+import type { AppNotification, EventLevel, RuntimeLogEntry } from './runtimeEvents';
 import {
   cacheMemoryLimitBytes,
   estimateFrameMemoryBytes,
@@ -92,6 +95,10 @@ function App() {
     message?: string | null;
   } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
+  const [runtimeLogs, setRuntimeLogs] = createSignal<RuntimeLogEntry[]>([]);
+  const [notifications, setNotifications] = createSignal<AppNotification[]>([]);
+  const [notificationCenterOpen, setNotificationCenterOpen] = createSignal(false);
+  const [logPanelOpen, setLogPanelOpen] = createSignal(false);
   const [filter, setFilter] = createSignal<FilterConfig>({ canId: '', timeStart: '', timeEnd: '' });
   const [dbcTree, setDbcTree] = createSignal<DbcTreeInfo | null>(null);
   const [selectedCanId, setSelectedCanId] = createSignal<number | null>(null);
@@ -105,6 +112,135 @@ function App() {
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
   const [showDatabaseManager, setShowDatabaseManager] = createSignal(false);
   let isWindowClosing = false;
+  let nextRuntimeEventId = 1;
+  const notificationTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+  const recordRuntimeEvent = (
+    level: EventLevel,
+    source: string,
+    message: string,
+    details?: string,
+    notify = false,
+  ) => {
+    const timestamp = Date.now();
+    const id = nextRuntimeEventId++;
+    const entry: RuntimeLogEntry = { id, timestamp, level, source, message, details };
+    let merged = false;
+    setRuntimeLogs((previous) => {
+      const last = previous[previous.length - 1];
+      if (
+        last &&
+        last.level === level &&
+        last.source === source &&
+        last.message === message &&
+        timestamp - last.timestamp <= 5000
+      ) {
+        merged = true;
+        return [
+          ...previous.slice(0, -1),
+          { ...last, timestamp, occurrences: (last.occurrences ?? 1) + 1 },
+        ];
+      }
+      return [...previous, entry].slice(-5000);
+    });
+    if (merged) return;
+    if (!notify) return;
+
+    setNotifications((previous) => [
+      { ...entry, read: false, toastActive: true },
+      ...previous,
+    ].slice(0, 100));
+    const timer = setTimeout(() => {
+      notificationTimers.delete(id);
+      setNotifications((previous) => previous.map((item) =>
+        item.id === id ? { ...item, toastActive: false } : item,
+      ));
+    }, level === 'error' ? 10000 : 6500);
+    notificationTimers.set(id, timer);
+  };
+
+  const dismissNotification = (id: number) => {
+    const timer = notificationTimers.get(id);
+    if (timer) clearTimeout(timer);
+    notificationTimers.delete(id);
+    setNotifications((previous) => previous.filter((item) => item.id !== id));
+  };
+
+  const clearNotifications = () => {
+    for (const timer of notificationTimers.values()) clearTimeout(timer);
+    notificationTimers.clear();
+    setNotifications([]);
+  };
+
+  const toggleNotificationCenter = () => {
+    const opening = !notificationCenterOpen();
+    setNotificationCenterOpen(opening);
+    if (opening) {
+      setNotifications((previous) => previous.map((item) => ({ ...item, read: true })));
+    }
+  };
+
+  const exportRuntimeLogs = () => {
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = [
+      ['时间', '等级', '来源', '消息', '重复次数', '详情'],
+      ...runtimeLogs().map((entry) => [
+        new Date(entry.timestamp).toISOString(),
+        entry.level,
+        entry.source,
+        entry.message,
+        String(entry.occurrences ?? 1),
+        entry.details ?? '',
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `canscope-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  createEffect(on(error, (message, previous) => {
+    if (message && message !== previous) {
+      recordRuntimeEvent('error', '应用', message, undefined, true);
+    }
+  }));
+
+  createEffect(on(availableMemoryBytes, (available, previous) => {
+    const threshold = 1024 ** 3;
+    if (
+      available !== null &&
+      available < threshold &&
+      (previous === null || previous === undefined || previous >= threshold)
+    ) {
+      recordRuntimeEvent(
+        'warning',
+        '系统内存',
+        '可用内存低于 1 GB',
+        `当前可用内存：${(available / (1024 ** 2)).toFixed(0)} MB`,
+        true,
+      );
+    }
+  }));
+
+  createEffect(on(cacheLimitReached, (reached) => {
+    if (reached) {
+      recordRuntimeEvent(
+        'warning',
+        '报文缓存',
+        '缓存达到上限，回放已暂停',
+        '清空监控缓存或调整缓存预算后，可继续回放。',
+        true,
+      );
+    }
+  }));
+
+  onCleanup(() => {
+    for (const timer of notificationTimers.values()) clearTimeout(timer);
+    notificationTimers.clear();
+  });
 
   const resetMonitorCounters = () => {
     setReceivedFrameCount(0);
@@ -392,6 +528,7 @@ function App() {
         }
       } catch (e) {
         console.error('get_batch failed:', e);
+        recordRuntimeEvent('error', '数据回放', '读取回放数据失败', String(e), true);
       } finally {
         playbackPollInFlight = false;
       }
@@ -466,6 +603,7 @@ function App() {
       });
 
       setProject(proj);
+      recordRuntimeEvent('info', '工程', '已创建新工程');
       setMetadata(null);
       setTraceMode(false);
       resetTraceBuffer();
@@ -486,6 +624,7 @@ function App() {
       setShowNewProjectDialog(false);
     } catch (e) {
       console.error('Failed to create project:', e);
+      recordRuntimeEvent('error', '工程', '创建工程失败', String(e), true);
       windowManager.restorePanelLayouts(previousPanelLayouts);
       cancelPendingLayoutSave();
       setStagingNewProjectWorkspace(false);
@@ -546,6 +685,7 @@ function App() {
 
     try {
       const proj: ProjectInfo = await invoke('open_project', { path });
+      recordRuntimeEvent('info', '工程', '工程已打开');
       windowManager.restorePanelLayouts(proj.uiLayout.panels);
       const loadedMeasurementSettings = loadMeasurementSettings(proj.name);
       setMeasurementSettings(loadedMeasurementSettings);
@@ -587,7 +727,7 @@ function App() {
               setDbcTree(tree);
             }
           } catch {
-            // DBC file may have been moved
+            recordRuntimeEvent('warning', 'DBC', '绑定的 DBC 文件无法加载');
           }
         }
       }
@@ -729,6 +869,7 @@ function App() {
     cancelPendingLayoutSave();
     stopPolling();
     await invoke('close_project');
+    recordRuntimeEvent('info', '工程', '已关闭工程');
     setProject(null);
     setMetadata(null);
     setTraceMode(false);
@@ -796,6 +937,7 @@ function App() {
       }
     } catch (e) {
       console.error('Seek failed:', e);
+      recordRuntimeEvent('error', '数据回放', '跳转播放位置失败', String(e), true);
     }
   };
 
@@ -834,8 +976,8 @@ function App() {
   };
 
   const handlePlaybackControl = async (action: string) => {
+    const prevState = playbackState();
     try {
-      const prevState = playbackState();
       const state: string = await invoke('playback_control', { action });
       setPlaybackState(state as PlaybackState);
 
@@ -863,6 +1005,15 @@ function App() {
       } else {
         flushTraceFrames();
         stopPolling();
+      }
+      const actualState = playbackState();
+      if (actualState !== prevState) {
+        const labels: Record<PlaybackState, string> = {
+          stopped: '回放已停止',
+          playing: '开始回放',
+          paused: '回放已暂停',
+        };
+        recordRuntimeEvent('info', '数据回放', labels[actualState]);
       }
     } catch (e) {
       console.error('playback_control failed:', e);
@@ -947,6 +1098,7 @@ function App() {
     }>('frame-index-progress', (event) => {
       const progress = event.payload;
       if (progress.status === 'ready') {
+        recordRuntimeEvent('info', '文件索引', '文件索引已就绪');
         setIndexProgress(null);
       } else {
         setIndexProgress(progress);
@@ -1098,9 +1250,6 @@ function App() {
           onOpenRecent={handleOpenRecent}
       />}
       <main class="main-content">
-        {error() && (
-          <div class="error-bar">{error()}</div>
-        )}
         {indexProgress() && (
           <div class="loading" role="status">
             {indexProgress()!.status === 'failed'
@@ -1304,6 +1453,14 @@ function App() {
           />
         )}
       </main>
+      {project() !== null && !loading() && logPanelOpen() && (
+        <RuntimeLogPanel
+          entries={runtimeLogs()}
+          onClose={() => setLogPanelOpen(false)}
+          onClear={() => setRuntimeLogs([])}
+          onExport={exportRuntimeLogs}
+        />
+      )}
       {settingsOpen() && (
         <SettingsPage
           settings={measurementSettings()}
@@ -1359,14 +1516,27 @@ function App() {
           onConfirm={handleDatabaseManagerConfirm}
         />
       )}
-      {project() !== null && !loading() && (
+      <Notifications
+        entries={notifications()}
+        open={notificationCenterOpen()}
+        onClose={() => setNotificationCenterOpen(false)}
+        onDismiss={dismissNotification}
+        onClear={clearNotifications}
+      />
+      {!loading() && (
         <StatusBar
+          projectLoaded={project() !== null}
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
           estimatedCacheBytes={estimatedCacheBytes()}
           cacheLimitBytes={currentCacheLimitBytes()}
           availableMemoryBytes={availableMemoryBytes()}
+          logPanelOpen={logPanelOpen()}
+          notificationCenterOpen={notificationCenterOpen()}
+          unreadNotificationCount={notifications().filter((item) => !item.read).length}
           onOpenSettings={openSettings}
+          onToggleLogPanel={() => setLogPanelOpen((open) => !open)}
+          onToggleNotificationCenter={toggleNotificationCenter}
         />
       )}
     </div>

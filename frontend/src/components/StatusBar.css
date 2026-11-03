@@ -19,9 +19,12 @@
 .status-bar__left {
   display: flex;
   align-items: center;
+  gap: 2px;
 }
 
-.status-bar__settings {
+.status-bar__settings,
+.status-bar__action {
+  position: relative;
   width: 24px;
   height: 24px;
   display: inline-flex;
@@ -36,14 +39,33 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.status-bar__settings:hover {
+.status-bar__settings:hover,
+.status-bar__action:hover,
+.status-bar__action--active {
   color: var(--text-primary);
   background: var(--bg-tertiary);
 }
 
-.status-bar__settings:focus-visible {
+.status-bar__settings:focus-visible,
+.status-bar__action:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.status-bar__notification-count {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 13px;
+  text-align: center;
 }
 
 .status-bar__right {
@@ -64,12 +86,12 @@
   color: var(--warning);
 }
 
-.status-bar__cache--critical,
-.status-bar__memory-warning {
+.status-bar__cache--critical {
   color: var(--error);
 }
 
 .status-bar__memory-warning {
+  color: var(--warning);
   font-weight: 600;
 }
 

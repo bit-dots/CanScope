@@ -1,15 +1,21 @@
 import { Component } from 'solid-js';
-import { Settings } from 'lucide-solid';
+import { Bell, FileText, Settings } from 'lucide-solid';
 import type { PlaybackState } from '../types';
 import './StatusBar.css';
 
 interface StatusBarProps {
+  projectLoaded: boolean;
   sourceLoaded: boolean;
   playbackState: PlaybackState;
   estimatedCacheBytes: number;
   cacheLimitBytes: number;
   availableMemoryBytes: number | null;
+  logPanelOpen: boolean;
+  notificationCenterOpen: boolean;
+  unreadNotificationCount: number;
   onOpenSettings: () => void;
+  onToggleLogPanel: () => void;
+  onToggleNotificationCenter: () => void;
 }
 
 const stateLabel: Record<PlaybackState, string> = {
@@ -52,25 +58,59 @@ const StatusBar: Component<StatusBarProps> = (props) => {
   return (
     <div class="status-bar">
       <div class="status-bar__left">
+        {props.projectLoaded && (
+          <button
+            class="status-bar__settings"
+            onClick={props.onOpenSettings}
+            type="button"
+            aria-label="打开设置"
+            title="设置"
+          >
+            <Settings size={14} />
+          </button>
+        )}
+        {props.projectLoaded && (
+          <button
+            class="status-bar__action"
+            classList={{ 'status-bar__action--active': props.logPanelOpen }}
+            onClick={props.onToggleLogPanel}
+            type="button"
+            aria-label={props.logPanelOpen ? '收起日志面板' : '打开日志面板'}
+            aria-expanded={props.logPanelOpen}
+            title={props.logPanelOpen ? '收起日志' : '日志'}
+          >
+            <FileText size={14} />
+          </button>
+        )}
         <button
-          class="status-bar__settings"
-          onClick={props.onOpenSettings}
+          class="status-bar__action status-bar__notification-button"
+          onClick={props.onToggleNotificationCenter}
           type="button"
-          aria-label="打开设置"
-          title="设置"
+          aria-label={props.unreadNotificationCount > 0
+            ? `打开通知中心，${props.unreadNotificationCount} 条未读`
+            : '打开通知中心'}
+          aria-expanded={props.notificationCenterOpen}
+          title="通知"
         >
-          <Settings size={14} />
+          <Bell size={14} />
+          {props.unreadNotificationCount > 0 && (
+            <span class="status-bar__notification-count">
+              {props.unreadNotificationCount > 99 ? '99+' : props.unreadNotificationCount}
+            </span>
+          )}
         </button>
       </div>
       <div class="status-bar__right">
-        <span
-          class="status-bar__cache"
-          classList={{ [cacheClass()]: cacheClass() !== '' }}
-          title={`报文监控缓存估算占用 ${formatMemory(props.estimatedCacheBytes)}，上限 ${formatMemory(props.cacheLimitBytes)}`}
-        >
-          缓存 {formatMemory(props.estimatedCacheBytes)} / {formatMemory(props.cacheLimitBytes)}
-        </span>
-        {props.availableMemoryBytes !== null && props.availableMemoryBytes < 1024 ** 3 && (
+        {props.projectLoaded && (
+          <span
+            class="status-bar__cache"
+            classList={{ [cacheClass()]: cacheClass() !== '' }}
+            title={`报文监控缓存估算占用 ${formatMemory(props.estimatedCacheBytes)}，上限 ${formatMemory(props.cacheLimitBytes)}`}
+          >
+            缓存 {formatMemory(props.estimatedCacheBytes)} / {formatMemory(props.cacheLimitBytes)}
+          </span>
+        )}
+        {props.projectLoaded && props.availableMemoryBytes !== null && props.availableMemoryBytes < 1024 ** 3 && (
           <span
             class="status-bar__memory-warning"
             title={`系统可用内存仅 ${formatMemory(props.availableMemoryBytes)}`}

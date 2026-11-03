@@ -61,7 +61,10 @@ select:focus-visible,
 /* Floating Window styles are in components/windowing/FloatingWindow.css */
 
 .main-content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  min-height: 0;
   overflow: visible;
   position: relative;
 }
@@ -70,7 +73,9 @@ select:focus-visible,
 .workspace {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 0;
+  flex: 1;
   overflow: visible;
   background: var(--bg-primary);
 }
@@ -85,14 +90,6 @@ select:focus-visible,
   height: 100%;
   color: var(--text-secondary);
   font-size: 14px;
-}
-
-.error-bar {
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--error) 12%, transparent);
-  color: var(--error);
-  font-size: 13px;
-  border-bottom: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
 }
 
 /* ============================================
