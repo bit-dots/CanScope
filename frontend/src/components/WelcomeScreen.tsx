@@ -95,7 +95,7 @@ const WelcomeScreen: Component<WelcomeScreenProps> = (props) => {
       <div class="welcome-launchpad">
         <section class="welcome-start">
           <span class="welcome-product-label">CAN 总线回放与分析</span>
-          <h1>准备开始工作</h1>
+          <h1>启动</h1>
           <p>创建一个新工程，或打开已有工程继续分析 CAN 数据。</p>
 
           <div class="welcome-actions">
