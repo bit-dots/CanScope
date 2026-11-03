@@ -359,6 +359,7 @@ struct FrameTableFilter {
     channel: String,
     can_id: String,
     frame_type: String,
+    direction: String,
     dlc: String,
     data: String,
     name: String,
@@ -619,6 +620,7 @@ impl FrameTableFilter {
             &self.channel,
             &self.can_id,
             &self.frame_type,
+            &self.direction,
             &self.dlc,
             &self.data,
             &self.name,
@@ -687,6 +689,12 @@ fn matches_frame_table_filter(
         && !format!("can {}", frame.bus_id + 1).contains(channel_filter.as_str())
     {
         return false;
+    }
+
+    match filter.direction.trim() {
+        "RX" if frame.is_tx => return false,
+        "TX" if !frame.is_tx => return false,
+        _ => {}
     }
 
     let type_filter = filter.frame_type.trim();
@@ -2242,6 +2250,37 @@ mod tests {
             Some(4.99),
             0.0,
             &filter,
+        ));
+    }
+
+    #[test]
+    fn frame_table_filter_matches_direction() {
+        let frame = CanFrame {
+            timestamp: 0.0,
+            bus_id: 0,
+            can_id: 0x123,
+            is_extended: false,
+            is_remote: false,
+            is_fd: false,
+            is_brs: false,
+            is_tx: true,
+            dlc: 0,
+            data: [0; 64],
+        };
+        let tx_filter = FrameTableFilter {
+            direction: "TX".to_string(),
+            ..FrameTableFilter::default()
+        };
+        let rx_filter = FrameTableFilter {
+            direction: "RX".to_string(),
+            ..FrameTableFilter::default()
+        };
+
+        assert!(matches_frame_table_filter(
+            &frame, None, 0.0, None, 0.0, &tx_filter,
+        ));
+        assert!(!matches_frame_table_filter(
+            &frame, None, 0.0, None, 0.0, &rx_filter,
         ));
     }
 

@@ -65,6 +65,7 @@ export interface FrameTableFilter {
   channel: string;
   canId: string;
   frameType: string;
+  direction: string;
   dlc: string;
   data: string;
   name: string;

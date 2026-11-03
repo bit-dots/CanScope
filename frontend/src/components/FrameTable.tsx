@@ -460,6 +460,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       channel: filterChannel(),
       canId: filterId(),
       frameType: filterType(),
+      direction: filterDirection(),
       dlc: filterDlc(),
       data: filterData(),
       name: filterName(),
@@ -490,6 +491,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       filterChannel(),
       filterId(),
       filterType(),
+      filterDirection(),
       filterDlc(),
       filterData(),
       filterName(),
@@ -521,6 +523,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     const fc = filterChannel().trim().toLowerCase();
     const fi = filterId().trim().toLowerCase();
     const fy = filterType();
+    const fdir = filterDirection();
     const fd = filterDlc().trim();
     const fx = filterData().trim().replace(/\s/g, '').toLowerCase();
     const fn = filterName().trim().toLowerCase();
@@ -538,6 +541,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
         if (!hexId.startsWith(hexPrefix) && !decId.startsWith(fi)) return false;
       }
       if (fy && getFrameTypeLabel(frame) !== fy) return false;
+      if (fdir && getDirection(frame) !== fdir) return false;
       if (fd && frame.dlc.toString() !== fd) return false;
       if (fx && !formatDataHex(frame.data, frame.dlc).replace(/\s/g, '').toLowerCase().includes(fx)) return false;
       if (fn && !(frame.message_name ?? '').toLowerCase().includes(fn)) return false;
@@ -598,6 +602,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [filterChannel, setFilterChannel] = createSignal('');
   const [filterId, setFilterId] = createSignal('');
   const [filterType, setFilterType] = createSignal('');
+  const [filterDirection, setFilterDirection] = createSignal('');
   const [filterDlc, setFilterDlc] = createSignal('');
   const [filterData, setFilterData] = createSignal('');
   const [filterName, setFilterName] = createSignal('');
@@ -606,6 +611,10 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const [typeFilterMenuPos, setTypeFilterMenuPos] = createSignal({ left: 0, top: 0 });
   let typeFilterMenuRef!: HTMLDivElement;
   let typeFilterThRef!: HTMLTableCellElement;
+  const [isDirectionFilterOpen, setIsDirectionFilterOpen] = createSignal(false);
+  const [directionFilterMenuPos, setDirectionFilterMenuPos] = createSignal({ left: 0, top: 0 });
+  let directionFilterMenuRef!: HTMLDivElement;
+  let directionFilterThRef!: HTMLTableCellElement;
 
   const handleTypeFilterToggle = (e: MouseEvent | KeyboardEvent) => {
     e.stopPropagation();
@@ -626,6 +635,27 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     if (typeFilterThRef && typeFilterThRef.contains(e.target as Node)) return;
     if (typeFilterMenuRef && typeFilterMenuRef.contains(e.target as Node)) return;
     setIsTypeFilterOpen(false);
+  };
+
+  const handleDirectionFilterToggle = (e: MouseEvent | KeyboardEvent) => {
+    e.stopPropagation();
+    const willOpen = !isDirectionFilterOpen();
+    if (willOpen && directionFilterThRef) {
+      const rect = directionFilterThRef.getBoundingClientRect();
+      setDirectionFilterMenuPos({ left: rect.left, top: rect.bottom + 2 });
+    }
+    setIsDirectionFilterOpen(willOpen);
+  };
+
+  const handleDirectionFilterSelect = (direction: string) => {
+    setFilterDirection(direction);
+    setIsDirectionFilterOpen(false);
+  };
+
+  const closeDirectionFilterMenu = (e: MouseEvent) => {
+    if (directionFilterThRef && directionFilterThRef.contains(e.target as Node)) return;
+    if (directionFilterMenuRef && directionFilterMenuRef.contains(e.target as Node)) return;
+    setIsDirectionFilterOpen(false);
   };
 
   // ---- 右键上下文菜单 ----
@@ -920,11 +950,13 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     props.onMonitorRefreshRateChange(settings().monitorRefreshRate);
     document.addEventListener('click', closeTimeMenu);
     document.addEventListener('click', closeTypeFilterMenu);
+    document.addEventListener('click', closeDirectionFilterMenu);
   });
 
   onCleanup(() => {
     document.removeEventListener('click', closeTimeMenu);
     document.removeEventListener('click', closeTypeFilterMenu);
+    document.removeEventListener('click', closeDirectionFilterMenu);
   });
 
   const totalHeight = () => displayTotalFrameCount() * ROW_HEIGHT;
@@ -1167,6 +1199,43 @@ const FrameTable: Component<FrameTableProps> = (props) => {
           </div>
           </Portal>
 
+          {/* 方向筛选下拉菜单 */}
+          <Portal>
+            <div
+              ref={directionFilterMenuRef}
+              class="frame-table__type-filter-menu"
+              classList={{ 'frame-table__type-filter-menu--open': isDirectionFilterOpen() }}
+              role="listbox"
+              style={{
+                left: `${directionFilterMenuPos().left}px`,
+                top: `${directionFilterMenuPos().top}px`,
+                display: isDirectionFilterOpen() ? 'flex' : 'none',
+              }}
+            >
+              {[
+                { label: '全部', value: '' },
+                { label: 'RX', value: 'RX' },
+                { label: 'TX', value: 'TX' },
+              ].map((option) => (
+                <button
+                  class="frame-table__type-filter-menu-item"
+                  classList={{
+                    'frame-table__type-filter-menu-item--selected':
+                      filterDirection() === option.value,
+                  }}
+                  role="option"
+                  aria-selected={filterDirection() === option.value}
+                  onClick={() => handleDirectionFilterSelect(option.value)}
+                >
+                  <span class="frame-table__time-menu-check">
+                    {filterDirection() === option.value && <Check size={12} />}
+                  </span>
+                  <span class="frame-table__time-menu-label">{option.label}</span>
+                </button>
+              ))}
+            </div>
+          </Portal>
+
           {/* 类型筛选下拉菜单 */}
           <Portal>
             <div
@@ -1397,9 +1466,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     data: { get: filterData, set: setFilterData },
                     name: { get: filterName, set: setFilterName },
                   };
-                  if (col.key === 'direction') {
-                    return <th class="frame-table__th frame-table__th--filter" />;
-                  }
                   if (col.key === 'type') {
                     return (
                       <th
@@ -1425,6 +1491,35 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                           size={10}
                           class="frame-table__filter-select-chevron"
                           classList={{ 'frame-table__filter-select-chevron--open': isTypeFilterOpen() }}
+                        />
+                      </th>
+                    );
+                  }
+                  if (col.key === 'direction') {
+                    return (
+                      <th
+                        ref={directionFilterThRef}
+                        class="frame-table__th frame-table__th--filter frame-table__th--filter-selectable"
+                        classList={{ 'frame-table__th--filter-active': !!filterDirection() }}
+                        data-open={isDirectionFilterOpen()}
+                        title="按报文方向筛选"
+                        onClick={handleDirectionFilterToggle}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleDirectionFilterToggle(e);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span class="frame-table__filter-select-trigger">
+                          {filterDirection() || '全部'}
+                        </span>
+                        <ChevronDown
+                          size={10}
+                          class="frame-table__filter-select-chevron"
+                          classList={{ 'frame-table__filter-select-chevron--open': isDirectionFilterOpen() }}
                         />
                       </th>
                     );
