@@ -1698,6 +1698,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     'frame-table__row--search-current': isSearchOpen() && searchCurrentFrameIndex() === idx,
                   }}
                   style={{ height: `${ROW_HEIGHT}px` }}
+                  onMouseDown={(e) => {
+                    if (e.shiftKey) e.preventDefault();
+                  }}
                   onClick={(e) => handleRowClick(idx, e)}
                   onContextMenu={(e) => handleRowContextMenu(e, idx)}
                 >
