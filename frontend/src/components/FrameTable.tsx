@@ -1658,8 +1658,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
               const frame = row.frame;
               const idx = row.displayIdx;
-              const isSelected = selectedRow() === idx;
-              const isInMultiSelect = selectedRows().has(idx);
               const isBrs = frame.is_brs;
               const typeLabel = frame.is_error
                 ? 'ErrorFrame'
@@ -1676,10 +1674,12 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                 <tr
                   class="frame-table__row"
                   classList={{
-                    'frame-table__row--selected': isSelected,
-                    'frame-table__row--multi-selected': isInMultiSelect && !isSelected,
+                    'frame-table__row--selected': selectedRow() === idx,
+                    'frame-table__row--multi-selected':
+                      selectedRows().has(idx) && selectedRow() !== idx,
                     'frame-table__row--even': idx % 2 === 0,
-                    'frame-table__row--search-hit': isSearchOpen() && !isSelected && searchMatchSet().has(idx),
+                    'frame-table__row--search-hit':
+                      isSearchOpen() && selectedRow() !== idx && searchMatchSet().has(idx),
                     'frame-table__row--search-current': isSearchOpen() && searchCurrentFrameIndex() === idx,
                   }}
                   style={{ height: `${ROW_HEIGHT}px` }}

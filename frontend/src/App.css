@@ -780,15 +780,32 @@ select:focus-visible,
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+.frame-table__row--selected > .frame-table__td {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-primary));
+}
+
 .frame-table__row--selected:hover {
   background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary)) !important;
+}
+
+.frame-table__row--selected:hover > .frame-table__td {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-primary));
 }
 
 .frame-table__row--multi-selected {
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary)) !important;
 }
+
+.frame-table__row--multi-selected > .frame-table__td {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+}
+
 .frame-table__row--multi-selected:hover {
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary)) !important;
+}
+
+.frame-table__row--multi-selected:hover > .frame-table__td {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
 }
 
 /* 数据单元格 */
