@@ -1,29 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
   <title id="title">CanScope application icon</title>
-  <desc id="desc">A single, precise signal trace on a deep navy application icon background.</desc>
-  <defs>
-    <linearGradient id="background" x1="120" y1="80" x2="900" y2="960" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1A2A42"/>
-      <stop offset="1" stop-color="#0D1625"/>
-    </linearGradient>
-    <linearGradient id="signal" x1="148" y1="588" x2="876" y2="436" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#38BFA7"/>
-      <stop offset=".5" stop-color="#65D5C1"/>
-      <stop offset="1" stop-color="#2EA98F"/>
-    </linearGradient>
-    <pattern id="grid" width="128" height="128" patternUnits="userSpaceOnUse">
-      <path d="M128 0H0V128" fill="none" stroke="#7895B4" stroke-opacity=".055" stroke-width="2"/>
-    </pattern>
-  </defs>
+  <desc id="desc">A measured amber signal trace crossing a restrained oscilloscope grid.</desc>
+  <rect width="1024" height="1024" fill="#181A1B"/>
 
-  <!-- Rounded-square presentation for the bundled flat icon; no decorative inner border. -->
-  <rect width="1024" height="1024" fill="url(#background)"/>
-  <rect width="1024" height="1024" fill="url(#grid)"/>
+  <g fill="none" stroke="#E2E5E3" stroke-opacity=".055" stroke-width="2">
+    <path d="M256 32V992M512 32V992M768 32V992"/>
+    <path d="M32 256H992M32 512H992M32 768H992"/>
+  </g>
 
-  <!-- A dim delayed sample gives the trace a sense of observation history, not a second signal. -->
-  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" transform="translate(16 18)" fill="none" stroke="#7DA5C9" stroke-opacity=".16" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- Primary signal trace. -->
-  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" fill="none" stroke="#203D4F" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M142 650H270C348 650 380 600 430 505C462 444 480 388 500 358C512 340 534 340 548 358C583 405 614 514 653 650C670 705 709 708 746 658C786 605 818 550 882 550" fill="none" stroke="url(#signal)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <path
+    d="M120 596H252C302 596 328 574 350 522L404 394C425 344 452 330 480 356C512 386 522 463 535 560C550 671 572 716 612 702C651 689 672 604 695 498C716 401 740 356 780 356H904"
+    fill="none"
+    stroke="#C68A4A"
+    stroke-opacity=".14"
+    stroke-width="54"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M120 596H252C302 596 328 574 350 522L404 394C425 344 452 330 480 356C512 386 522 463 535 560C550 671 572 716 612 702C651 689 672 604 695 498C716 401 740 356 780 356H904"
+    fill="none"
+    stroke="#C68A4A"
+    stroke-width="26"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="612" cy="702" r="26" fill="#C68A4A"/>
 </svg>
