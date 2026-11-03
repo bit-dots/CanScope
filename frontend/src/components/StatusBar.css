@@ -51,6 +51,26 @@
   margin-left: auto;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.status-bar__cache,
+.status-bar__memory-warning {
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.status-bar__cache--warning {
+  color: var(--warning);
+}
+
+.status-bar__cache--critical,
+.status-bar__memory-warning {
+  color: var(--error);
+}
+
+.status-bar__memory-warning {
+  font-weight: 600;
 }
 
 /* Playback state badge */

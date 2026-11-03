@@ -6,6 +6,9 @@ import './StatusBar.css';
 interface StatusBarProps {
   sourceLoaded: boolean;
   playbackState: PlaybackState;
+  estimatedCacheBytes: number;
+  cacheLimitBytes: number;
+  availableMemoryBytes: number | null;
   onOpenSettings: () => void;
 }
 
@@ -15,7 +18,21 @@ const stateLabel: Record<PlaybackState, string> = {
   paused: '已暂停',
 };
 
+const formatMemory = (bytes: number) => bytes >= 1024 ** 3
+  ? `${(bytes / (1024 ** 3)).toFixed(1)} GB`
+  : `${Math.round(bytes / (1024 ** 2))} MB`;
+
 const StatusBar: Component<StatusBarProps> = (props) => {
+  const cacheRatio = () => props.cacheLimitBytes > 0
+    ? props.estimatedCacheBytes / props.cacheLimitBytes
+    : 0;
+
+  const cacheClass = () => {
+    if (cacheRatio() >= 0.95) return 'status-bar__cache--critical';
+    if (cacheRatio() >= 0.8) return 'status-bar__cache--warning';
+    return '';
+  };
+
   const stateClass = () => {
     switch (props.playbackState) {
       case 'playing': return 'status-bar__state--playing';
@@ -46,6 +63,22 @@ const StatusBar: Component<StatusBarProps> = (props) => {
         </button>
       </div>
       <div class="status-bar__right">
+        <span
+          class="status-bar__cache"
+          classList={{ [cacheClass()]: cacheClass() !== '' }}
+          title={`报文监控缓存估算占用 ${formatMemory(props.estimatedCacheBytes)}，上限 ${formatMemory(props.cacheLimitBytes)}`}
+        >
+          缓存 {formatMemory(props.estimatedCacheBytes)} / {formatMemory(props.cacheLimitBytes)}
+        </span>
+        {props.availableMemoryBytes !== null && props.availableMemoryBytes < 1024 ** 3 && (
+          <span
+            class="status-bar__memory-warning"
+            title={`系统可用内存仅 ${formatMemory(props.availableMemoryBytes)}`}
+            role="status"
+          >
+            可用内存不足
+          </span>
+        )}
         {props.sourceLoaded && (
           <span class="status-bar__state" classList={{ [stateClass()]: true }}>
             <span class="status-bar__state-dot" classList={{ [dotClass()]: true }} />

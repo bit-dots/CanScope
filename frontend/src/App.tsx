@@ -1363,6 +1363,9 @@ function App() {
         <StatusBar
           sourceLoaded={hasSource()}
           playbackState={playbackState()}
+          estimatedCacheBytes={estimatedCacheBytes()}
+          cacheLimitBytes={currentCacheLimitBytes()}
+          availableMemoryBytes={availableMemoryBytes()}
           onOpenSettings={openSettings}
         />
       )}
