@@ -607,7 +607,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   let typeFilterMenuRef!: HTMLDivElement;
   let typeFilterThRef!: HTMLTableCellElement;
 
-  const handleTypeFilterToggle = (e: MouseEvent) => {
+  const handleTypeFilterToggle = (e: MouseEvent | KeyboardEvent) => {
     e.stopPropagation();
     const willOpen = !isTypeFilterOpen();
     if (willOpen && typeFilterThRef) {
@@ -1397,12 +1397,26 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                     data: { get: filterData, set: setFilterData },
                     name: { get: filterName, set: setFilterName },
                   };
+                  if (col.key === 'direction') {
+                    return <th class="frame-table__th frame-table__th--filter" />;
+                  }
                   if (col.key === 'type') {
                     return (
                       <th
                         ref={typeFilterThRef}
                         class="frame-table__th frame-table__th--filter frame-table__th--filter-selectable"
+                        classList={{ 'frame-table__th--filter-active': !!filterType() }}
+                        data-open={isTypeFilterOpen()}
+                        title="按报文类型筛选"
                         onClick={handleTypeFilterToggle}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTypeFilterToggle(e);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <span class="frame-table__filter-select-trigger">
                           {filterType() || '全部'}
@@ -1423,7 +1437,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                         type="text"
                         value={s?.get() ?? ''}
                         onInput={(e) => s?.set(e.currentTarget.value)}
-                        placeholder=""
+                        placeholder="筛选"
+                        aria-label={`${col.label}筛选`}
+                        title={`${col.label}筛选`}
                         spellcheck={false}
                       />
                     </th>
