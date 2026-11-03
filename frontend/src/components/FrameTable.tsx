@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, Show, For, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
-import type { FrameInfo, DecodedSignalInfo } from '../types';
+import type { FrameInfo, DecodedSignalInfo, FrameTableFilter } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, ChevronUp, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash, Star } from 'lucide-solid';
@@ -12,7 +12,7 @@ import FrameTableSettingsDialog from './FrameTableSettingsDialog';
 interface FrameTableProps {
   frames: FrameInfo[];
   frameOffset: number;
-  onRequestPage: (offset: number, limit: number) => Promise<void>;
+  onRequestPage: (offset: number, limit: number, filter?: FrameTableFilter) => Promise<void>;
   totalFrameCount: number;
   traceMode: boolean;
   hiddenTraceFrames: number;
@@ -29,6 +29,7 @@ interface FrameTableProps {
   projectName: string;
   busType?: string;
   startTime?: string | null;
+  timeOrigin?: number;
 }
 
 const ROW_HEIGHT = 28;
@@ -445,7 +446,27 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   let _flatIdxArray: number[] = [];
   const frameRowCache = new Map<number, { frame: FrameInfo; row: FlatRow }>();
   let requestedOffset: number | null = null;
-  const frameAt = (displayIdx: number) => displayFrames()[displayIdx - displayFrameOffset()];
+  const sourceFrameAt = (displayIdx: number) => displayFrames()[displayIdx - displayFrameOffset()];
+  const frameAt = (displayIdx: number) => displayedFrames()[displayIdx - displayFrameOffset()];
+
+  const tableFilter = (): FrameTableFilter => {
+    const startTime = props.startTime ? new Date(props.startTime) : null;
+    const startTimeOfDayMs = startTime && !Number.isNaN(startTime.getTime())
+      ? ((startTime.getHours() * 60 + startTime.getMinutes()) * 60 + startTime.getSeconds()) * 1000
+        + startTime.getMilliseconds()
+      : null;
+    return {
+      time: filterTime(),
+      channel: filterChannel(),
+      canId: filterId(),
+      frameType: filterType(),
+      dlc: filterDlc(),
+      data: filterData(),
+      name: filterName(),
+      timeFormat: timeFormat(),
+      startTimeOfDayMs,
+    };
+  };
 
   createEffect(() => {
     if (props.traceMode || isPaused()) return;
@@ -455,12 +476,45 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       requestedOffset = null;
     } else if (targetOffset !== requestedOffset && targetOffset < displayTotalFrameCount()) {
       requestedOffset = targetOffset;
-      void props.onRequestPage(targetOffset, PAGE_SIZE).catch((error) => {
+      void props.onRequestPage(targetOffset, PAGE_SIZE, tableFilter()).catch((error) => {
         requestedOffset = null;
         console.error('Failed to load frame page:', error);
       });
     }
   });
+
+  let filterRequestTimer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(on(
+    () => [
+      filterTime(),
+      filterChannel(),
+      filterId(),
+      filterType(),
+      filterDlc(),
+      filterData(),
+      filterName(),
+      timeFormat(),
+      props.startTime,
+      props.traceMode,
+      isPaused(),
+    ],
+    () => {
+      if (filterRequestTimer) clearTimeout(filterRequestTimer);
+      requestedOffset = 0;
+      setSelectedRow(null);
+      setSelectedRows(new Set<number>());
+      setScrollTop(0);
+      if (containerRef) containerRef.scrollTop = 0;
+      if (props.traceMode || isPaused()) return;
+      const activeFilter = tableFilter();
+      filterRequestTimer = setTimeout(() => {
+        void props.onRequestPage(0, PAGE_SIZE, activeFilter).catch((error) => {
+          requestedOffset = null;
+          console.error('Failed to query filtered frame pages:', error);
+        });
+      }, 200);
+    },
+  ));
 
   createEffect(() => {
     const ft = filterTime().trim().toLowerCase();
@@ -473,13 +527,15 @@ const FrameTable: Component<FrameTableProps> = (props) => {
 
     const frameOffset = displayFrameOffset();
     const frames = displayFrames().filter((frame, index) => {
+      if (!props.traceMode && !isPaused()) return true;
       const absoluteIndex = frameOffset + index;
       if (ft && !formatTimestamp(frame, absoluteIndex).toLowerCase().includes(ft)) return false;
       if (fc && !channelLabel(frame.bus_id).toLowerCase().includes(fc)) return false;
       if (fi) {
         const hexId = formatHex(frame.can_id, frame.is_extended ? 8 : 3).toLowerCase();
         const decId = frame.can_id.toString();
-        if (!hexId.startsWith(fi) && !decId.startsWith(fi)) return false;
+        const hexPrefix = fi.startsWith('0x') ? fi.slice(2) : fi;
+        if (!hexId.startsWith(hexPrefix) && !decId.startsWith(fi)) return false;
       }
       if (fy && getFrameTypeLabel(frame) !== fy) return false;
       if (fd && frame.dlc.toString() !== fd) return false;
@@ -625,11 +681,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const getDirection = (frame: FrameInfo): 'RX' | 'TX' => frame.is_tx ? 'TX' : 'RX';
 
   const frameTypeOptions = () => {
-    const types = new Set<string>();
-    for (const f of displayFrames()) {
-      types.add(getFrameTypeLabel(f));
-    }
-    return [...types].sort();
+    return ['CAN', 'CAN FD', 'CAN FD(加速)'];
   };
 
   const searchMatchIndices = (): number[] => {
@@ -802,14 +854,18 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const formatTimestamp = (frame: FrameInfo, index: number) => {
     switch (timeFormat()) {
       case 'relative-to-start':
-        if (displayFrames().length > 0) {
-          const firstFrame = displayFrames()[0];
-          return (frame.timestamp - firstFrame.timestamp).toFixed(6);
-        }
-        return frame.timestamp.toFixed(6);
+      {
+        const origin = props.traceMode
+          ? displayFrames()[0]?.timestamp ?? 0
+          : props.timeOrigin ?? 0;
+        return (frame.timestamp - origin).toFixed(6);
+      }
       case 'relative-to-prev': {
+        if (frame.relative_time !== undefined && frame.relative_time !== null) {
+          return frame.relative_time.toFixed(6);
+        }
         if (index > displayFrameOffset()) {
-          const prev = frameAt(index - 1);
+          const prev = sourceFrameAt(index - 1);
           if (!prev) return '0.000000';
           return (frame.timestamp - prev.timestamp).toFixed(6);
         }
@@ -957,6 +1013,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       timeBtnRef.removeEventListener('mousedown', handleTimeMenuToggle);
       document.removeEventListener('keydown', handleGlobalKeyDown);
       if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
+      if (filterRequestTimer) clearTimeout(filterRequestTimer);
     });
   });
 

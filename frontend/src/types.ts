@@ -49,13 +49,27 @@ export interface FrameInfo {
   dlc: number;
   data: number[];
   message_name?: string | null;
+  relative_time?: number | null;
   signals: DecodedSignalInfo[] | null;
 }
 
 export interface FramePage {
   offset: number;
   totalCount: number;
+  timeOrigin: number;
   frames: FrameInfo[];
+}
+
+export interface FrameTableFilter {
+  time: string;
+  channel: string;
+  canId: string;
+  frameType: string;
+  dlc: string;
+  data: string;
+  name: string;
+  timeFormat: 'absolute' | 'relative-to-start' | 'relative-to-prev';
+  startTimeOfDayMs: number | null;
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused';

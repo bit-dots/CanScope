@@ -44,6 +44,7 @@ import type {
   ProjectInfo,
   NewProjectTemplate,
   FramePage,
+  FrameTableFilter,
 } from './types';
 import { parseCanId, parseTime } from './types';
 import './App.css';
@@ -78,6 +79,7 @@ function App() {
   const [frames, setFrames] = createSignal<FrameInfo[]>([]);
   const [frameOffset, setFrameOffset] = createSignal(0);
   const [frameTotalCount, setFrameTotalCount] = createSignal(0);
+  const [frameTimeOrigin, setFrameTimeOrigin] = createSignal(0);
   const [traceMode, setTraceMode] = createSignal(false);
   const [playbackFrameCount, setPlaybackFrameCount] = createSignal(0);
   const [receivedFrameCount, setReceivedFrameCount] = createSignal(0);
@@ -445,10 +447,12 @@ function App() {
   });
 
   let frameQueryId = 0;
+  const [activeFrameTableFilter, setActiveFrameTableFilter] = createSignal<FrameTableFilter | null>(null);
   const fetchFramePage = (
     offset: number,
     limit: number,
     activeFilter: FilterConfig,
+    tableFilter: FrameTableFilter | null,
     playbackTime?: number,
   ) => invoke<FramePage>('get_frame_page', {
     offset,
@@ -456,19 +460,31 @@ function App() {
     canId: parseCanId(activeFilter.canId),
     timeStart: parseTime(activeFilter.timeStart),
     timeEnd: parseTime(activeFilter.timeEnd),
+    tableFilter,
     playbackTime: playbackTime ?? null,
   });
 
-  const requestFramePage = async (offset: number, limit: number) => {
+  const requestFramePage = async (
+    offset: number,
+    limit: number,
+    tableFilter?: FrameTableFilter,
+  ) => {
+    if (tableFilter) setActiveFrameTableFilter(tableFilter);
     const requestId = ++frameQueryId;
     const activeFilter = filter();
     const cacheLimit = currentCacheLimitBytes();
-    const page = await fetchFramePage(offset, Math.min(limit, 512), activeFilter);
+    const page = await fetchFramePage(
+      offset,
+      Math.min(limit, 512),
+      activeFilter,
+      tableFilter ?? activeFrameTableFilter(),
+    );
     if (requestId !== frameQueryId) return;
     const retained = retainNewestFrames(page.frames, cacheLimit);
     setFrames(retained.frames);
     setFrameOffset(page.offset + retained.dropped);
     setFrameTotalCount(page.totalCount);
+    setFrameTimeOrigin(page.timeOrigin);
     setEstimatedCacheBytes(retained.bytes);
   };
 
@@ -1462,6 +1478,7 @@ function App() {
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
                         startTime={metadata()?.files?.[0]?.startTime}
+                        timeOrigin={frameTimeOrigin()}
                         onClear={handleClearFrameMonitor}
                         onSelectMessage={handleSelectMessage}
                         onFilterByCanId={handleSelectMessage}

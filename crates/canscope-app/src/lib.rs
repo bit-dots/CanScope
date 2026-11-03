@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
 
-use canscope_core::CanFrameStream;
+use canscope_core::{CanFrame, CanFrameStream};
 use canscope_dbc::{Dbc, DbcMessage, DbcSignal, DecodedSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{
@@ -310,6 +310,7 @@ struct FrameInfo {
     #[serde(with = "serde_bytes")]
     data: Vec<u8>,
     message_name: Option<String>,
+    relative_time: Option<f64>,
     signals: Option<Vec<DecodedSignalInfo>>,
 }
 
@@ -347,7 +348,22 @@ struct PlaylistInfo {
 struct FramePage {
     offset: u64,
     total_count: u64,
+    time_origin: f64,
     frames: Vec<FrameInfo>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct FrameTableFilter {
+    time: String,
+    channel: String,
+    can_id: String,
+    frame_type: String,
+    dlc: String,
+    data: String,
+    name: String,
+    time_format: String,
+    start_time_of_day_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -517,6 +533,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
         dlc: f.dlc,
         data: f.data[..dlc.min(64)].to_vec(),
         message_name: f.message_name.clone(),
+        relative_time: None,
         signals: f
             .signals
             .as_ref()
@@ -595,6 +612,146 @@ fn get_batch(app: tauri::AppHandle, state: State<AppState>) -> Result<Vec<FrameI
     }
 }
 
+impl FrameTableFilter {
+    fn is_active(&self) -> bool {
+        [
+            &self.time,
+            &self.channel,
+            &self.can_id,
+            &self.frame_type,
+            &self.dlc,
+            &self.data,
+            &self.name,
+        ]
+        .iter()
+        .any(|value| !value.trim().is_empty())
+    }
+}
+
+fn format_frame_time(
+    timestamp: f64,
+    previous_timestamp: Option<f64>,
+    time_origin: f64,
+    filter: &FrameTableFilter,
+) -> String {
+    match filter.time_format.as_str() {
+        "relative-to-start" => format!("{:.6}", timestamp - time_origin),
+        "relative-to-prev" => format!(
+            "{:.6}",
+            previous_timestamp.map_or(0.0, |previous| timestamp - previous)
+        ),
+        _ => {
+            if let Some(start_ms) = filter.start_time_of_day_ms {
+                let millis = (start_ms as f64 + timestamp * 1000.0).trunc();
+                let day_millis = millis.rem_euclid(86_400_000.0) as u64;
+                let hour = day_millis / 3_600_000;
+                let minute = day_millis / 60_000 % 60;
+                let second = day_millis / 1_000 % 60;
+                let millisecond = day_millis % 1_000;
+                format!("{hour:02}:{minute:02}:{second:02}.{millisecond:03}")
+            } else {
+                let hours = (timestamp / 3600.0).floor();
+                let minutes = (timestamp % 3600.0 / 60.0).floor();
+                let seconds = timestamp % 60.0;
+                format!("{hours:02}:{minutes:02}:{seconds:06.3}")
+            }
+        }
+    }
+}
+
+fn matches_frame_table_filter(
+    frame: &CanFrame,
+    message_name: Option<&str>,
+    timestamp: f64,
+    previous_timestamp: Option<f64>,
+    time_origin: f64,
+    filter: &FrameTableFilter,
+) -> bool {
+    let can_id_filter = filter.can_id.trim().to_ascii_lowercase();
+    if !can_id_filter.is_empty() {
+        let hex_id = format!(
+            "{:0width$X}",
+            frame.can_id,
+            width = if frame.is_extended { 8 } else { 3 }
+        )
+        .to_ascii_lowercase();
+        let hex_prefix = can_id_filter.strip_prefix("0x").unwrap_or(&can_id_filter);
+        if !hex_id.starts_with(hex_prefix) && !frame.can_id.to_string().starts_with(&can_id_filter)
+        {
+            return false;
+        }
+    }
+
+    let channel_filter = filter.channel.trim().to_ascii_lowercase();
+    if !channel_filter.is_empty()
+        && !format!("can {}", frame.bus_id + 1).contains(channel_filter.as_str())
+    {
+        return false;
+    }
+
+    let type_filter = filter.frame_type.trim();
+    if !type_filter.is_empty() {
+        let frame_type = if frame.is_fd {
+            if frame.is_brs {
+                "CAN FD(加速)"
+            } else {
+                "CAN FD"
+            }
+        } else {
+            "CAN"
+        };
+        if frame_type != type_filter {
+            return false;
+        }
+    }
+
+    let dlc_filter = filter.dlc.trim();
+    if !dlc_filter.is_empty() && frame.dlc.to_string() != dlc_filter {
+        return false;
+    }
+
+    let data_filter = filter
+        .data
+        .trim()
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .flat_map(char::to_lowercase)
+        .collect::<String>();
+    if !data_filter.is_empty() {
+        let data = frame
+            .data
+            .iter()
+            .take(frame.dlc as usize)
+            .map(|byte| format!("{byte:02X}"))
+            .collect::<String>()
+            .to_ascii_lowercase();
+        if !data.contains(&data_filter) {
+            return false;
+        }
+    }
+
+    let name_filter = filter.name.trim().to_lowercase();
+    if !name_filter.is_empty()
+        && !message_name
+            .unwrap_or_default()
+            .to_lowercase()
+            .contains(&name_filter)
+    {
+        return false;
+    }
+
+    let time_filter = filter.time.trim().to_ascii_lowercase();
+    if !time_filter.is_empty()
+        && !format_frame_time(timestamp, previous_timestamp, time_origin, filter)
+            .to_ascii_lowercase()
+            .contains(&time_filter)
+    {
+        return false;
+    }
+
+    true
+}
+
 #[tauri::command]
 fn get_frame_page(
     app: tauri::AppHandle,
@@ -603,6 +760,7 @@ fn get_frame_page(
     can_id: Option<u32>,
     time_start: Option<f64>,
     time_end: Option<f64>,
+    table_filter: Option<FrameTableFilter>,
     playback_time: Option<f64>,
     state: State<AppState>,
 ) -> Result<FramePage, String> {
@@ -614,12 +772,104 @@ fn get_frame_page(
         (Some(filter_end), None) => Some(filter_end),
         (None, playback_time) => playback_time,
     };
+    if let Some(filter) = table_filter.filter(FrameTableFilter::is_active) {
+        let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+        let mut frames = Vec::with_capacity(limit);
+        let mut total_count = 0u64;
+        let mut time_origin = None;
+        let mut previous_timestamp = None;
+
+        for source in sources {
+            let reader =
+                AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
+            let mut source_offset = 0u64;
+            loop {
+                let (_, page) = reader
+                    .query_page(source_offset, 512, None, None, None)
+                    .map_err(|e| e.to_string())?;
+                if page.is_empty() {
+                    break;
+                }
+                source_offset += page.len() as u64;
+
+                for mut frame in page {
+                    let timestamp = frame.timestamp + source.global_offset;
+                    let origin = *time_origin.get_or_insert(timestamp);
+                    let previous = previous_timestamp;
+                    previous_timestamp = Some(timestamp);
+                    frame.timestamp = timestamp;
+
+                    if can_id.map_or(false, |id| frame.can_id != id)
+                        || time_start.map_or(false, |start| timestamp < start)
+                        || time_end.map_or(false, |end| timestamp > end)
+                    {
+                        continue;
+                    }
+
+                    let dbc = dbc_map.get(&frame.bus_id);
+                    let message_name = dbc
+                        .and_then(|dbc| dbc.get_message(frame.can_id))
+                        .map(|message| message.name.as_str());
+                    if !matches_frame_table_filter(
+                        &frame,
+                        message_name,
+                        timestamp,
+                        previous,
+                        origin,
+                        &filter,
+                    ) {
+                        continue;
+                    }
+
+                    if total_count >= offset && frames.len() < limit {
+                        let decoded = dbc.and_then(|dbc| dbc.decode_frame(&frame).ok());
+                        let message_name = message_name.map(str::to_owned);
+                        let playback_frame = PlaybackFrame {
+                            timestamp,
+                            bus_id: frame.bus_id,
+                            can_id: frame.can_id,
+                            is_extended: frame.is_extended,
+                            is_fd: frame.is_fd,
+                            is_brs: frame.is_brs,
+                            is_tx: frame.is_tx,
+                            dlc: frame.dlc,
+                            data: std::sync::Arc::new(frame.data),
+                            message_name,
+                            signals: decoded,
+                        };
+                        let mut frame_info = frame_to_info(&playback_frame);
+                        frame_info.relative_time =
+                            Some(previous.map_or(0.0, |previous| timestamp - previous));
+                        frames.push(frame_info);
+                    }
+                    total_count += 1;
+                }
+            }
+        }
+
+        return Ok(FramePage {
+            offset,
+            total_count,
+            time_origin: time_origin.unwrap_or(0.0),
+            frames,
+        });
+    }
+
     let mut indexed_sources = Vec::with_capacity(sources.len());
     let mut total_count = 0;
+    let mut time_origin = None;
 
     for source in sources {
         let reader =
             AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
+        if time_origin.is_none() {
+            let (_, first_frame) = reader
+                .query_page(0, 1, None, None, None)
+                .map_err(|e| e.to_string())?;
+            time_origin = first_frame
+                .first()
+                .map(|frame| frame.timestamp + source.global_offset);
+        }
         let local_start = time_start.map(|t| (t - source.global_offset).max(0.0));
         let local_end = time_end
             .map(|t| t - source.global_offset)
@@ -689,6 +939,7 @@ fn get_frame_page(
     Ok(FramePage {
         offset: page_offset,
         total_count,
+        time_origin: time_origin.unwrap_or(0.0),
         frames,
     })
 }
@@ -1946,13 +2197,61 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{UiLayoutJson, get_available_memory_bytes};
+    use super::{
+        format_frame_time, get_available_memory_bytes, matches_frame_table_filter,
+        FrameTableFilter, UiLayoutJson,
+    };
+    use canscope_core::CanFrame;
 
     #[test]
     fn legacy_ui_layout_defaults_panel_layouts() {
         let layout: UiLayoutJson =
             serde_json::from_str(r#"{"panelWidth":260,"chartHeight":200}"#).unwrap();
         assert!(layout.panels.is_empty());
+    }
+
+    #[test]
+    fn frame_table_filter_matches_fields_across_pages() {
+        let mut data = [0; 64];
+        data[..2].copy_from_slice(&[0xAA, 0xBB]);
+        let frame = CanFrame {
+            timestamp: 5.0,
+            bus_id: 0,
+            can_id: 0x123,
+            is_extended: false,
+            is_remote: false,
+            is_fd: true,
+            is_brs: true,
+            is_tx: false,
+            dlc: 2,
+            data,
+        };
+        let filter = FrameTableFilter {
+            can_id: "0x12".to_string(),
+            channel: "CAN 1".to_string(),
+            frame_type: "CAN FD(加速)".to_string(),
+            data: "aa bb".to_string(),
+            name: "speed".to_string(),
+            ..FrameTableFilter::default()
+        };
+
+        assert!(matches_frame_table_filter(
+            &frame,
+            Some("VehicleSpeed"),
+            5.0,
+            Some(4.99),
+            0.0,
+            &filter,
+        ));
+    }
+
+    #[test]
+    fn frame_table_filter_formats_relative_time_from_trace_origin() {
+        let filter = FrameTableFilter {
+            time_format: "relative-to-start".to_string(),
+            ..FrameTableFilter::default()
+        };
+        assert_eq!(format_frame_time(12.5, None, 10.0, &filter), "2.500000");
     }
 
     #[cfg(any(windows, target_os = "macos"))]
