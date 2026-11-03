@@ -1437,7 +1437,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
                         type="text"
                         value={s?.get() ?? ''}
                         onInput={(e) => s?.set(e.currentTarget.value)}
-                        placeholder="筛选"
                         aria-label={`${col.label}筛选`}
                         title={`${col.label}筛选`}
                         spellcheck={false}

@@ -498,30 +498,45 @@ select:focus-visible,
 
 .frame-table__table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
 /* 表头 */
 .frame-table__thead {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  background-color: var(--bg-secondary);
 }
 
 .frame-table__th {
   position: relative;
+  box-sizing: border-box;
   padding: 6px 10px;
   text-align: left;
   font-size: 13px;
   font-weight: 600;
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
   white-space: nowrap;
   user-select: none;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
+}
+
+.frame-table__thead > tr:first-child > .frame-table__th {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  height: 32px;
+  background-color: var(--bg-secondary);
+}
+
+.frame-table__filter-row > .frame-table__th {
+  position: sticky;
+  top: 32px;
+  z-index: 11;
+  background-color: var(--bg-secondary);
 }
 
 .frame-table__filter-toggle {
@@ -547,7 +562,7 @@ select:focus-visible,
   height: 24px;
   padding: 0 4px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-primary));
+  background-color: var(--bg-secondary);
 }
 
 .frame-table__filter-input {
