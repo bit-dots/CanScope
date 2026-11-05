@@ -45,6 +45,7 @@ function formatBoundaryTime(
   offsetSec: number | null,
   timestampOrigin: number,
   startTime: string | null,
+  includeDate = false,
 ): string {
   if (offsetSec === null || offsetSec === undefined) return '--:--:--.---';
   const timestampSec = timestampOrigin + offsetSec;
@@ -56,7 +57,10 @@ function formatBoundaryTime(
   const m = abs.getMinutes().toString().padStart(2, '0');
   const s = abs.getSeconds().toString().padStart(2, '0');
   const ms = abs.getMilliseconds().toString().padStart(3, '0');
-  return `${h}:${m}:${s}.${ms}`;
+  const date = includeDate
+    ? `${abs.getFullYear().toString().padStart(4, '0')}-${(abs.getMonth() + 1).toString().padStart(2, '0')}-${abs.getDate().toString().padStart(2, '0')} `
+    : '';
+  return `${date}${h}:${m}:${s}.${ms}`;
 }
 
 function formatFrameCount(count: number | null): string {
@@ -938,7 +942,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                       <span class="playback-panel__file-meta">
                         {formatDuration(file.duration)} · {formatFrameCount(file.totalFrames)} 帧
                         {' · '}
-                        {formatBoundaryTime(0, file.timestampOrigin, file.startTime)}
+                        {formatBoundaryTime(0, file.timestampOrigin, file.startTime, true)}
                       </span>
                     </td>
                     <td class="playback-panel__td playback-panel__td--timeline">
