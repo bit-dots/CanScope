@@ -1044,8 +1044,6 @@ function App() {
       setTraceMode(wasPlaying);
       if (wasPlaying) {
         startPolling();
-      } else if (stateBeforeSeek === 'paused') {
-        await requestFramePage(0, 512);
       }
     } catch (e) {
       console.error('Seek failed:', e);

@@ -79,6 +79,19 @@ const FrameTable: Component<FrameTableProps> = (props) => {
   const displayFrameOffset = () => pausedSnapshot()?.frameOffset ?? props.frameOffset;
   const displayTotalFrameCount = () => pausedSnapshot()?.totalFrameCount ?? props.totalFrameCount;
 
+  createEffect(on(
+    () => props.totalFrameCount,
+    (totalFrameCount) => {
+      if (totalFrameCount === 0 && props.frames.length === 0) {
+        setPausedSnapshot(null);
+        setIsPaused(false);
+        setSelectedRow(null);
+        setSelectedRows(new Set<number>());
+        setSelectionAnchor(null);
+      }
+    },
+  ));
+
   type FlatRow =
     | { kind: 'frame'; displayIdx: number; frame: FrameInfo }
     | { kind: 'signal'; parentDisplayIdx: number; signal: DecodedSignalInfo };
