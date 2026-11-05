@@ -306,8 +306,15 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       const folderPath = typeof selected === 'string' ? selected : null;
       if (!folderPath) return;
 
-      await invoke('playlist_add_folder', { folderPath });
+      const result: { addedCount: number; failedFiles: string[] } = await invoke(
+        'playlist_add_folder',
+        { folderPath },
+      );
       props.onRefreshPlaylist();
+      if (result.failedFiles.length > 0) {
+        const summary = `已添加 ${result.addedCount} 个文件，${result.failedFiles.length} 个文件未能导入：`;
+        alert(`${summary}\n${result.failedFiles.join('\n')}`);
+      }
     } catch (e) {
       console.error('Failed to add folder:', e);
       alert(`添加文件夹失败：${String(e)}`);

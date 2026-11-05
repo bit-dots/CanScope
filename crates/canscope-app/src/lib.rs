@@ -345,6 +345,14 @@ struct PlaylistInfo {
     enabled_count: usize,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FolderAddResult {
+    playlist_info: PlaylistInfo,
+    added_count: usize,
+    failed_files: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FramePage {
@@ -1432,7 +1440,7 @@ fn playlist_add_folder(
     app: tauri::AppHandle,
     folder_path: String,
     state: State<AppState>,
-) -> Result<PlaylistInfo, String> {
+) -> Result<FolderAddResult, String> {
     let folder = PathBuf::from(&folder_path);
     if !folder.is_dir() {
         return Err(format!("不是文件夹: {}", folder_path));
@@ -1448,6 +1456,7 @@ fn playlist_add_folder(
     if let Some(ref mut playlist) = *engine_guard {
         let was_playing = playlist.state() == PlaybackState::Playing;
         let mut added = 0usize;
+        let mut failed_files = Vec::new();
 
         for path in &asc_paths {
             match build_entry_from_path(path, &app) {
@@ -1456,23 +1465,24 @@ fn playlist_add_folder(
                     added += 1;
                 }
                 Err(error) => {
-                    eprintln!("跳过无法解析的文件 {}: {}", path.display(), error);
+                    failed_files.push(format!("{}: {}", path.display(), error));
                 }
             }
         }
 
-        if added == 0 {
-            return Err("文件夹中没有可解析的 .asc 文件".into());
-        }
-
-        if was_playing {
+        if added > 0 && was_playing {
             playlist.play().map_err(|e| e.to_string())?;
         }
-        Ok(build_playlist_info(playlist))
+        Ok(FolderAddResult {
+            playlist_info: build_playlist_info(playlist),
+            added_count: added,
+            failed_files,
+        })
     } else {
         let mut playlist = PlaylistEngine::new();
         let mut first_added: Option<PathBuf> = None;
         let mut added = 0usize;
+        let mut failed_files = Vec::new();
 
         for path in &asc_paths {
             match build_entry_from_path(path, &app) {
@@ -1484,13 +1494,9 @@ fn playlist_add_folder(
                     added += 1;
                 }
                 Err(error) => {
-                    eprintln!("跳过无法解析的文件 {}: {}", path.display(), error);
+                    failed_files.push(format!("{}: {}", path.display(), error));
                 }
             }
-        }
-
-        if added == 0 {
-            return Err("文件夹中没有可解析的 .asc 文件".into());
         }
 
         let info = build_playlist_info(&playlist);
@@ -1498,10 +1504,14 @@ fn playlist_add_folder(
         if let Some(fp) = first_added {
             let mut file_path = state.file_path.lock().map_err(|e| e.to_string())?;
             *file_path = Some(fp);
+            *engine_guard = Some(playlist);
         }
 
-        *engine_guard = Some(playlist);
-        Ok(info)
+        Ok(FolderAddResult {
+            playlist_info: info,
+            added_count: added,
+            failed_files,
+        })
     }
 }
 
