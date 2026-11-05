@@ -30,6 +30,7 @@ interface FrameTableProps {
   projectName: string;
   busType?: string;
   startTime?: string | null;
+  absoluteTimeOffset?: number;
   timeOrigin?: number;
 }
 
@@ -928,7 +929,9 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       default: {
         const base = props.startTime ? new Date(props.startTime) : null;
         if (base && !isNaN(base.getTime())) {
-          const abs = new Date(base.getTime() + frame.timestamp * 1000);
+          const abs = new Date(
+            base.getTime() + ((props.absoluteTimeOffset ?? 0) + frame.timestamp) * 1000,
+          );
           const hh = abs.getHours().toString().padStart(2, '0');
           const mm = abs.getMinutes().toString().padStart(2, '0');
           const ss = abs.getSeconds().toString().padStart(2, '0');
