@@ -507,6 +507,7 @@ function App() {
 
   let playbackTimer: ReturnType<typeof setInterval> | null = null;
   let playbackPollInFlight = false;
+  let playbackPollGeneration = 0;
   let lastFrameMonitorRefresh = 0;
   let pendingTraceFrames: FrameInfo[] = [];
   let pendingTraceBytes = 0;
@@ -594,9 +595,11 @@ function App() {
     if (playbackTimer) return;
     playbackTimer = setInterval(async () => {
       if (playbackPollInFlight) return;
+      const generation = playbackPollGeneration;
       playbackPollInFlight = true;
       try {
         const batch: FrameInfo[] = await invoke('get_batch');
+        if (generation !== playbackPollGeneration) return;
         if (batch.length > 0) {
           countMonitorFrames(batch);
           if (!traceMode()) {
@@ -627,6 +630,7 @@ function App() {
   };
 
   const stopPolling = () => {
+    playbackPollGeneration++;
     if (playbackTimer) {
       clearInterval(playbackTimer);
       playbackTimer = null;
@@ -1336,6 +1340,25 @@ function App() {
     }
   };
 
+  const handleClearPlaylist = async (): Promise<boolean> => {
+    stopPolling();
+    try {
+      const info: PlaylistInfo = await invoke('playlist_clear');
+      setMetadata(info);
+      setPlaybackState('stopped');
+      setCurrentTime(0);
+      resetTraceBuffer();
+      resetMonitorCounters();
+      setTraceMode(false);
+      setPlaybackFrameCount(0);
+      return true;
+    } catch (e) {
+      console.error('playlist_clear failed:', e);
+      setError(`清空回放列表失败：${String(e)}`);
+      return false;
+    }
+  };
+
   return (
     <div class="app-layout">
       {project() !== null && !loading() && <Ribbon
@@ -1538,6 +1561,7 @@ function App() {
                         onStepForward={handleStepForward}
                         onStepBack={handleStepBack}
                         onSeek={handleSeek}
+                        onClearPlaylist={handleClearPlaylist}
                         onRefreshPlaylist={handleRefreshPlaylist}
                       />
                     );

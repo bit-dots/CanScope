@@ -114,6 +114,16 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         &mut self.entries
     }
 
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.state = PlaybackState::Stopped;
+        self.current_entry_index = 0;
+        self.global_time = None;
+        self.global_frame_count = 0;
+        self.pending_frame = None;
+        self.playback_clock = None;
+    }
+
     /// 添加文件到播放列表，自动按 start_time 排序后重新计算全局偏移
     pub fn add_entry(&mut self, entry: PlaylistEntry<S>) {
         self.entries.push(entry);
@@ -1114,5 +1124,44 @@ mod tests {
         engine.play().unwrap();
         let batch = engine.next_batch(10).unwrap();
         assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn clear_stops_playback_and_resets_playlist_state() {
+        let stream = MockStream::new(
+            vec![make_frame(0.0, 0x100), make_frame(1.0, 0x101)],
+            "2026-01-01T10:00:00",
+            Some(1.0),
+        );
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(stream),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+        engine.set_speed(4.0);
+        engine.set_loop(true);
+        engine.play().unwrap();
+        let start = Instant::now();
+        engine.next_batch_timed(1, start).unwrap();
+        engine.next_batch_timed(1, start).unwrap();
+        assert!(engine.pending_frame.is_some());
+
+        engine.clear();
+
+        assert!(engine.entries().is_empty());
+        assert_eq!(engine.state(), PlaybackState::Stopped);
+        assert_eq!(engine.current_entry_index(), 0);
+        assert_eq!(engine.global_time(), None);
+        assert_eq!(engine.global_frame_count(), 0);
+        assert!(engine.pending_frame.is_none());
+        assert!(engine.playback_clock.is_none());
+        assert_eq!(engine.speed(), 4.0);
+        assert!(engine.loop_enabled());
     }
 }

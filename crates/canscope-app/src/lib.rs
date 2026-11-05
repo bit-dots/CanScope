@@ -1476,6 +1476,23 @@ fn playlist_remove(index: usize, state: State<AppState>) -> Result<PlaylistInfo,
 }
 
 #[tauri::command]
+fn playlist_clear(state: State<AppState>) -> Result<PlaylistInfo, String> {
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.clear();
+        Ok(build_playlist_info(playlist))
+    } else {
+        Ok(PlaylistInfo {
+            files: Vec::new(),
+            total_duration: Some(0.0),
+            total_frames: Some(0),
+            file_count: 0,
+            enabled_count: 0,
+        })
+    }
+}
+
+#[tauri::command]
 fn playlist_toggle(
     index: usize,
     enabled: bool,
@@ -2192,6 +2209,7 @@ pub fn run() {
             playlist_add,
             playlist_add_folder,
             playlist_remove,
+            playlist_clear,
             playlist_toggle,
             playlist_reorder,
             playlist_set_offset,

@@ -16,6 +16,7 @@ interface PlaybackPanelProps {
   onStepForward: () => void;
   onStepBack: () => void;
   onSeek: (timestamp: number) => void;
+  onClearPlaylist: () => Promise<boolean>;
   onRefreshPlaylist: () => void;
 }
 
@@ -273,12 +274,10 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   };
 
   const handleClearAll = async () => {
-    try {
-      await invoke('playlist_clear');
-      props.onRefreshPlaylist();
-    } catch (e) {
-      console.error('Failed to clear playlist:', e);
-    }
+    if (!await props.onClearPlaylist()) return;
+    setCurrentTime(0);
+    setSelectedFiles(new Set<number>());
+    setSelectedFileAnchor(null);
   };
 
   const handleSelectAll = async () => {
