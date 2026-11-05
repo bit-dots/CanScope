@@ -568,7 +568,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
             if count == 0 {
                 consecutive_empty_entries += 1;
-                if consecutive_empty_entries >= enabled_entry_count {
+                if consecutive_empty_entries > enabled_entry_count {
                     self.state = PlaybackState::Stopped;
                     break;
                 }
@@ -1404,6 +1404,27 @@ mod tests {
         engine.play().unwrap();
 
         let batch = engine.next_batch(3).unwrap();
+
+        assert_eq!(
+            batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x100, 0x100, 0x100]
+        );
+        assert_eq!(engine.state(), PlaybackState::Playing);
+    }
+
+    #[test]
+    fn timed_looping_skips_empty_files_and_repeats_files_with_frames() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_empty_entry("empty.asc", "2026-01-01T10:00:00"));
+        engine.add_entry(make_entry("frames.asc", "2026-01-01T11:00:00", 0x100, 0));
+        engine.set_loop(true);
+        engine.play().unwrap();
+
+        let now = Instant::now();
+        let mut batch = Vec::new();
+        for _ in 0..3 {
+            batch.extend(engine.next_batch_timed(1, now).unwrap());
+        }
 
         assert_eq!(
             batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
