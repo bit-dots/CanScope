@@ -1024,7 +1024,8 @@ function App() {
 
   const handleSeek = async (timestamp: number) => {
     try {
-      const wasPlaying = playbackState() === 'playing';
+      const stateBeforeSeek = playbackState();
+      const wasPlaying = stateBeforeSeek === 'playing';
       if (wasPlaying) stopPolling();
       await invoke('seek_to', { timestamp });
       if (timestamp <= 0) resetMonitorCounters();
@@ -1033,7 +1034,7 @@ function App() {
       setTraceMode(wasPlaying);
       if (wasPlaying) {
         startPolling();
-      } else {
+      } else if (stateBeforeSeek === 'paused') {
         await requestFramePage(0, 512);
       }
     } catch (e) {
