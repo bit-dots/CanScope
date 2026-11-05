@@ -2,15 +2,18 @@ import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } 
 import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
 import { Play, Pause, Square, Gauge, Repeat, FilePlusCorner, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
-import type { PlaylistInfo, PlaybackState } from '../types';
+import type { LoopScope, PlaybackMode, PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
 interface PlaybackPanelProps {
   playlistInfo: PlaylistInfo | null;
   playbackState: PlaybackState;
+  playbackMode: PlaybackMode;
+  loopScope: LoopScope;
   speed: number;
   loopEnabled: boolean;
   onPlaybackControl: (action: string) => void;
+  onSetPlaybackOptions: (mode: PlaybackMode, scope: LoopScope) => Promise<boolean>;
   onSetSpeed: (speed: number) => void;
   onSetLoop: (enabled: boolean) => void;
   onStepForward: () => void;
@@ -87,20 +90,12 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   // 回放设置模态框
   const [showSettings, setShowSettings] = createSignal(false);
-  const [playbackMode, setPlaybackMode] = createSignal<'continuous' | 'single'>('continuous');
-  const [loopScope, setLoopScope] = createSignal<'all' | 'single'>('all');
-  const [timeDisplayFormat, setTimeDisplayFormat] = createSignal<'absolute' | 'relative-to-start' | 'relative-to-prev'>('absolute');
-  const [autoScrollEnabled, setAutoScrollEnabled] = createSignal(true);
   const [settingsDraft, setSettingsDraft] = createSignal<{
-    playbackMode: 'continuous' | 'single';
-    loopScope: 'all' | 'single';
-    timeFormat: 'absolute' | 'relative-to-start' | 'relative-to-prev';
-    autoScroll: boolean;
+    playbackMode: PlaybackMode;
+    loopScope: LoopScope;
   }>({
     playbackMode: 'continuous',
     loopScope: 'all',
-    timeFormat: 'absolute',
-    autoScroll: true,
   });
 
   // 当前播放到的文件索引 (基于 currentTime 估算)
@@ -579,21 +574,17 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   const handleSettings = () => {
     setSettingsDraft({
-      playbackMode: playbackMode(),
-      loopScope: loopScope(),
-      timeFormat: timeDisplayFormat(),
-      autoScroll: autoScrollEnabled(),
+      playbackMode: props.playbackMode,
+      loopScope: props.loopScope,
     });
     setShowSettings(true);
   };
 
-  const handleSettingsApply = () => {
+  const handleSettingsApply = async () => {
     const d = settingsDraft();
-    setPlaybackMode(d.playbackMode);
-    setLoopScope(d.loopScope);
-    setTimeDisplayFormat(d.timeFormat);
-    setAutoScrollEnabled(d.autoScroll);
-    setShowSettings(false);
+    if (await props.onSetPlaybackOptions(d.playbackMode, d.loopScope)) {
+      setShowSettings(false);
+    }
   };
 
   const handleSettingsCancel = () => {
@@ -604,8 +595,6 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     setSettingsDraft({
       playbackMode: 'continuous',
       loopScope: 'all',
-      timeFormat: 'absolute',
-      autoScroll: true,
     });
   };
 
@@ -1123,82 +1112,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                     <span class="playback-settings-radio-desc">当前文件播完后从头再播</span>
                   </label>
                 </div>
-              </div>
-
-              <div class="playback-settings-divider" />
-
-              {/* 时间格式 */}
-              <div class="playback-settings-section">
-                <div class="playback-settings-section-title">时间格式</div>
-                <div class="playback-settings-radio-group">
-                  <label
-                    class="playback-settings-radio-label"
-                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'absolute' }}
-                  >
-                    <input
-                      class="playback-settings-radio"
-                      type="radio"
-                      name="timeFormat"
-                      value="absolute"
-                      checked={settingsDraft().timeFormat === 'absolute'}
-                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'absolute' })}
-                    />
-                    <span class="playback-settings-radio-text">绝对时间</span>
-                    <span class="playback-settings-radio-desc">基于录制时刻的挂钟时间</span>
-                  </label>
-                  <label
-                    class="playback-settings-radio-label"
-                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'relative-to-start' }}
-                  >
-                    <input
-                      class="playback-settings-radio"
-                      type="radio"
-                      name="timeFormat"
-                      value="relative-to-start"
-                      checked={settingsDraft().timeFormat === 'relative-to-start'}
-                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'relative-to-start' })}
-                    />
-                    <span class="playback-settings-radio-text">相对起始</span>
-                    <span class="playback-settings-radio-desc">相对于文件第一条帧的时间偏移</span>
-                  </label>
-                  <label
-                    class="playback-settings-radio-label"
-                    classList={{ 'playback-settings-radio-label--selected': settingsDraft().timeFormat === 'relative-to-prev' }}
-                  >
-                    <input
-                      class="playback-settings-radio"
-                      type="radio"
-                      name="timeFormat"
-                      value="relative-to-prev"
-                      checked={settingsDraft().timeFormat === 'relative-to-prev'}
-                      onChange={() => setSettingsDraft({ ...settingsDraft(), timeFormat: 'relative-to-prev' })}
-                    />
-                    <span class="playback-settings-radio-text">相对上一帧</span>
-                    <span class="playback-settings-radio-desc">每帧相对于前一帧的时间间隔</span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="playback-settings-divider" />
-
-              {/* 行为 */}
-              <div class="playback-settings-section">
-                <div class="playback-settings-section-title">行为</div>
-                <div class="playback-settings-row">
-                  <label class="playback-settings-toggle-label">
-                    <span class="playback-settings-toggle-text">自动滚动</span>
-                    <span class="playback-settings-toggle-desc">播放时自动滚动到当前帧</span>
-                  </label>
-                  <label class="playback-settings-switch">
-                    <input
-                      class="playback-settings-switch-input"
-                      type="checkbox"
-                      checked={settingsDraft().autoScroll}
-                      onChange={(e) => setSettingsDraft({ ...settingsDraft(), autoScroll: e.currentTarget.checked })}
-                    />
-                    <span class="playback-settings-switch-track" />
-                  </label>
-                </div>
+                <span class="playback-settings-radio-desc">开启工具栏循环播放后，此范围优先于播放模式。</span>
               </div>
             </div>
 

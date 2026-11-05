@@ -4,4 +4,4 @@ pub mod playlist;
 
 pub use engine::{PlaybackEngine, PlaybackFrame, PlaybackState};
 pub use error::PlaybackError;
-pub use playlist::{PlaylistEngine, PlaylistEntry};
+pub use playlist::{LoopScope, PlaybackMode, PlaylistEngine, PlaylistEntry};

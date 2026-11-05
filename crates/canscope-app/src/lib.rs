@@ -9,7 +9,8 @@ use canscope_core::{CanFrame, CanFrameStream};
 use canscope_dbc::{Dbc, DbcMessage, DbcSignal, DecodedSignal};
 use canscope_parser::asc::AscReader;
 use canscope_playback::{
-    PlaybackEngine, PlaybackFrame, PlaybackState, PlaylistEngine, PlaylistEntry,
+    LoopScope, PlaybackEngine, PlaybackFrame, PlaybackMode, PlaybackState, PlaylistEngine,
+    PlaylistEntry,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, State};
@@ -1248,6 +1249,31 @@ fn set_loop(enabled: bool, state: State<AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn set_playback_options(
+    playback_mode: String,
+    loop_scope: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mode = match playback_mode.as_str() {
+        "continuous" => PlaybackMode::Continuous,
+        "single" => PlaybackMode::Single,
+        _ => return Err(format!("Unknown playback mode: {playback_mode}")),
+    };
+    let scope = match loop_scope.as_str() {
+        "all" => LoopScope::All,
+        "single" => LoopScope::Single,
+        _ => return Err(format!("Unknown loop scope: {loop_scope}")),
+    };
+
+    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut playlist) = *engine_guard {
+        playlist.set_playback_mode(mode);
+        playlist.set_loop_scope(scope);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn get_loop(state: State<AppState>) -> Result<bool, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref playlist) = *engine_guard {
@@ -2220,6 +2246,7 @@ pub fn run() {
             set_speed,
             get_speed,
             set_loop,
+            set_playback_options,
             get_loop,
             step_forward,
             step_back,

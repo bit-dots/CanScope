@@ -75,6 +75,8 @@ export interface FrameTableFilter {
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused';
+export type PlaybackMode = 'continuous' | 'single';
+export type LoopScope = 'all' | 'single';
 
 export function formatHex(value: number, digits: number): string {
   return value.toString(16).toUpperCase().padStart(digits, '0');

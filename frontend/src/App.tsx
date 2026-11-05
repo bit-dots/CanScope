@@ -35,6 +35,8 @@ import {
   type MeasurementSettings,
 } from './measurementSettings';
 import type {
+  LoopScope,
+  PlaybackMode,
   PlaybackState,
   FrameInfo,
   PlaylistInfo,
@@ -115,6 +117,8 @@ function App() {
   const [chartSignals, setChartSignals] = createSignal<ChartSignal[]>([]);
   const [speed, setSpeed] = createSignal(1);
   const [loopEnabled, setLoopEnabled] = createSignal(false);
+  const [playbackMode, setPlaybackMode] = createSignal<PlaybackMode>('continuous');
+  const [loopScope, setLoopScope] = createSignal<LoopScope>('all');
   const [showNewProjectDialog, setShowNewProjectDialog] = createSignal(false);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const [stagingNewProjectWorkspace, setStagingNewProjectWorkspace] = createSignal(false);
@@ -1072,9 +1076,31 @@ function App() {
     setChartSignals(prev => prev.filter(x => !(x.canId === s.canId && x.signalName === s.signalName)));
   };
 
+  const handleSetPlaybackOptions = async (
+    mode: PlaybackMode,
+    scope: LoopScope,
+  ): Promise<boolean> => {
+    try {
+      await invoke('set_playback_options', { playbackMode: mode, loopScope: scope });
+      setPlaybackMode(mode);
+      setLoopScope(scope);
+      return true;
+    } catch (e) {
+      console.error('set_playback_options failed:', e);
+      setError(`设置回放模式失败：${String(e)}`);
+      return false;
+    }
+  };
+
   const handlePlaybackControl = async (action: string) => {
     const prevState = playbackState();
     try {
+      if (action === 'play') {
+        await invoke('set_playback_options', {
+          playbackMode: playbackMode(),
+          loopScope: loopScope(),
+        });
+      }
       const state: string = await invoke('playback_control', { action });
       setPlaybackState(state as PlaybackState);
 
@@ -1553,9 +1579,12 @@ function App() {
                       <PlaybackPanel
                         playlistInfo={metadata()}
                         playbackState={playbackState()}
+                        playbackMode={playbackMode()}
+                        loopScope={loopScope()}
                         speed={speed()}
                         loopEnabled={loopEnabled()}
                         onPlaybackControl={handlePlaybackControl}
+                        onSetPlaybackOptions={handleSetPlaybackOptions}
                         onSetSpeed={handleSetSpeed}
                         onSetLoop={handleSetLoop}
                         onStepForward={handleStepForward}

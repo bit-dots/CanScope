@@ -23,6 +23,20 @@ pub struct PlaylistEntry<S: CanFrameStream> {
     pub play_end_offset: Option<f64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaybackMode {
+    #[default]
+    Continuous,
+    Single,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LoopScope {
+    #[default]
+    All,
+    Single,
+}
+
 /// 串联播放引擎：按列表顺序首尾相连播放多个 CAN 日志文件
 ///
 /// 文件按原始时间戳自动排序。启用复选框的文件参与串联播放：
@@ -33,6 +47,8 @@ pub struct PlaylistEngine<S: CanFrameStream> {
     state: PlaybackState,
     speed: f64,
     loop_enabled: bool,
+    playback_mode: PlaybackMode,
+    loop_scope: LoopScope,
     dbcs: HashMap<u8, Dbc>,
     current_entry_index: usize,
     global_time: Option<f64>,
@@ -49,6 +65,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             state: PlaybackState::Stopped,
             speed: 1.0,
             loop_enabled: false,
+            playback_mode: PlaybackMode::Continuous,
+            loop_scope: LoopScope::All,
             dbcs: HashMap::new(),
             current_entry_index: 0,
             global_time: None,
@@ -90,6 +108,14 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     pub fn loop_enabled(&self) -> bool {
         self.loop_enabled
+    }
+
+    pub fn set_playback_mode(&mut self, mode: PlaybackMode) {
+        self.playback_mode = mode;
+    }
+
+    pub fn set_loop_scope(&mut self, scope: LoopScope) {
+        self.loop_scope = scope;
     }
 
     pub fn set_dbcs(&mut self, dbcs: HashMap<u8, Dbc>) {
@@ -487,13 +513,20 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             return Ok(false);
         }
 
-        let steps = if self.loop_enabled {
+        let single_file_loop = self.loop_enabled && self.loop_scope == LoopScope::Single;
+        let steps = if single_file_loop {
+            1
+        } else if self.loop_enabled {
             len
+        } else if self.playback_mode == PlaybackMode::Single {
+            0
         } else {
             len.saturating_sub(start + 1)
         };
         for step in 1..=steps {
-            let idx = if self.loop_enabled {
+            let idx = if single_file_loop {
+                start
+            } else if self.loop_enabled {
                 (start + step) % len
             } else {
                 start + step
@@ -1429,6 +1462,62 @@ mod tests {
         assert_eq!(
             batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
             [0x100, 0x100, 0x100]
+        );
+        assert_eq!(engine.state(), PlaybackState::Playing);
+    }
+
+    #[test]
+    fn single_playback_mode_stops_after_current_file() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("second.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.set_playback_mode(PlaybackMode::Single);
+        engine.play().unwrap();
+
+        let batch = engine.next_batch(10).unwrap();
+
+        assert_eq!(
+            batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x100, 0x101]
+        );
+        assert_eq!(engine.state(), PlaybackState::Stopped);
+    }
+
+    #[test]
+    fn single_loop_scope_repeats_only_the_current_file() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("second.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.set_loop(true);
+        engine.set_loop_scope(LoopScope::Single);
+        engine.play().unwrap();
+        engine.seek_to(1.0).unwrap();
+
+        let batch = engine.next_batch(4).unwrap();
+
+        assert_eq!(
+            batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x200, 0x201, 0x200, 0x201]
+        );
+        assert_eq!(engine.current_entry_index(), 1);
+        assert_eq!(engine.state(), PlaybackState::Playing);
+    }
+
+    #[test]
+    fn all_loop_scope_takes_precedence_over_single_playback_mode() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("second.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.set_playback_mode(PlaybackMode::Single);
+        engine.set_loop(true);
+        engine.set_loop_scope(LoopScope::All);
+        engine.play().unwrap();
+
+        let batch = engine.next_batch(5).unwrap();
+
+        assert_eq!(
+            batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x100, 0x101, 0x200, 0x201, 0x100]
         );
         assert_eq!(engine.state(), PlaybackState::Playing);
     }
