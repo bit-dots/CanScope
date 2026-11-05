@@ -8,6 +8,7 @@ import './PlaybackPanel.css';
 interface PlaybackPanelProps {
   playlistInfo: PlaylistInfo | null;
   playbackState: PlaybackState;
+  isActive: boolean;
   playbackMode: PlaybackMode;
   loopScope: LoopScope;
   speed: number;
@@ -171,15 +172,40 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   onMount(() => {
     document.addEventListener('click', closeSpeedMenu);
     handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === ' ') {
+      if (showSettings()) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleSettingsCancel();
+        }
+        return;
+      }
+
+      if (e.key === 'Escape' && isSpeedMenuOpen()) {
+        e.preventDefault();
+        setIsSpeedMenuOpen(false);
+        return;
+      }
+
+      if (!props.isActive) return;
+
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest('input, textarea, select, button, a, [role="button"]'))
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         if (props.playbackState === 'playing') {
           props.onPlaybackControl('pause');
         } else {
           props.onPlaybackControl('play');
         }
-      } else if (e.key === 'Escape') {
+      } else if (e.key === 'Escape' && props.playbackState !== 'stopped') {
+        e.preventDefault();
         props.onPlaybackControl('stop');
       }
     };

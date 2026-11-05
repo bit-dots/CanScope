@@ -1585,6 +1585,10 @@ function App() {
                       <PlaybackPanel
                         playlistInfo={metadata()}
                         playbackState={playbackState()}
+                        isActive={windowManager.visiblePanels().every(
+                          (visiblePanel) =>
+                            visiblePanel.id === panel.id || visiblePanel.zIndex < panel.zIndex,
+                        )}
                         playbackMode={playbackMode()}
                         loopScope={loopScope()}
                         speed={speed()}
