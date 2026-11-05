@@ -39,6 +39,7 @@ pub struct PlaylistEngine<S: CanFrameStream> {
     global_frame_count: u64,
     pending_frame: Option<PlaybackFrame>,
     playback_clock: Option<(Instant, f64)>,
+    resume_from_stopped_seek: bool,
 }
 
 impl<S: CanFrameStream> PlaylistEngine<S> {
@@ -54,6 +55,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             global_frame_count: 0,
             pending_frame: None,
             playback_clock: None,
+            resume_from_stopped_seek: false,
         }
     }
 
@@ -122,6 +124,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         self.global_frame_count = 0;
         self.pending_frame = None;
         self.playback_clock = None;
+        self.resume_from_stopped_seek = false;
     }
 
     /// 添加文件到播放列表，自动按 start_time 排序后重新计算全局偏移
@@ -281,19 +284,34 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
     pub fn play(&mut self) -> Result<(), PlaybackError> {
         match self.state {
             PlaybackState::Stopped => {
-                self.reset_all_entries();
-                self.current_entry_index = self.advance_to_next_enabled(0);
-                self.global_time = None;
-                self.global_frame_count = 0;
-                self.pending_frame = None;
-                self.playback_clock = None;
-                if self
-                    .entries
-                    .get(self.current_entry_index)
-                    .is_some_and(|entry| entry.enabled)
-                {
-                    self.activate_entry(self.current_entry_index)?;
-                    self.state = PlaybackState::Playing;
+                if self.resume_from_stopped_seek {
+                    if let (Some(timestamp), Some(entry)) = (
+                        self.global_time,
+                        self.entries.get_mut(self.current_entry_index),
+                    ) {
+                        if entry.enabled {
+                            entry.engine.play();
+                            entry.engine.set_dbcs(self.dbcs.clone());
+                            self.playback_clock = Some((Instant::now(), timestamp));
+                            self.state = PlaybackState::Playing;
+                        }
+                    }
+                    self.resume_from_stopped_seek = false;
+                } else {
+                    self.reset_all_entries();
+                    self.current_entry_index = self.advance_to_next_enabled(0);
+                    self.global_time = None;
+                    self.global_frame_count = 0;
+                    self.pending_frame = None;
+                    self.playback_clock = None;
+                    if self
+                        .entries
+                        .get(self.current_entry_index)
+                        .is_some_and(|entry| entry.enabled)
+                    {
+                        self.activate_entry(self.current_entry_index)?;
+                        self.state = PlaybackState::Playing;
+                    }
                 }
             }
             PlaybackState::Paused => {
@@ -322,6 +340,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         self.global_frame_count = 0;
         self.pending_frame = None;
         self.playback_clock = None;
+        self.resume_from_stopped_seek = false;
         self.reset_all_entries();
     }
 
@@ -514,6 +533,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     /// 在全局时间线上定位到指定时间戳
     pub fn seek_to(&mut self, global_timestamp: f64) -> Result<(), PlaybackError> {
+        self.resume_from_stopped_seek = self.state == PlaybackState::Stopped;
         self.pending_frame = None;
         self.playback_clock = None;
         self.global_time = Some(global_timestamp);
@@ -998,6 +1018,32 @@ mod tests {
 
         let frame = engine.next_batch(1).unwrap().remove(0);
         assert_eq!(frame.can_id, 0x103);
+        assert_eq!(frame.timestamp, 1.0);
+    }
+
+    #[test]
+    fn play_after_seek_while_stopped_starts_at_seek_position() {
+        let frames = (0..=2).map(|i| make_frame(i as f64, 0x100 + i)).collect();
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(frames, "2026-01-01T10:00:00", Some(2.0))),
+            file_name: "a.asc".into(),
+            file_path: "a.asc".into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        });
+
+        engine.seek_to(1.0).unwrap();
+        engine.play().unwrap();
+        let frame = engine
+            .next_batch_timed(1, Instant::now())
+            .unwrap()
+            .remove(0);
+
+        assert_eq!(frame.can_id, 0x101);
         assert_eq!(frame.timestamp, 1.0);
     }
 
