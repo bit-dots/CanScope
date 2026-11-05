@@ -428,8 +428,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     };
 
     const onUp = async (ev: MouseEvent) => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       const newStart = computeOffset(ev);
