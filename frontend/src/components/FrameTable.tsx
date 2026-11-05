@@ -510,8 +510,6 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       filterData(),
       filterName(),
       timeFormat(),
-      props.startTime,
-      props.traceMode,
       isPaused(),
     ],
     () => {
