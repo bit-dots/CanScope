@@ -19,9 +19,9 @@ interface PlaybackPanelProps {
   onSetLoop: (enabled: boolean) => void;
   onStepForward: () => Promise<number | null>;
   onStepBack: () => Promise<number | null>;
-  onSeek: (timestamp: number) => void;
+  onSeek: (timestamp: number) => Promise<void> | void;
   onClearPlaylist: () => Promise<boolean>;
-  onRefreshPlaylist: () => void;
+  onRefreshPlaylist: () => Promise<void> | void;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -232,9 +232,10 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   createEffect(() => {
     if (props.playbackState === 'playing') {
       const interval = setInterval(async () => {
+        if (isDragging() || fileTimelineDrag()) return;
         try {
           const p: number | null = await invoke('get_progress');
-          if (p !== null && props.playlistInfo?.totalDuration) {
+          if (!isDragging() && !fileTimelineDrag() && p !== null && props.playlistInfo?.totalDuration) {
             setCurrentTime(p * props.playlistInfo.totalDuration);
           }
         } catch {
@@ -362,7 +363,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   } | null>(null);
 
   // 文件时间轴拖拽跳转
-  const [fileTimelineDrag, _setFileTimelineDrag] = createSignal<{ fileIndex: number } | null>(null);
+  const [fileTimelineDrag, setFileTimelineDrag] = createSignal<{ fileIndex: number } | null>(null);
 
   // 时间轴 hover 时间提示
   const [hoverTip, setHoverTip] = createSignal<{ fileIndex: number; time: number; left: number } | null>(null);
@@ -377,28 +378,48 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
   const handleTimelineMouseLeave = () => setHoverTip(null);
 
-  // 文件时间轴点击/拖拽 → 移动 start 游标
+  // 文件时间轴点击/拖拽 → 设置该文件的播放起点
   const handleFileTimelineMouseDown = (e: MouseEvent, fileIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    const file = files()[fileIndex];
-    if (!file || file.duration == null || file.duration === 0) return;
+    if (e.button !== 0) return;
 
     const bar = (e.currentTarget as HTMLElement).closest('.playback-panel__file-timeline') as HTMLElement | null;
     if (!bar) return;
+
+    const file = files()[fileIndex];
+    if (!file || file.duration == null || file.duration <= 0) return;
     const fileDuration = file.duration;
+    const end = file.playEndOffset ?? fileDuration;
+    const minSpan = Math.min(0.1, fileDuration);
+    const maxStart = Math.max(0, Math.min(end, fileDuration) - minSpan);
 
     const computeOffset = (ev: MouseEvent): number => {
       const rect = bar.getBoundingClientRect();
+      if (rect.width <= 0) return file.playStartOffset;
       const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-      const raw = ratio * fileDuration;
-      const end = file.playEndOffset ?? fileDuration;
-      return Math.min(raw, Math.max(0, end - 0.1));
+      return Math.min(ratio * fileDuration, maxStart);
+    };
+
+    const getGlobalStartOffset = (): number | null => {
+      let globalOffset = 0;
+      for (const previous of files().slice(0, fileIndex)) {
+        if (!previous.enabled) continue;
+        if (previous.duration == null || previous.duration <= 0) return null;
+        const previousStart = Math.max(0, Math.min(previous.playStartOffset, previous.duration));
+        const previousEnd = Math.max(
+          previousStart,
+          Math.min(previous.playEndOffset ?? previous.duration, previous.duration),
+        );
+        globalOffset += previousEnd - previousStart;
+      }
+      return globalOffset;
     };
 
     const initialOffset = computeOffset(e);
     setDraggingOffset({ fileIndex, handle: 'start' });
     setDragPreview({ fileIndex, handle: 'start', offset: initialOffset });
+    setFileTimelineDrag({ fileIndex });
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
@@ -406,32 +427,31 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       setDragPreview({ fileIndex, handle: 'start', offset: computeOffset(ev) });
     };
 
-    const onUp = async () => {
+    const onUp = async (ev: MouseEvent) => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-
-      const preview = dragPreview();
-      if (!preview) {
-        setDraggingOffset(null);
-        return;
-      }
-
-      const newStart = Math.max(0, Math.min(preview.offset, (file.playEndOffset ?? fileDuration) - 0.1));
+      const newStart = computeOffset(ev);
+      const globalStart = getGlobalStartOffset();
 
       try {
         await invoke('playlist_set_offset', {
-          index: preview.fileIndex,
+          index: fileIndex,
           playStartOffset: newStart,
           playEndOffset: file.playEndOffset ?? fileDuration,
         });
-        props.onRefreshPlaylist();
+        await props.onRefreshPlaylist();
+        if (file.enabled && globalStart !== null) {
+          setCurrentTime(globalStart);
+          await props.onSeek(globalStart);
+        }
       } catch (err) {
-        console.error('Failed to set start offset:', err);
+        console.error('Failed to set playback start offset:', err);
       } finally {
         setDraggingOffset(null);
         setDragPreview(null);
+        setFileTimelineDrag(null);
       }
     };
 
@@ -677,13 +697,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
     const onMouseMove = (ev: MouseEvent) => {
       setCurrentTime(computeTimestamp(ev));
     };
-    const onMouseUp = (ev: MouseEvent) => {
-      setIsDragging(false);
+    const onMouseUp = async (ev: MouseEvent) => {
       const finalTs = computeTimestamp(ev);
       setCurrentTime(finalTs);
-      props.onSeek(finalTs);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      try {
+        await props.onSeek(finalTs);
+      } finally {
+        setIsDragging(false);
+      }
     };
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
@@ -954,7 +977,15 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                             : effStart;
                           return (
                             <>
-                              {/* 已播放部分：从设定起点填充到当前播放位置 */}
+                              {/* 已跳过部分：文件开头到设定回放起点 */}
+                              <div
+                                class="playback-panel__file-timeline-fill playback-panel__file-timeline-fill--skipped"
+                                style={{
+                                  left: '0%',
+                                  width: `${(effStart / file.duration) * 100}%`,
+                                }}
+                              />
+                              {/* 已播放部分：从设定起点到当前播放位置 */}
                               <div
                                 class="playback-panel__file-timeline-fill"
                                 style={{
@@ -974,8 +1005,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                                     isDraggingThis && draggingOffset()!.handle === 'start',
                                 }}
                                 style={{ left: `${(displayedStart / file.duration) * 100}%` }}
-                                onMouseDown={(e) => handleOffsetMouseDown(e, index(), 'start')}
-                                title={showPlayhead ? '当前播放位置（拖拽可调整播放起点）' : '拖拽设置播放起始点'}
+                                onMouseDown={(e) => handleFileTimelineMouseDown(e, index())}
+                                title={showPlayhead ? '当前播放位置（拖拽调整回放起点）' : '拖拽设置回放起点'}
                               />
                               {/* 右游标 — 结束位置，可拖动 */}
                               <div

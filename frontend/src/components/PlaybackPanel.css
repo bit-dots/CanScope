@@ -423,6 +423,10 @@
   transition: none;
 }
 
+.playback-panel__file-timeline-fill--skipped {
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+}
+
 /* 游标圆点 (thumb) — 仿播放器进度条 thumb，始终可见，可拖动 */
 .playback-panel__file-timeline-thumb {
   position: absolute;

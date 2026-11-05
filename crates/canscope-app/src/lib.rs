@@ -404,7 +404,8 @@ struct FrameIndexProgress {
 struct FrameSource {
     path: PathBuf,
     global_offset: f64,
-    duration: Option<f64>,
+    local_start: f64,
+    local_end: Option<f64>,
 }
 
 fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
@@ -416,10 +417,19 @@ fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
         .entries()
         .iter()
         .filter(|entry| entry.enabled)
-        .map(|entry| FrameSource {
-            path: PathBuf::from(&entry.file_path),
-            global_offset: entry.global_start_offset,
-            duration: entry.engine.metadata().duration,
+        .map(|entry| {
+            let origin = entry.engine.stream().timestamp_origin();
+            let local_start = origin + entry.play_start_offset;
+            let local_end =
+                entry.engine.metadata().duration.map(|duration| {
+                    origin + entry.play_end_offset.unwrap_or(duration).min(duration)
+                });
+            FrameSource {
+                path: PathBuf::from(&entry.file_path),
+                global_offset: entry.global_start_offset - local_start,
+                local_start,
+                local_end,
+            }
         })
         .collect())
 }
@@ -806,7 +816,13 @@ fn get_frame_page(
             let mut source_offset = 0u64;
             loop {
                 let (_, page) = reader
-                    .query_page(source_offset, 512, None, None, None)
+                    .query_page(
+                        source_offset,
+                        512,
+                        None,
+                        Some(source.local_start),
+                        source.local_end,
+                    )
                     .map_err(|e| e.to_string())?;
                 if page.is_empty() {
                     break;
@@ -891,25 +907,25 @@ fn get_frame_page(
             AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
         if time_origin.is_none() {
             let (_, first_frame) = reader
-                .query_page(0, 1, None, None, None)
+                .query_page(0, 1, None, Some(source.local_start), source.local_end)
                 .map_err(|e| e.to_string())?;
             time_origin = first_frame
                 .first()
                 .map(|frame| frame.timestamp + source.global_offset);
         }
-        let local_start = time_start.map(|t| (t - source.global_offset).max(0.0));
-        let local_end = time_end
-            .map(|t| t - source.global_offset)
-            .or(source.duration);
-        if local_end.map_or(false, |end| end < 0.0)
-            || local_start
-                .zip(local_end)
-                .map_or(false, |(start, end)| start > end)
-        {
+        let local_start = time_start
+            .map(|t| (t - source.global_offset).max(source.local_start))
+            .unwrap_or(source.local_start);
+        let local_end = match (time_end, source.local_end) {
+            (Some(end), Some(source_end)) => Some((end - source.global_offset).min(source_end)),
+            (Some(end), None) => Some(end - source.global_offset),
+            (None, source_end) => source_end,
+        };
+        if local_end.map_or(false, |end| end < local_start) {
             continue;
         }
         let (source_count, _) = reader
-            .query_page(0, 0, can_id, local_start, local_end)
+            .query_page(0, 0, can_id, Some(local_start), local_end)
             .map_err(|e| e.to_string())?;
         total_count += source_count;
         indexed_sources.push((reader, source, source_count, local_start, local_end));
@@ -929,7 +945,7 @@ fn get_frame_page(
         }
         let page_size = (limit - frames.len()).min((source_count - skip) as usize);
         let (_, mut page) = reader
-            .query_page(skip, page_size, can_id, local_start, local_end)
+            .query_page(skip, page_size, can_id, Some(local_start), local_end)
             .map_err(|e| e.to_string())?;
         for frame in &mut page {
             frame.timestamp += source.global_offset;
@@ -1011,14 +1027,13 @@ fn get_chart_data(
     }
 
     for source in sources {
-        let global_end = source.global_offset + source.duration.unwrap_or(f64::MAX);
-        if time_end < source.global_offset || time_start > global_end {
+        let global_start = source.global_offset + source.local_start;
+        let global_end = source.global_offset + source.local_end.unwrap_or(f64::MAX);
+        if time_end < global_start || time_start > global_end {
             continue;
         }
-        let local_start = (time_start - source.global_offset).max(0.0);
-        let local_end = (time_end - source.global_offset)
-            .max(0.0)
-            .min(source.duration.unwrap_or(f64::MAX));
+        let local_start = (time_start - source.global_offset).max(source.local_start);
+        let local_end = (time_end - source.global_offset).min(source.local_end.unwrap_or(f64::MAX));
         let reader =
             AscReader::open_with_cache(&source.path, &cache_dir).map_err(|e| e.to_string())?;
         reader
