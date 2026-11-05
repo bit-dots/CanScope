@@ -1317,7 +1317,7 @@ function App() {
     }
   };
 
-  const handleStepForward = async () => {
+  const handleStepForward = async (): Promise<number | null> => {
     try {
       const frame: FrameInfo | null = await invoke('step_forward');
       if (frame) {
@@ -1326,14 +1326,17 @@ function App() {
         setPlaybackFrameCount(prev => prev + 1);
         countMonitorFrames([frame]);
         await requestFramePage(Math.max(0, playbackFrameCount()), 512);
+        return frame.timestamp;
       }
+      return null;
     } catch (e) {
       console.error('step_forward failed:', e);
       setError(`单步前进失败：${String(e)}`);
+      return null;
     }
   };
 
-  const handleStepBack = async () => {
+  const handleStepBack = async (): Promise<number | null> => {
     try {
       const frame: FrameInfo | null = await invoke('step_back');
       if (frame) {
@@ -1341,10 +1344,13 @@ function App() {
         setCurrentTime(frame.timestamp);
         setPlaybackFrameCount(prev => Math.max(0, prev - 1));
         await requestFramePage(Math.max(0, playbackFrameCount() - 2), 512);
+        return frame.timestamp;
       }
+      return null;
     } catch (e) {
       console.error('step_back failed:', e);
       setError(`单步后退失败：${String(e)}`);
+      return null;
     }
   };
 

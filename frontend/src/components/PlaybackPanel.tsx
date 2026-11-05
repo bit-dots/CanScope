@@ -1,7 +1,7 @@
 import { Component, createSignal, createEffect, onCleanup, onMount, For, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { invoke } from '@tauri-apps/api/core';
-import { Play, Pause, Square, Gauge, Repeat, FilePlusCorner, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
+import { Play, Pause, Square, StepBack, StepForward, Gauge, Repeat, FilePlusCorner, FolderPlus, FileXCorner, Trash2, Settings, ChevronDown, ChevronUp, Check } from 'lucide-solid';
 import type { LoopScope, PlaybackMode, PlaylistInfo, PlaybackState } from '../types';
 import './PlaybackPanel.css';
 
@@ -16,8 +16,8 @@ interface PlaybackPanelProps {
   onSetPlaybackOptions: (mode: PlaybackMode, scope: LoopScope) => Promise<boolean>;
   onSetSpeed: (speed: number) => void;
   onSetLoop: (enabled: boolean) => void;
-  onStepForward: () => void;
-  onStepBack: () => void;
+  onStepForward: () => Promise<number | null>;
+  onStepBack: () => Promise<number | null>;
   onSeek: (timestamp: number) => void;
   onClearPlaylist: () => Promise<boolean>;
   onRefreshPlaylist: () => void;
@@ -148,6 +148,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   const handleSpeedSelect = (speed: number) => {
     props.onSetSpeed(speed);
     setIsSpeedMenuOpen(false);
+  };
+
+  const handleStepForward = async () => {
+    const timestamp = await props.onStepForward();
+    if (timestamp !== null) setCurrentTime(timestamp);
+  };
+
+  const handleStepBack = async () => {
+    const timestamp = await props.onStepBack();
+    if (timestamp !== null) setCurrentTime(timestamp);
   };
 
   const closeSpeedMenu = (e: MouseEvent) => {
@@ -641,6 +651,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       {/* ---- 工具栏 ---- */}
       <div class="playback-panel__toolbar">
         {/* 播放控制 */}
+        <button
+          class="playback-panel__tool-btn"
+          title="上一帧"
+          aria-label="上一帧"
+          disabled={enabledCount() === 0 || props.playbackState === 'playing'}
+          onClick={handleStepBack}
+        >
+          <StepBack size={14} />
+        </button>
+
         <Show
           when={props.playbackState === 'playing'}
           fallback={
@@ -665,6 +685,16 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             <Pause size={14} />
           </button>
         </Show>
+
+        <button
+          class="playback-panel__tool-btn"
+          title="下一帧"
+          aria-label="下一帧"
+          disabled={enabledCount() === 0 || props.playbackState === 'playing'}
+          onClick={handleStepForward}
+        >
+          <StepForward size={14} />
+        </button>
 
         <button
           class="playback-panel__tool-btn"
