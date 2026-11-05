@@ -1206,7 +1206,6 @@ function App() {
   };
 
   const hasSource = () => metadata() !== null;
-  const firstEnabledPlaybackFile = () => metadata()?.files.find((file) => file.enabled);
 
   onMount(() => {
     const refreshMemory = () => {
@@ -1540,11 +1539,8 @@ function App() {
                         hasDbc={dbcTree() !== null}
                         projectName={project()?.name ?? '未命名'}
                         busType={metadata()?.files?.[0]?.busType}
-                        startTime={firstEnabledPlaybackFile()?.startTime}
-                        absoluteTimeOffset={
-                          (firstEnabledPlaybackFile()?.timestampOrigin ?? 0) +
-                          (firstEnabledPlaybackFile()?.playStartOffset ?? 0)
-                        }
+                        startTime={metadata()?.files?.find((file) => file.enabled)?.startTime}
+                        playbackFiles={metadata()?.files}
                         timeOrigin={frameTimeOrigin()}
                         onClear={handleClearFrameMonitor}
                         onSelectMessage={handleSelectMessage}

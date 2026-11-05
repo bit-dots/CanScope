@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, Show, For, createEffect, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Portal } from 'solid-js/web';
-import type { FrameInfo, DecodedSignalInfo, FrameTableFilter } from '../types';
+import type { FrameInfo, DecodedSignalInfo, FrameTableFilter, PlaylistFileInfo } from '../types';
 import { formatHex, formatDataHex, formatSignal } from '../types';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { SlidersHorizontal, Search, Eraser, Pause, Play, ListClock, Activity, ChevronRight, ChevronDown, ChevronUp, Check, X, Copy, Hash, FileCode, Binary, LineChart, Filter, Info, Settings, ArrowBigDownDash, Star } from 'lucide-solid';
@@ -30,7 +30,7 @@ interface FrameTableProps {
   projectName: string;
   busType?: string;
   startTime?: string | null;
-  absoluteTimeOffset?: number;
+  playbackFiles?: PlaylistFileInfo[];
   timeOrigin?: number;
 }
 
@@ -927,10 +927,29 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       }
       case 'absolute':
       default: {
-        const base = props.startTime ? new Date(props.startTime) : null;
+        const playbackFiles = props.playbackFiles ?? [];
+        const playbackFile = playbackFiles.find((file, index) => {
+          if (!file.enabled || frame.timestamp < file.startOffset) return false;
+          const nextFileStart = playbackFiles
+            .slice(index + 1)
+            .find((nextFile) => nextFile.enabled)?.startOffset;
+          const endOffset = file.endOffset ?? nextFileStart;
+          return endOffset === undefined || frame.timestamp < endOffset;
+        });
+        const base = playbackFile?.startTime
+          ? new Date(playbackFile.startTime)
+          : props.startTime
+            ? new Date(props.startTime)
+            : null;
         if (base && !isNaN(base.getTime())) {
+          const fileOffset = playbackFile
+            ? playbackFile.timestampOrigin +
+              playbackFile.playStartOffset +
+              frame.timestamp -
+              playbackFile.startOffset
+            : frame.timestamp;
           const abs = new Date(
-            base.getTime() + ((props.absoluteTimeOffset ?? 0) + frame.timestamp) * 1000,
+            base.getTime() + fileOffset * 1000,
           );
           const hh = abs.getHours().toString().padStart(2, '0');
           const mm = abs.getMinutes().toString().padStart(2, '0');
