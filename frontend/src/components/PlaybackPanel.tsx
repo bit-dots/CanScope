@@ -226,8 +226,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       const selected = await open({
         title: '添加回放文件',
         filters: [
-          { name: 'CAN 日志文件', extensions: ['asc', 'csv', 'blf', 'trc'] },
-          { name: 'All Files', extensions: ['*'] },
+          { name: 'ASC CAN 日志文件', extensions: ['asc'] },
         ],
         multiple: true,
       });
@@ -235,6 +234,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
 
       const paths = Array.isArray(selected) ? selected : [selected];
       const duplicates: string[] = [];
+      const failures: string[] = [];
       for (const path of paths) {
         if (typeof path === 'string') {
           try {
@@ -245,16 +245,25 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
               duplicates.push(path);
             } else {
               console.error('Failed to add file:', e);
+              failures.push(`${path}: ${msg}`);
             }
           }
         }
       }
       props.onRefreshPlaylist();
+      const messages: string[] = [];
       if (duplicates.length > 0) {
-        alert(`以下文件已存在，已跳过：\n${duplicates.join('\n')}`);
+        messages.push(`以下文件已存在，已跳过：\n${duplicates.join('\n')}`);
+      }
+      if (failures.length > 0) {
+        messages.push(`以下文件未能添加。回放目前仅支持 ASC 格式：\n${failures.join('\n')}`);
+      }
+      if (messages.length > 0) {
+        alert(messages.join('\n\n'));
       }
     } catch (e) {
       console.error('Failed to add file:', e);
+      alert(`添加回放文件失败：${String(e)}`);
     }
   };
 
@@ -275,6 +284,7 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
       props.onRefreshPlaylist();
     } catch (e) {
       console.error('Failed to add folder:', e);
+      alert(`添加文件夹失败：${String(e)}`);
     }
   };
 
@@ -815,6 +825,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
             暂无回放文件
             <br />
             点击工具栏 <FilePlusCorner size={12} style="display:inline;vertical-align:middle" /> 添加 CAN 日志文件
+            <br />
+            目前仅支持 ASC 格式
           </div>
         </Show>
         <Show when={files().length > 0}>

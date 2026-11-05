@@ -1316,6 +1316,7 @@ fn playlist_add(
     state: State<AppState>,
 ) -> Result<PlaylistInfo, String> {
     let path_buf = PathBuf::from(&path);
+    validate_asc_path(&path_buf)?;
     let reader = open_indexed_asc(&app, &path_buf)?;
 
     // 解析为规范绝对路径（消除 ..、符号链接等），失败则退化为原路径
@@ -1364,6 +1365,20 @@ fn playlist_add(
 
         *engine_guard = Some(playlist);
         Ok(info)
+    }
+}
+
+fn validate_asc_path(path: &Path) -> Result<(), String> {
+    if path
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("asc"))
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "回放目前仅支持 ASC 格式的 CAN 日志文件：{}",
+            path.display()
+        ))
     }
 }
 
@@ -2283,15 +2298,25 @@ pub fn run() {
 mod tests {
     use super::{
         format_frame_time, get_available_memory_bytes, matches_frame_table_filter,
-        FrameTableFilter, UiLayoutJson,
+        validate_asc_path, FrameTableFilter, UiLayoutJson,
     };
     use canscope_core::CanFrame;
+    use std::path::Path;
 
     #[test]
     fn legacy_ui_layout_defaults_panel_layouts() {
         let layout: UiLayoutJson =
             serde_json::from_str(r#"{"panelWidth":260,"chartHeight":200}"#).unwrap();
         assert!(layout.panels.is_empty());
+    }
+
+    #[test]
+    fn playback_accepts_asc_extensions_case_insensitively() {
+        assert!(validate_asc_path(Path::new("capture.asc")).is_ok());
+        assert!(validate_asc_path(Path::new("capture.ASC")).is_ok());
+        assert!(validate_asc_path(Path::new("capture.blf"))
+            .unwrap_err()
+            .contains("仅支持 ASC"));
     }
 
     #[test]
