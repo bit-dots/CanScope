@@ -1465,10 +1465,19 @@ fn playlist_add_folder(
 }
 
 #[tauri::command]
-fn playlist_remove(index: usize, state: State<AppState>) -> Result<PlaylistInfo, String> {
+fn playlist_remove(
+    app: tauri::AppHandle,
+    index: usize,
+    state: State<AppState>,
+) -> Result<PlaylistInfo, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
-        playlist.remove_entry(index);
+        let was_playing = playlist.state() == PlaybackState::Playing;
+        playlist.remove_entry(index).map_err(|e| e.to_string())?;
+        if was_playing && playlist.state() == PlaybackState::Stopped {
+            app.emit("playback-state-changed", "stopped")
+                .map_err(|e| format!("Failed to notify playback state change: {e}"))?;
+        }
         Ok(build_playlist_info(playlist))
     } else {
         Err("No playlist active".into())
@@ -1494,13 +1503,21 @@ fn playlist_clear(state: State<AppState>) -> Result<PlaylistInfo, String> {
 
 #[tauri::command]
 fn playlist_toggle(
+    app: tauri::AppHandle,
     index: usize,
     enabled: bool,
     state: State<AppState>,
 ) -> Result<PlaylistInfo, String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut playlist) = *engine_guard {
-        playlist.toggle_entry(index, enabled);
+        let was_playing = playlist.state() == PlaybackState::Playing;
+        playlist
+            .toggle_entry(index, enabled)
+            .map_err(|e| e.to_string())?;
+        if was_playing && playlist.state() == PlaybackState::Stopped {
+            app.emit("playback-state-changed", "stopped")
+                .map_err(|e| format!("Failed to notify playback state change: {e}"))?;
+        }
         Ok(build_playlist_info(playlist))
     } else {
         Err("No playlist active".into())

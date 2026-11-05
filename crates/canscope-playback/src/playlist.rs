@@ -129,28 +129,58 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
 
     /// 添加文件到播放列表，自动按 start_time 排序后重新计算全局偏移
     pub fn add_entry(&mut self, entry: PlaylistEntry<S>) {
+        let current_position = self.current_timeline_position(Instant::now());
         self.entries.push(entry);
         self.sort_and_recalc_offsets();
+        self.rebase_current_position(current_position);
     }
 
     /// 移除指定索引的文件
-    pub fn remove_entry(&mut self, index: usize) {
+    pub fn remove_entry(&mut self, index: usize) -> Result<(), PlaybackError> {
         if index >= self.entries.len() {
-            return;
+            return Ok(());
         }
+        let was_current = index == self.current_entry_index;
+        let previous_state = self.state;
+        let current_position = self.current_timeline_position(Instant::now());
         self.entries.remove(index);
-        if self.current_entry_index >= self.entries.len() {
+        if index < self.current_entry_index {
+            self.current_entry_index -= 1;
+        } else if was_current && self.current_entry_index >= self.entries.len() {
             self.current_entry_index = self.entries.len().saturating_sub(1);
         }
-        self.sort_and_recalc_offsets();
+        self.recalc_offsets();
+
+        if was_current {
+            self.advance_after_current_change(index, previous_state)?;
+        } else {
+            self.rebase_current_position(current_position);
+        }
+        Ok(())
     }
 
     /// 切换文件的启用/禁用状态
-    pub fn toggle_entry(&mut self, index: usize, enabled: bool) {
+    pub fn toggle_entry(&mut self, index: usize, enabled: bool) -> Result<(), PlaybackError> {
+        if self
+            .entries
+            .get(index)
+            .is_none_or(|entry| entry.enabled == enabled)
+        {
+            return Ok(());
+        }
+        let was_current = index == self.current_entry_index;
+        let previous_state = self.state;
+        let current_position = self.current_timeline_position(Instant::now());
         if let Some(entry) = self.entries.get_mut(index) {
             entry.enabled = enabled;
         }
         self.recalc_offsets();
+        if was_current && !enabled {
+            self.advance_after_current_change(index.saturating_add(1), previous_state)?;
+        } else {
+            self.rebase_current_position(current_position);
+        }
+        Ok(())
     }
 
     /// 设置文件的播放裁剪区间
@@ -182,6 +212,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         if from >= self.entries.len() || to >= self.entries.len() || from == to {
             return;
         }
+        let current_position = self.current_timeline_position(Instant::now());
         let entry = self.entries.remove(from);
         self.entries.insert(to, entry);
         if self.current_entry_index == from {
@@ -192,16 +223,98 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             self.current_entry_index += 1;
         }
         self.recalc_offsets();
+        self.rebase_current_position(current_position);
     }
 
     /// 按原始时间戳排序并重新计算所选播放范围的全局时间偏移
     fn sort_and_recalc_offsets(&mut self) {
-        self.entries.sort_by(|a, b| {
+        let current_index = self.current_entry_index;
+        let mut entries: Vec<_> = std::mem::take(&mut self.entries)
+            .into_iter()
+            .enumerate()
+            .map(|(index, entry)| (index == current_index, entry))
+            .collect();
+        entries.sort_by(|(_, a), (_, b)| {
             let ta = a.engine.metadata().start_time.as_deref().unwrap_or("");
             let tb = b.engine.metadata().start_time.as_deref().unwrap_or("");
             ta.cmp(tb)
         });
+        if let Some(index) = entries.iter().position(|(is_current, _)| *is_current) {
+            self.current_entry_index = index;
+        }
+        self.entries = entries.into_iter().map(|(_, entry)| entry).collect();
         self.recalc_offsets();
+    }
+
+    fn current_timeline_position(&self, now: Instant) -> Option<(f64, f64)> {
+        let entry = self.entries.get(self.current_entry_index)?;
+        let timestamp = self.clock_time(now).or(self.global_time)?;
+        Some((timestamp, entry.global_start_offset))
+    }
+
+    fn rebase_current_position(&mut self, position: Option<(f64, f64)>) {
+        let Some((old_timestamp, old_start_offset)) = position else {
+            return;
+        };
+        let Some(entry) = self.entries.get(self.current_entry_index) else {
+            return;
+        };
+
+        let new_timestamp = entry.global_start_offset + (old_timestamp - old_start_offset).max(0.0);
+        let shift = new_timestamp - old_timestamp;
+        if let Some(timestamp) = self.global_time.as_mut() {
+            *timestamp = new_timestamp;
+        }
+        if self.playback_clock.is_some() {
+            self.playback_clock = Some((Instant::now(), new_timestamp));
+        }
+        if let Some(frame) = self.pending_frame.as_mut() {
+            frame.timestamp += shift;
+        }
+    }
+
+    fn advance_after_current_change(
+        &mut self,
+        start_index: usize,
+        previous_state: PlaybackState,
+    ) -> Result<(), PlaybackError> {
+        self.pending_frame = None;
+        self.playback_clock = None;
+        self.resume_from_stopped_seek = false;
+
+        if previous_state == PlaybackState::Stopped {
+            self.global_time = None;
+            return Ok(());
+        }
+
+        let next_index = (start_index..self.entries.len())
+            .find(|&index| self.entries[index].enabled)
+            .or_else(|| {
+                self.loop_enabled
+                    .then(|| {
+                        (0..start_index.min(self.entries.len()))
+                            .find(|&index| self.entries[index].enabled)
+                    })
+                    .flatten()
+            });
+
+        if let Some(index) = next_index {
+            self.activate_entry(index)?;
+            let timestamp = self.entries[index].global_start_offset;
+            self.global_time = Some(timestamp);
+            self.state = previous_state;
+            if self.state == PlaybackState::Playing {
+                self.playback_clock = Some((Instant::now(), timestamp));
+            }
+            return Ok(());
+        }
+
+        self.current_entry_index = self
+            .current_entry_index
+            .min(self.entries.len().saturating_sub(1));
+        self.global_time = None;
+        self.state = PlaybackState::Stopped;
+        Ok(())
     }
 
     fn recalc_offsets(&mut self) {
@@ -402,6 +515,8 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
         let limit = max_count.min(1024);
         let mut batch = Vec::with_capacity(limit);
         let mut remaining = limit;
+        let enabled_entry_count = self.entries.iter().filter(|entry| entry.enabled).count();
+        let mut consecutive_empty_entries = 0;
 
         while remaining > 0 {
             if self.current_entry_index >= self.entries.len() {
@@ -450,6 +565,16 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
             let count = batch.len() - before_count;
             self.global_frame_count += count as u64;
             remaining = remaining.saturating_sub(count);
+
+            if count == 0 {
+                consecutive_empty_entries += 1;
+                if consecutive_empty_entries >= enabled_entry_count {
+                    self.state = PlaybackState::Stopped;
+                    break;
+                }
+            } else {
+                consecutive_empty_entries = 0;
+            }
 
             if range_ended || engine_stopped || count == 0 {
                 if !self.advance_entry()? {
@@ -782,6 +907,40 @@ mod tests {
         }
     }
 
+    fn make_entry(
+        file_name: &str,
+        start_time: &str,
+        first_can_id: u32,
+        duration: u32,
+    ) -> PlaylistEntry<MockStream> {
+        let frames = (0..=duration)
+            .map(|offset| make_frame(offset as f64, first_can_id + offset))
+            .collect();
+        PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(frames, start_time, Some(duration as f64))),
+            file_name: file_name.into(),
+            file_path: file_name.into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        }
+    }
+
+    fn make_empty_entry(file_name: &str, start_time: &str) -> PlaylistEntry<MockStream> {
+        PlaylistEntry {
+            engine: PlaybackEngine::new(MockStream::new(Vec::new(), start_time, Some(0.0))),
+            file_name: file_name.into(),
+            file_path: file_name.into(),
+            enabled: true,
+            global_start_offset: 0.0,
+            global_end_offset: None,
+            play_start_offset: 0.0,
+            play_end_offset: None,
+        }
+    }
+
     #[test]
     fn concatenation_plays_files_in_sequence() {
         let stream_a = MockStream::new(
@@ -1048,6 +1207,110 @@ mod tests {
     }
 
     #[test]
+    fn adding_an_earlier_file_keeps_current_file_and_playhead() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("current.asc", "2026-01-01T11:00:00", 0x200, 2));
+        engine.play().unwrap();
+
+        let first = engine
+            .next_batch_timed(1, Instant::now())
+            .unwrap()
+            .remove(0);
+        assert_eq!(first.can_id, 0x200);
+        engine.add_entry(make_entry("earlier.asc", "2026-01-01T10:00:00", 0x100, 5));
+
+        assert_eq!(engine.current_entry_index(), 1);
+        let start = Instant::now();
+        let next = engine
+            .next_batch_timed(1, start + Duration::from_secs(1))
+            .unwrap()
+            .remove(0);
+        assert_eq!(next.can_id, 0x201);
+        assert!(next.timestamp >= 6.0);
+    }
+
+    #[test]
+    fn removing_an_entry_before_current_keeps_current_file_playable() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("current.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.play().unwrap();
+        assert_eq!(engine.next_batch(2).unwrap().len(), 2);
+        assert_eq!(engine.next_batch(1).unwrap()[0].can_id, 0x200);
+        assert_eq!(engine.current_entry_index(), 1);
+
+        engine.remove_entry(0).unwrap();
+
+        assert_eq!(engine.current_entry_index(), 0);
+        assert_eq!(engine.state(), PlaybackState::Playing);
+        let next = engine
+            .next_batch_timed(1, Instant::now())
+            .unwrap()
+            .remove(0);
+        assert_eq!(next.can_id, 0x201);
+        assert_eq!(next.timestamp, 1.0);
+    }
+
+    #[test]
+    fn disabling_current_file_advances_to_next_enabled_file() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("current.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.add_entry(make_entry("next.asc", "2026-01-01T12:00:00", 0x300, 1));
+        engine.play().unwrap();
+        assert_eq!(engine.next_batch(2).unwrap().len(), 2);
+        assert_eq!(engine.next_batch(1).unwrap()[0].can_id, 0x200);
+        assert_eq!(engine.current_entry_index(), 1);
+
+        engine.toggle_entry(1, false).unwrap();
+
+        assert_eq!(engine.current_entry_index(), 2);
+        assert_eq!(engine.state(), PlaybackState::Playing);
+        let next = engine
+            .next_batch_timed(1, Instant::now())
+            .unwrap()
+            .remove(0);
+        assert_eq!(next.can_id, 0x300);
+        assert_eq!(next.timestamp, 1.0);
+    }
+
+    #[test]
+    fn removing_current_file_advances_to_next_enabled_file() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("first.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.add_entry(make_entry("current.asc", "2026-01-01T11:00:00", 0x200, 1));
+        engine.add_entry(make_entry("next.asc", "2026-01-01T12:00:00", 0x300, 1));
+        engine.play().unwrap();
+        assert_eq!(engine.next_batch(2).unwrap().len(), 2);
+        assert_eq!(engine.next_batch(1).unwrap()[0].can_id, 0x200);
+        assert_eq!(engine.current_entry_index(), 1);
+
+        engine.remove_entry(1).unwrap();
+
+        assert_eq!(engine.current_entry_index(), 1);
+        assert_eq!(engine.state(), PlaybackState::Playing);
+        let next = engine
+            .next_batch_timed(1, Instant::now())
+            .unwrap()
+            .remove(0);
+        assert_eq!(next.can_id, 0x300);
+        assert_eq!(next.timestamp, 1.0);
+    }
+
+    #[test]
+    fn removing_last_current_file_without_loop_stops_playback() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_entry("only.asc", "2026-01-01T10:00:00", 0x100, 1));
+        engine.play().unwrap();
+
+        engine.remove_entry(0).unwrap();
+
+        assert_eq!(engine.state(), PlaybackState::Stopped);
+        assert!(engine.entries().is_empty());
+        assert_eq!(engine.next_batch(1).unwrap().len(), 0);
+    }
+
+    #[test]
     fn toggle_disabled_file_skipped() {
         let stream_a = MockStream::new(
             vec![make_frame(0.0, 0x100)],
@@ -1116,6 +1379,37 @@ mod tests {
         assert_eq!(batch[0].can_id, 0x100);
         assert_eq!(batch[1].can_id, 0x100);
         assert_eq!(batch[2].can_id, 0x100);
+    }
+
+    #[test]
+    fn looping_empty_playlist_entries_stops_after_skipping_them() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_empty_entry("empty-a.asc", "2026-01-01T10:00:00"));
+        engine.add_entry(make_empty_entry("empty-b.asc", "2026-01-01T11:00:00"));
+        engine.set_loop(true);
+        engine.play().unwrap();
+
+        let batch = engine.next_batch(10).unwrap();
+
+        assert!(batch.is_empty());
+        assert_eq!(engine.state(), PlaybackState::Stopped);
+    }
+
+    #[test]
+    fn looping_skips_empty_files_when_another_file_has_frames() {
+        let mut engine = PlaylistEngine::new();
+        engine.add_entry(make_empty_entry("empty.asc", "2026-01-01T10:00:00"));
+        engine.add_entry(make_entry("frames.asc", "2026-01-01T11:00:00", 0x100, 0));
+        engine.set_loop(true);
+        engine.play().unwrap();
+
+        let batch = engine.next_batch(3).unwrap();
+
+        assert_eq!(
+            batch.iter().map(|frame| frame.can_id).collect::<Vec<_>>(),
+            [0x100, 0x100, 0x100]
+        );
+        assert_eq!(engine.state(), PlaybackState::Playing);
     }
 
     #[test]
