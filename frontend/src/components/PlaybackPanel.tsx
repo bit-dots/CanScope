@@ -937,7 +937,8 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
                       <span class="playback-panel__file-name">{file.fileName}</span>
                       <span class="playback-panel__file-meta">
                         {formatDuration(file.duration)} · {formatFrameCount(file.totalFrames)} 帧
-                        <Show when={file.startTime}> · {file.startTime}</Show>
+                        {' · '}
+                        {formatBoundaryTime(0, file.timestampOrigin, file.startTime)}
                       </span>
                     </td>
                     <td class="playback-panel__td playback-panel__td--timeline">

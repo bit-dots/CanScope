@@ -515,6 +515,7 @@ function App() {
   let lastFrameMonitorRefresh = 0;
   let pendingTraceFrames: FrameInfo[] = [];
   let pendingTraceBytes = 0;
+  let previousTraceTimestamp: number | null = null;
 
   const flushTraceFrames = () => {
     if (pendingTraceFrames.length === 0) return;
@@ -576,6 +577,7 @@ function App() {
   const resetTraceBuffer = () => {
     pendingTraceFrames = [];
     pendingTraceBytes = 0;
+    previousTraceTimestamp = null;
     frameQueryId++;
     setFrames([]);
     setFrameOffset(0);
@@ -608,10 +610,18 @@ function App() {
           countMonitorFrames(batch);
           if (!traceMode()) {
             resetTraceBuffer();
+            setFrameTimeOrigin(batch[0].timestamp);
             setTraceMode(true);
           }
-          pendingTraceFrames.push(...batch);
-          pendingTraceBytes += estimateFramesMemoryBytes(batch);
+          const framesWithRelativeTime = batch.map((frame) => {
+            const relativeTime = previousTraceTimestamp === null
+              ? 0
+              : frame.timestamp - previousTraceTimestamp;
+            previousTraceTimestamp = frame.timestamp;
+            return { ...frame, relative_time: relativeTime };
+          });
+          pendingTraceFrames.push(...framesWithRelativeTime);
+          pendingTraceBytes += estimateFramesMemoryBytes(framesWithRelativeTime);
           setPlaybackFrameCount(prev => prev + batch.length);
           setCurrentTime(batch[batch.length - 1].timestamp);
           const now = Date.now();

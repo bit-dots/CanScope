@@ -18,6 +18,7 @@ pub enum PlaybackState {
 #[derive(Debug, Clone)]
 pub struct PlaybackFrame {
     pub timestamp: f64,
+    pub source_index: Option<usize>,
     pub bus_id: u8,
     pub can_id: u32,
     pub is_extended: bool,
@@ -35,6 +36,7 @@ impl From<CanFrame> for PlaybackFrame {
     fn from(f: CanFrame) -> Self {
         Self {
             timestamp: f.timestamp,
+            source_index: None,
             bus_id: f.bus_id,
             can_id: f.can_id,
             is_extended: f.is_extended,
@@ -189,6 +191,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
 
         Ok(Some(PlaybackFrame {
             timestamp: frame.timestamp,
+            source_index: None,
             bus_id: frame.bus_id,
             can_id: frame.can_id,
             is_extended: frame.is_extended,
@@ -234,6 +237,7 @@ impl<S: CanFrameStream> PlaybackEngine<S> {
 
                     batch.push(PlaybackFrame {
                         timestamp: ts,
+                        source_index: None,
                         bus_id: frame.bus_id,
                         can_id: frame.can_id,
                         is_extended: frame.is_extended,

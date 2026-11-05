@@ -301,6 +301,7 @@ fn get_dbc_detail(path: String) -> Result<DbcDetailInfo, String> {
 #[derive(Debug, Clone, Serialize)]
 struct FrameInfo {
     timestamp: f64,
+    source_index: Option<usize>,
     bus_id: u8,
     can_id: u32,
     is_extended: bool,
@@ -402,10 +403,12 @@ struct FrameIndexProgress {
 
 #[derive(Clone)]
 struct FrameSource {
+    index: usize,
     path: PathBuf,
     global_offset: f64,
     local_start: f64,
     local_end: Option<f64>,
+    start_time_of_day_ms: Option<u64>,
 }
 
 fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
@@ -416,8 +419,9 @@ fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
     Ok(playlist
         .entries()
         .iter()
-        .filter(|entry| entry.enabled)
-        .map(|entry| {
+        .enumerate()
+        .filter(|(_, entry)| entry.enabled)
+        .map(|(index, entry)| {
             let origin = entry.engine.stream().timestamp_origin();
             let local_start = origin + entry.play_start_offset;
             let local_end =
@@ -425,13 +429,50 @@ fn frame_sources(state: &AppState) -> Result<Vec<FrameSource>, String> {
                     origin + entry.play_end_offset.unwrap_or(duration).min(duration)
                 });
             FrameSource {
+                index,
                 path: PathBuf::from(&entry.file_path),
                 global_offset: entry.global_start_offset - local_start,
                 local_start,
                 local_end,
+                start_time_of_day_ms: entry
+                    .engine
+                    .metadata()
+                    .start_time
+                    .as_deref()
+                    .and_then(parse_start_time_of_day_ms),
             }
         })
         .collect())
+}
+
+fn parse_start_time_of_day_ms(start_time: &str) -> Option<u64> {
+    let time = start_time.split_once('T')?.1;
+    let mut parts = time.split(':');
+    let hours = parts.next()?.parse::<u64>().ok()?;
+    let minutes = parts.next()?.parse::<u64>().ok()?;
+    let seconds = parts.next()?;
+    let (seconds, fraction) = seconds
+        .split_once('.')
+        .map_or((seconds, ""), |(seconds, fraction)| (seconds, fraction));
+    let seconds = seconds.parse::<u64>().ok()?;
+    let fraction = fraction.as_bytes();
+    if fraction.iter().any(|byte| !byte.is_ascii_digit()) {
+        return None;
+    }
+    let milliseconds = match fraction.len() {
+        0 => 0,
+        1 => u64::from(fraction[0] - b'0') * 100,
+        2 => u64::from(fraction[0] - b'0') * 100 + u64::from(fraction[1] - b'0') * 10,
+        _ => {
+            u64::from(fraction[0] - b'0') * 100
+                + u64::from(fraction[1] - b'0') * 10
+                + u64::from(fraction[2] - b'0')
+        }
+    };
+    if hours >= 24 || minutes >= 60 || seconds >= 60 {
+        return None;
+    }
+    Some(((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds)
 }
 
 fn frame_index_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -545,6 +586,7 @@ fn frame_to_info(f: &PlaybackFrame) -> FrameInfo {
     let dlc = f.dlc as usize;
     FrameInfo {
         timestamp: f.timestamp,
+        source_index: f.source_index,
         bus_id: f.bus_id,
         can_id: f.can_id,
         is_extended: f.is_extended,
@@ -655,6 +697,7 @@ fn format_frame_time(
     timestamp: f64,
     previous_timestamp: Option<f64>,
     time_origin: f64,
+    absolute_time_of_day_ms: Option<f64>,
     filter: &FrameTableFilter,
 ) -> String {
     match filter.time_format.as_str() {
@@ -664,8 +707,12 @@ fn format_frame_time(
             previous_timestamp.map_or(0.0, |previous| timestamp - previous)
         ),
         _ => {
-            if let Some(start_ms) = filter.start_time_of_day_ms {
-                let millis = (start_ms as f64 + timestamp * 1000.0).trunc();
+            if let Some(millis) = absolute_time_of_day_ms.or_else(|| {
+                filter
+                    .start_time_of_day_ms
+                    .map(|start_ms| start_ms as f64 + timestamp * 1000.0)
+            }) {
+                let millis = millis.trunc();
                 let day_millis = millis.rem_euclid(86_400_000.0) as u64;
                 let hour = day_millis / 3_600_000;
                 let minute = day_millis / 60_000 % 60;
@@ -688,6 +735,7 @@ fn matches_frame_table_filter(
     timestamp: f64,
     previous_timestamp: Option<f64>,
     time_origin: f64,
+    absolute_time_of_day_ms: Option<f64>,
     filter: &FrameTableFilter,
 ) -> bool {
     let can_id_filter = filter.can_id.trim().to_ascii_lowercase();
@@ -773,9 +821,15 @@ fn matches_frame_table_filter(
 
     let time_filter = filter.time.trim().to_ascii_lowercase();
     if !time_filter.is_empty()
-        && !format_frame_time(timestamp, previous_timestamp, time_origin, filter)
-            .to_ascii_lowercase()
-            .contains(&time_filter)
+        && !format_frame_time(
+            timestamp,
+            previous_timestamp,
+            time_origin,
+            absolute_time_of_day_ms,
+            filter,
+        )
+        .to_ascii_lowercase()
+        .contains(&time_filter)
     {
         return false;
     }
@@ -835,6 +889,9 @@ fn get_frame_page(
                     let previous = previous_timestamp;
                     previous_timestamp = Some(timestamp);
                     frame.timestamp = timestamp;
+                    let absolute_time_of_day_ms = source.start_time_of_day_ms.map(|start_ms| {
+                        start_ms as f64 + (timestamp - source.global_offset) * 1000.0
+                    });
 
                     if can_id.map_or(false, |id| frame.can_id != id)
                         || time_start.map_or(false, |start| timestamp < start)
@@ -856,6 +913,7 @@ fn get_frame_page(
                         timestamp,
                         previous,
                         origin,
+                        absolute_time_of_day_ms,
                         &filter,
                     ) {
                         continue;
@@ -868,6 +926,7 @@ fn get_frame_page(
                         let message_name = message_name.map(str::to_owned);
                         let playback_frame = PlaybackFrame {
                             timestamp,
+                            source_index: Some(source.index),
                             bus_id: frame.bus_id,
                             can_id: frame.can_id,
                             is_extended: frame.is_extended,
@@ -935,6 +994,23 @@ fn get_frame_page(
     let mut frames = Vec::with_capacity(limit);
     let mut skip = page_offset;
 
+    let mut preceding_timestamp = None;
+    if page_offset > 0 {
+        let mut preceding_index = page_offset - 1;
+        for (reader, source, source_count, local_start, local_end) in &indexed_sources {
+            if preceding_index < *source_count {
+                let (_, page) = reader
+                    .query_page(preceding_index, 1, can_id, Some(*local_start), *local_end)
+                    .map_err(|e| e.to_string())?;
+                preceding_timestamp = page
+                    .first()
+                    .map(|frame| frame.timestamp + source.global_offset);
+                break;
+            }
+            preceding_index -= *source_count;
+        }
+    }
+
     for (reader, source, source_count, local_start, local_end) in indexed_sources {
         if skip >= source_count {
             skip -= source_count;
@@ -950,14 +1026,15 @@ fn get_frame_page(
         for frame in &mut page {
             frame.timestamp += source.global_offset;
         }
-        frames.extend(page);
+        frames.extend(page.into_iter().map(|frame| (frame, source.index)));
         skip = 0;
     }
 
     let dbc_map = state.dbc_map.lock().map_err(|e| e.to_string())?;
+    let mut previous_timestamp = preceding_timestamp;
     let frames = frames
         .iter()
-        .map(|frame| {
+        .map(|(frame, source_index)| {
             let dbc = dbc_map.get(&frame.bus_id);
             let decoded = dbc
                 .filter(|_| !frame.is_error)
@@ -968,6 +1045,7 @@ fn get_frame_page(
                 .map(|message| message.name.clone());
             let playback_frame = PlaybackFrame {
                 timestamp: frame.timestamp,
+                source_index: Some(*source_index),
                 bus_id: frame.bus_id,
                 can_id: frame.can_id,
                 is_extended: frame.is_extended,
@@ -980,7 +1058,11 @@ fn get_frame_page(
                 message_name,
                 signals: decoded,
             };
-            frame_to_info(&playback_frame)
+            let mut frame_info = frame_to_info(&playback_frame);
+            frame_info.relative_time =
+                Some(previous_timestamp.map_or(0.0, |previous| frame.timestamp - previous));
+            previous_timestamp = Some(frame.timestamp);
+            frame_info
         })
         .collect();
     Ok(FramePage {
@@ -2323,7 +2405,7 @@ pub fn run() {
 mod tests {
     use super::{
         format_frame_time, get_available_memory_bytes, matches_frame_table_filter,
-        validate_asc_path, FrameTableFilter, UiLayoutJson,
+        parse_start_time_of_day_ms, validate_asc_path, FrameTableFilter, UiLayoutJson,
     };
     use canscope_core::CanFrame;
     use std::path::Path;
@@ -2376,6 +2458,7 @@ mod tests {
             5.0,
             Some(4.99),
             0.0,
+            None,
             &filter,
         ));
     }
@@ -2405,10 +2488,10 @@ mod tests {
         };
 
         assert!(matches_frame_table_filter(
-            &frame, None, 0.0, None, 0.0, &tx_filter,
+            &frame, None, 0.0, None, 0.0, None, &tx_filter,
         ));
         assert!(!matches_frame_table_filter(
-            &frame, None, 0.0, None, 0.0, &rx_filter,
+            &frame, None, 0.0, None, 0.0, None, &rx_filter,
         ));
     }
 
@@ -2418,7 +2501,75 @@ mod tests {
             time_format: "relative-to-start".to_string(),
             ..FrameTableFilter::default()
         };
-        assert_eq!(format_frame_time(12.5, None, 10.0, &filter), "2.500000");
+        assert_eq!(
+            format_frame_time(12.5, None, 10.0, None, &filter),
+            "2.500000"
+        );
+    }
+
+    #[test]
+    fn absolute_frame_time_uses_file_local_timestamp_after_playlist_normalization() {
+        let filter = FrameTableFilter {
+            start_time_of_day_ms: Some(0),
+            ..FrameTableFilter::default()
+        };
+        let file_start_ms = parse_start_time_of_day_ms("2026-10-23T22:30:00.000").unwrap();
+        let global_timestamp = 130.0;
+        let file_global_offset = 100.0;
+        let absolute_time_of_day_ms =
+            file_start_ms as f64 + (global_timestamp - file_global_offset) * 1000.0;
+
+        assert_eq!(
+            format_frame_time(
+                global_timestamp,
+                None,
+                0.0,
+                Some(absolute_time_of_day_ms),
+                &filter,
+            ),
+            "22:30:30.000"
+        );
+    }
+
+    #[test]
+    fn absolute_time_filter_uses_the_matching_files_time_base() {
+        let frame = CanFrame {
+            timestamp: 30.0,
+            bus_id: 0,
+            can_id: 0x123,
+            is_extended: false,
+            is_remote: false,
+            is_fd: false,
+            is_brs: false,
+            is_error: false,
+            is_tx: false,
+            dlc: 0,
+            data: [0; 64],
+        };
+        let filter = FrameTableFilter {
+            time: "22:30:30.000".to_string(),
+            time_format: "absolute".to_string(),
+            start_time_of_day_ms: Some(0),
+            ..FrameTableFilter::default()
+        };
+
+        assert!(matches_frame_table_filter(
+            &frame,
+            None,
+            130.0,
+            None,
+            0.0,
+            Some(22.0 * 3_600_000.0 + 30.0 * 60_000.0 + 30_000.0),
+            &filter,
+        ));
+    }
+
+    #[test]
+    fn parses_start_time_with_millisecond_precision() {
+        assert_eq!(
+            parse_start_time_of_day_ms("2026-10-23T22:30:00.125"),
+            Some(22 * 3_600_000 + 30 * 60_000 + 125)
+        );
     }
 
     #[cfg(any(windows, target_os = "macos"))]

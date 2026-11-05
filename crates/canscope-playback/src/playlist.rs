@@ -592,6 +592,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                     break;
                 }
                 frame.timestamp = global_start + frame.timestamp - start;
+                frame.source_index = Some(self.current_entry_index);
                 self.global_time = Some(frame.timestamp);
                 batch.push(frame);
             }
@@ -807,6 +808,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                     frame.timestamp = entry.global_start_offset + frame.timestamp
                         - origin
                         - entry.play_start_offset;
+                    frame.source_index = Some(self.current_entry_index);
                     self.global_time = Some(frame.timestamp);
                     self.global_frame_count = self.global_frame_count.saturating_sub(1);
                     return Ok(Some(frame));
@@ -839,6 +841,7 @@ impl<S: CanFrameStream> PlaylistEngine<S> {
                         prev_entry.engine.seek_to(local_ts)?;
                         prev_entry.engine.play();
                         self.global_time = Some(frame.timestamp);
+                        frame.source_index = Some(prev_idx);
                         return Ok(Some(frame));
                     }
                 }
@@ -1015,10 +1018,12 @@ mod tests {
         assert_eq!(batch.len(), 4);
         // File A plays first (earlier start_time)
         assert_eq!(batch[0].can_id, 0x100);
+        assert_eq!(batch[0].source_index, Some(0));
         assert!(batch[0].timestamp < 2.0);
         assert_eq!(batch[1].can_id, 0x101);
         // File B comes after, timestamps offset by file A's duration
         assert_eq!(batch[2].can_id, 0x200);
+        assert_eq!(batch[2].source_index, Some(1));
         assert!(batch[2].timestamp >= 2.0);
         assert_eq!(batch[3].can_id, 0x201);
     }

@@ -40,6 +40,7 @@ export interface DecodedSignalInfo {
 
 export interface FrameInfo {
   timestamp: number;
+  source_index?: number | null;
   bus_id: number;
   can_id: number;
   is_extended: boolean;

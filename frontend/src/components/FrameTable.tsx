@@ -909,9 +909,7 @@ const FrameTable: Component<FrameTableProps> = (props) => {
     switch (timeFormat()) {
       case 'relative-to-start':
       {
-        const origin = props.traceMode
-          ? displayFrames()[0]?.timestamp ?? 0
-          : props.timeOrigin ?? 0;
+        const origin = props.timeOrigin ?? 0;
         return (frame.timestamp - origin).toFixed(6);
       }
       case 'relative-to-prev': {
@@ -928,14 +926,18 @@ const FrameTable: Component<FrameTableProps> = (props) => {
       case 'absolute':
       default: {
         const playbackFiles = props.playbackFiles ?? [];
-        const playbackFile = playbackFiles.find((file, index) => {
-          if (!file.enabled || frame.timestamp < file.startOffset) return false;
-          const nextFileStart = playbackFiles
-            .slice(index + 1)
-            .find((nextFile) => nextFile.enabled)?.startOffset;
-          const endOffset = file.endOffset ?? nextFileStart;
-          return endOffset === undefined || frame.timestamp < endOffset;
-        });
+        const playbackFile = (
+          frame.source_index !== undefined && frame.source_index !== null
+            ? playbackFiles.find((file) => file.index === frame.source_index)
+            : undefined
+        ) ?? playbackFiles.find((file, index) => {
+              if (!file.enabled || frame.timestamp < file.startOffset) return false;
+              const nextFileStart = playbackFiles
+                .slice(index + 1)
+                .find((nextFile) => nextFile.enabled)?.startOffset;
+              const endOffset = file.endOffset ?? nextFileStart;
+              return endOffset === undefined || frame.timestamp < endOffset;
+            });
         const base = playbackFile?.startTime
           ? new Date(playbackFile.startTime)
           : props.startTime
