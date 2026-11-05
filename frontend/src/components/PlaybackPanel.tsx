@@ -558,17 +558,22 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
   };
 
   const handleRemoveSelected = async () => {
-    const checked = files().filter((f) => f.enabled);
-    if (checked.length === 0) return;
+    const indices = [...selectedFiles()]
+      .filter((index) => index >= 0 && index < files().length)
+      .sort((a, b) => b - a);
+    if (indices.length === 0) return;
 
-    const indices = checked.map((_, i) => files().findIndex((f) => f === checked[i])).sort((a, b) => b - a);
     try {
-      for (const id of indices) {
-        await invoke('playlist_remove', { index: id });
+      for (const index of indices) {
+        await invoke('playlist_remove', { index });
       }
       props.onRefreshPlaylist();
     } catch (e) {
       console.error('Failed to remove selected files:', e);
+      props.onRefreshPlaylist();
+    } finally {
+      setSelectedFiles(new Set<number>());
+      setSelectedFileAnchor(null);
     }
   };
 
@@ -725,9 +730,9 @@ const PlaybackPanel: Component<PlaybackPanelProps> = (props) => {
         </button>
         <button
           class="playback-panel__tool-btn"
-          title="移除勾选文件"
-          aria-label="移除勾选文件"
-          disabled={!files().some((f) => f.enabled)}
+          title="移除选中文件"
+          aria-label="移除选中文件"
+          disabled={selectedFiles().size === 0}
           onClick={handleRemoveSelected}
         >
           <FileXCorner size={14} />
